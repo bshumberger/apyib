@@ -84,11 +84,12 @@ def compute_phase(ndocc, nbf, unperturbed_basis, unperturbed_wfn, ket_basis, ket
 # Computes the overlap between two Hartree-Fock wavefunctions.
 def compute_hf_overlap(ndocc, mo_overlap):
     det = np.arange(0, ndocc)
-    num_perms = len(det)
+    size = len(det)
     permutation = []
     parity = []
 
-    heaperm(det, num_perms, permutation, parity)
+    heaperm(det, size, permutation, parity)
+    num_perms = math.factorial(size)
 
     mo_prod = 1 
     hf_overlap = 0 
@@ -134,23 +135,29 @@ class AAT(object):
         self.unperturbed_basis = unperturbed_basis
         self.unperturbed_wfn = unperturbed_wfn
 
-    # Computes the complex phase factor associated with the wavefunction involing magnetic field perturbations.
-    def compute_phase(self, mag_basis, mag_wfn):
-        # Compute MO overlaps.
-        mo_overlap1 = compute_mo_overlap(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, mag_basis, mag_wfn)
-        mo_overlap2 = np.conjugate(np.transpose(mo_overlap1))
+    # Computes the permutations required for the Hartree-Fock wavefunction.
+    def compute_perms(self):
+        det = np.arange(0, self.ndocc)
+        size = len(det)
+        permutation = []
+        parity = []
 
-        # Compute Hartree-Fock wavefunctions.
-        hf_overlap1 = compute_hf_overlap(self.ndocc, mo_overlap1)
-        hf_overlap2 = compute_hf_overlap(self.ndocc, mo_overlap2)
+        heaperm(det, size, permutation, parity)
+        return parity, permutation
 
-        # Compute normalization.
-        N = np.sqrt(hf_overlap1 * hf_overlap2)
+    # Computes the overlap between two Hartree-Fock wavefunctions.
+    def compute_hf_overlap1(self, mo_overlap, parity, permutation):
+        num_perms = len(permutation)
+        mo_prod = 1
+        hf_overlap = 0
+        for n in range(0, num_perms):
+            sign = parity[n]
+            for i in range(0, self.ndocc):
+                mo_prod *= mo_overlap[permutation[-1][i], permutation[n][i]]
+            hf_overlap += sign * mo_prod
+            mo_prod = 1
 
-        # Compute phase factor.
-        phase_factor = hf_overlap1 / N
-
-        return phase_factor
+        return hf_overlap
 
     # Computes the Hartree-Fock AATs.
     def compute_aat(self, alpha, beta):
@@ -178,11 +185,41 @@ class AAT(object):
         #print(hf_nn)
 
         # Compute the AAT.
-        I = (1 / (4 * self.nuc_pert_strength * self.mag_pert_strength)) * (hf_pp - hf_np - hf_pn + hf_nn)
+        I = (1 / (2 * self.nuc_pert_strength * self.mag_pert_strength)) * (hf_pp - hf_np - hf_pn + hf_nn)
 
         return I
 
+    # Computes the Hartree-Fock AATs.
+    def compute_aat1(self, alpha, beta):
+        # Compute phase corrected wavefunctions.
+        pc_nuc_pos_wfn = compute_phase(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, self.nuc_pos_basis[alpha], self.nuc_pos_wfn[alpha])
+        pc_nuc_neg_wfn = compute_phase(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, self.nuc_neg_basis[alpha], self.nuc_neg_wfn[alpha])
+        pc_mag_pos_wfn = compute_phase(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, self.mag_pos_basis[beta], self.mag_pos_wfn[beta])
+        pc_mag_neg_wfn = compute_phase(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, self.mag_neg_basis[beta], self.mag_neg_wfn[beta])
 
+        # Compute molecular orbital overlaps with phase correction applied.
+        mo_overlap_pp = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_pos_basis[alpha], pc_nuc_pos_wfn , self.mag_pos_basis[beta], pc_mag_pos_wfn)
+        mo_overlap_np = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_neg_basis[alpha], pc_nuc_neg_wfn , self.mag_pos_basis[beta], pc_mag_pos_wfn)
+        mo_overlap_pn = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_pos_basis[alpha], pc_nuc_pos_wfn , self.mag_neg_basis[beta], pc_mag_neg_wfn)
+        mo_overlap_nn = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_neg_basis[alpha], pc_nuc_neg_wfn , self.mag_neg_basis[beta], pc_mag_neg_wfn)
+
+        # Compute permutations.
+        parity, perms = self.compute_perms()
+    
+        # Compute Hartree-Fock overlaps.
+        hf_pp = self.compute_hf_overlap1(mo_overlap_pp, parity, perms)
+        hf_np = self.compute_hf_overlap1(mo_overlap_np, parity, perms)
+        hf_pn = self.compute_hf_overlap1(mo_overlap_pn, parity, perms)
+        hf_nn = self.compute_hf_overlap1(mo_overlap_nn, parity, perms)
+        #print(hf_pp)
+        #print(hf_np)
+        #print(hf_pn)
+        #print(hf_nn)
+
+        # Compute the AAT.
+        I = (1 / (2 * self.nuc_pert_strength * self.mag_pert_strength)) * (hf_pp - hf_np - hf_pn + hf_nn)
+
+        return I
 
 
 
