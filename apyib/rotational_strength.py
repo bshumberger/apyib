@@ -3,6 +3,7 @@
 import psi4
 import numpy as np
 import math
+import itertools as it
 from apyib.utils import run_psi4
 from apyib.hamiltonian import Hamiltonian
 from apyib.hf_wfn import hf_wfn
@@ -20,21 +21,6 @@ def perm_parity(a):
             a[i],a[j] = a[j],a[i]
     return parity
 
-# Heap's algorithm for generating all the permutations of a given list.
-def heaperm(a, size, b, p):
-    if size == 1:
-        b.append(a.copy())
-        p.append(perm_parity(a.copy()))
-        return
- 
-    for i in range(size):
-        heaperm(a, size-1, b, p)
- 
-        if size & 1:
-            a[0], a[size-1] = a[size-1], a[0]
-        else:   
-            a[i], a[size-1] = a[size-1], a[i]
-
 # Computes the molecular orbital overlap between two wavefunctions.
 def compute_mo_overlap(ndocc, nbf, bra_basis, bra_wfn, ket_basis, ket_wfn):
     mints = psi4.core.MintsHelper(bra_basis)
@@ -43,10 +29,6 @@ def compute_mo_overlap(ndocc, nbf, bra_basis, bra_wfn, ket_basis, ket_wfn):
         ao_overlap = mints.ao_overlap().np
     elif bra_basis != ket_basis:
         ao_overlap = mints.ao_overlap(bra_basis, ket_basis).np
-            
-    #print("AO Overlap:")
-    #print(ao_overlap)
-    #print("\n")
 
     mo_overlap = np.zeros_like(ao_overlap)
     mo_overlap = mo_overlap.astype('complex128')
@@ -79,29 +61,6 @@ def compute_phase(ndocc, nbf, unperturbed_basis, unperturbed_wfn, ket_basis, ket
             new_ket_wfn[mu][m] += ket_wfn[mu][m] * (phase_factor ** -1)
 
     return new_ket_wfn
-
-
-# Computes the overlap between two Hartree-Fock wavefunctions.
-def compute_hf_overlap(ndocc, mo_overlap):
-    det = np.arange(0, ndocc)
-    size = len(det)
-    permutation = []
-    parity = []
-
-    heaperm(det, size, permutation, parity)
-    num_perms = math.factorial(size)
-
-    mo_prod = 1 
-    hf_overlap = 0 
-    for m in range(0, num_perms):
-        for n in range(0, num_perms):
-            sign = parity[m] * parity[n]
-            for i in range(0, ndocc):
-                mo_prod *= mo_overlap[permutation[m][i], permutation[n][i]]
-            hf_overlap += 1/num_perms * sign * mo_prod
-            mo_prod = 1 
-
-    return hf_overlap
 
 
 
@@ -146,48 +105,20 @@ class AAT(object):
         return parity, permutation
 
     # Computes the overlap between two Hartree-Fock wavefunctions.
-    def compute_hf_overlap1(self, mo_overlap, parity, permutation):
-        num_perms = len(permutation)
+    def compute_hf_overlap1(self, mo_overlap):
+        det = np.arange(0, self.ndocc)
         mo_prod = 1
         hf_overlap = 0
-        for n in range(0, num_perms):
-            sign = parity[n]
+        for n in it.permutations(det, r=None):
+            perm = list(n)
+            par = list(n)
+            sign = perm_parity(par)
             for i in range(0, self.ndocc):
-                mo_prod *= mo_overlap[permutation[-1][i], permutation[n][i]]
+                mo_prod *= mo_overlap[det[i], perm[i]]
             hf_overlap += sign * mo_prod
             mo_prod = 1
 
         return hf_overlap
-
-    # Computes the Hartree-Fock AATs.
-    def compute_aat(self, alpha, beta):
-        # Compute phase corrected wavefunctions.
-        pc_nuc_pos_wfn = compute_phase(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, self.nuc_pos_basis[alpha], self.nuc_pos_wfn[alpha])
-        pc_nuc_neg_wfn = compute_phase(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, self.nuc_neg_basis[alpha], self.nuc_neg_wfn[alpha])
-        pc_mag_pos_wfn = compute_phase(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, self.mag_pos_basis[beta], self.mag_pos_wfn[beta])
-        pc_mag_neg_wfn = compute_phase(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, self.mag_neg_basis[beta], self.mag_neg_wfn[beta])
-
-        # Compute molecular orbital overlaps with phase correction applied.
-        mo_overlap_pp = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_pos_basis[alpha], pc_nuc_pos_wfn , self.mag_pos_basis[beta], pc_mag_pos_wfn)
-        mo_overlap_np = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_neg_basis[alpha], pc_nuc_neg_wfn , self.mag_pos_basis[beta], pc_mag_pos_wfn)
-        mo_overlap_pn = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_pos_basis[alpha], pc_nuc_pos_wfn , self.mag_neg_basis[beta], pc_mag_neg_wfn)
-        mo_overlap_nn = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_neg_basis[alpha], pc_nuc_neg_wfn , self.mag_neg_basis[beta], pc_mag_neg_wfn)
-
-        
-        # Compute Hartree-Fock overlaps.
-        hf_pp = compute_hf_overlap(self.ndocc, mo_overlap_pp)
-        hf_np = compute_hf_overlap(self.ndocc, mo_overlap_np)
-        hf_pn = compute_hf_overlap(self.ndocc, mo_overlap_pn)
-        hf_nn = compute_hf_overlap(self.ndocc, mo_overlap_nn)
-        #print(hf_pp)
-        #print(hf_np)
-        #print(hf_pn)
-        #print(hf_nn)
-
-        # Compute the AAT.
-        I = (1 / (2 * self.nuc_pert_strength * self.mag_pert_strength)) * (hf_pp - hf_np - hf_pn + hf_nn)
-
-        return I
 
     # Computes the Hartree-Fock AATs.
     def compute_aat1(self, alpha, beta):
@@ -203,14 +134,11 @@ class AAT(object):
         mo_overlap_pn = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_pos_basis[alpha], pc_nuc_pos_wfn , self.mag_neg_basis[beta], pc_mag_neg_wfn)
         mo_overlap_nn = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_neg_basis[alpha], pc_nuc_neg_wfn , self.mag_neg_basis[beta], pc_mag_neg_wfn)
 
-        # Compute permutations.
-        parity, perms = self.compute_perms()
-    
         # Compute Hartree-Fock overlaps.
-        hf_pp = self.compute_hf_overlap1(mo_overlap_pp, parity, perms)
-        hf_np = self.compute_hf_overlap1(mo_overlap_np, parity, perms)
-        hf_pn = self.compute_hf_overlap1(mo_overlap_pn, parity, perms)
-        hf_nn = self.compute_hf_overlap1(mo_overlap_nn, parity, perms)
+        hf_pp = self.compute_hf_overlap1(mo_overlap_pp)
+        hf_np = self.compute_hf_overlap1(mo_overlap_np)
+        hf_pn = self.compute_hf_overlap1(mo_overlap_pn)
+        hf_nn = self.compute_hf_overlap1(mo_overlap_nn)
         #print(hf_pp)
         #print(hf_np)
         #print(hf_pn)
