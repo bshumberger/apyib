@@ -7,9 +7,9 @@ from apyib.hf_wfn import hf_wfn
 from apyib.finite_difference import finite_difference
 from apyib.rotational_strength import AAT
 from apyib.rotational_strength import perm_parity
-from apyib.rotational_strength import heaperm
+#from apyib.rotational_strength import heaperm
 from apyib.rotational_strength import compute_mo_overlap
-from apyib.rotational_strength import compute_hf_overlap
+#from apyib.rotational_strength import compute_hf_overlap
 from apyib.rotational_strength import compute_phase
 
 # Input geometry.
