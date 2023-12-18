@@ -58,7 +58,7 @@ def compute_phase(ndocc, nbf, unperturbed_basis, unperturbed_wfn, ket_basis, ket
 
         # Compute phase corrected overlap.
         for mu in range(0, nbf):
-            new_ket_wfn[mu][m] += ket_wfn[mu][m] * (phase_factor ** -1)
+            new_ket_wfn[mu][m] = ket_wfn[mu][m] * (phase_factor ** -1)
 
     return new_ket_wfn
 
@@ -135,10 +135,15 @@ class AAT(object):
         mo_overlap_nn = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_neg_basis[alpha], pc_nuc_neg_wfn , self.mag_neg_basis[beta], pc_mag_neg_wfn)
 
         # Compute Hartree-Fock overlaps.
-        hf_pp = self.compute_hf_overlap1(mo_overlap_pp)
-        hf_np = self.compute_hf_overlap1(mo_overlap_np)
-        hf_pn = self.compute_hf_overlap1(mo_overlap_pn)
-        hf_nn = self.compute_hf_overlap1(mo_overlap_nn)
+        hf_pp = np.linalg.det(mo_overlap_pp[0:self.ndocc, 0:self.ndocc])
+        hf_np = np.linalg.det(mo_overlap_np[0:self.ndocc, 0:self.ndocc])
+        hf_pn = np.linalg.det(mo_overlap_pn[0:self.ndocc, 0:self.ndocc])
+        hf_nn = np.linalg.det(mo_overlap_nn[0:self.ndocc, 0:self.ndocc]) 
+
+        #hf_pp = self.compute_hf_overlap1(mo_overlap_pp)
+        #hf_np = self.compute_hf_overlap1(mo_overlap_np)
+        #hf_pn = self.compute_hf_overlap1(mo_overlap_pn)
+        #hf_nn = self.compute_hf_overlap1(mo_overlap_nn)
         #print(hf_pp)
         #print(hf_np)
         #print(hf_pn)
