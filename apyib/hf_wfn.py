@@ -133,6 +133,6 @@ class hf_wfn(object):
     
             i += 1
 
-        return E_SCF, E_tot, C
+        return e, E_SCF, E_tot, C
 
 

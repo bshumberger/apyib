@@ -5,7 +5,7 @@ import psi4
 
 
 
-def run_psi4(parameters):
+def run_psi4(parameters, method ='RHF'):
     """ 
     Run Psi4 for comparison to the apyib code. Note that psi4 does not do magnetic field perturbations.
     """
@@ -29,14 +29,20 @@ def run_psi4(parameters):
                     'e_convergence': parameters['e_convergence'],
                     'd_convergence': parameters['d_convergence'],
                     'DIIS': parameters['DIIS'],
+                    'mp2_type': 'conv',
                     'PERTURB_H': True,
                     'PERTURB_WITH':'DIPOLE',
                     'PERTURB_DIPOLE': F_el})
 
-    # Run Psi4 Hartree-Fock code and return the energy and wavefunction.
-    rhf_e, rhf_wfn = psi4.energy("scf", return_wfn=True)
+    if method == 'RHF':
+        # Run Psi4 Hartree-Fock code and return the energy and wavefunction.
+        e, wfn = psi4.energy("scf", return_wfn=True)
 
-    return rhf_e, rhf_wfn
+    elif method == 'MP2':
+        # Run Psi4 MP2 code and return the energy and wavefunction.
+        e, wfn = psi4.energy("mp2", return_wfn=True)
+
+    return e, wfn
 
 
 

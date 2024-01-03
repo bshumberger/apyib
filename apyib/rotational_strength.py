@@ -105,7 +105,7 @@ class AAT(object):
         return parity, permutation
 
     # Computes the overlap between two Hartree-Fock wavefunctions.
-    def compute_hf_overlap1(self, mo_overlap):
+    def compute_hf_overlap(self, mo_overlap):
         det = np.arange(0, self.ndocc)
         mo_prod = 1
         hf_overlap = 0
@@ -121,7 +121,7 @@ class AAT(object):
         return hf_overlap
 
     # Computes the Hartree-Fock AATs.
-    def compute_aat1(self, alpha, beta):
+    def compute_aat(self, alpha, beta):
         # Compute phase corrected wavefunctions.
         pc_nuc_pos_wfn = compute_phase(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, self.nuc_pos_basis[alpha], self.nuc_pos_wfn[alpha])
         pc_nuc_neg_wfn = compute_phase(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, self.nuc_neg_basis[alpha], self.nuc_neg_wfn[alpha])
@@ -139,15 +139,6 @@ class AAT(object):
         hf_np = np.linalg.det(mo_overlap_np[0:self.ndocc, 0:self.ndocc])
         hf_pn = np.linalg.det(mo_overlap_pn[0:self.ndocc, 0:self.ndocc])
         hf_nn = np.linalg.det(mo_overlap_nn[0:self.ndocc, 0:self.ndocc]) 
-
-        #hf_pp = self.compute_hf_overlap1(mo_overlap_pp)
-        #hf_np = self.compute_hf_overlap1(mo_overlap_np)
-        #hf_pn = self.compute_hf_overlap1(mo_overlap_pn)
-        #hf_nn = self.compute_hf_overlap1(mo_overlap_nn)
-        #print(hf_pp)
-        #print(hf_np)
-        #print(hf_pn)
-        #print(hf_nn)
 
         # Compute the AAT.
         I = (1 / (2 * self.nuc_pert_strength * self.mag_pert_strength)) * (hf_pp - hf_np - hf_pn + hf_nn)
