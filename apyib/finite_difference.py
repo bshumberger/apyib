@@ -50,7 +50,7 @@ class finite_difference(object):
             wfn = hf_wfn(H)
 
             # Solve the SCF procedure and compute the energy and wavefunction.
-            e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
+            e, e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
             print("SCF Energy: ", e_tot)
 
             # Run Psi4.
@@ -85,7 +85,7 @@ class finite_difference(object):
             wfn = hf_wfn(H)
 
             # Solve the SCF procedure and compute the energy and wavefunction.
-            e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
+            e, e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
             print("SCF Energy: ", e_tot)
 
             # Run Psi4.
@@ -133,7 +133,7 @@ class finite_difference(object):
             wfn = hf_wfn(H)
 
             # Solve the SCF procedure and compute the energy and wavefunction.
-            e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
+            e, e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
             print("SCF Energy: ", e_tot)
 
             # Run Psi4.
@@ -161,7 +161,7 @@ class finite_difference(object):
             wfn = hf_wfn(H)
 
             # Solve the SCF procedure and compute the energy and wavefunction.
-            e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
+            e, e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
             print("SCF Energy: ", e_tot)
 
             # Run Psi4.
@@ -204,7 +204,7 @@ class finite_difference(object):
             wfn = hf_wfn(H)
 
             # Solve the SCF procedure and compute the energy and wavefunction.
-            e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
+            e, e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
             print("SCF Energy: ", e_tot, "\n")
 
             # Store the energies, wavefunction coefficients, and basis set.
@@ -229,7 +229,7 @@ class finite_difference(object):
             wfn = hf_wfn(H)
 
             # Solve the SCF procedure and compute the energy and wavefunction.
-            e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
+            e, e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
             print("SCF Energy: ", e_tot, "\n")
 
             # Store the energies, wavefunction coefficients, and basis set.
@@ -241,6 +241,7 @@ class finite_difference(object):
             self.parameters['F_mag'][alpha] += pert_strength
 
         return pos_e, neg_e, pos_wfns, neg_wfns, pos_basis, neg_basis
+
 
 
 
