@@ -7,7 +7,7 @@ import itertools as it
 from apyib.utils import run_psi4
 from apyib.hamiltonian import Hamiltonian
 from apyib.hf_wfn import hf_wfn
-from apyib.finite_difference import finite_difference
+#from apyib.finite_difference import finite_difference
 
 
 

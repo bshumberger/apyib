@@ -5,7 +5,7 @@ import psi4
 
 
 
-def run_psi4(parameters, method ='RHF'):
+def run_psi4(parameters, method='RHF'):
     """ 
     Run Psi4 for comparison to the apyib code. Note that psi4 does not do magnetic field perturbations.
     """
