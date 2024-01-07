@@ -47,11 +47,11 @@ class mp2_wfn(object):
         #ERI_MO = np.einsum('mp,nq,mnlg,lr,gs->pqrs', np.conjugate(self.C), np.conjugate(self.C), self.H.ERI, self.C, self.C)
 
         #ERI_MO = np.einsum('mnlg,gs->mnls', self.H.ERI, self.C)
-        #ERI_MO = np.einsum('mnls,lr->mnrs', ERI_MO, np.conjugate(self.C))
-        #ERI_MO = np.einsum('nq,mnrs->mqrs', self.C, ERI_MO)
+        #ERI_MO = np.einsum('mnls,lr->mnrs', ERI_MO, self.C)
+        #ERI_MO = np.einsum('nq,mnrs->mqrs', np.conjugate(self.C), ERI_MO)
         #ERI_MO = np.einsum('mp,mqrs->pqrs', np.conjugate(self.C), ERI_MO)
 
-        # Compute the MP2 energy.
+        ## Compute the MP2 energy.
         #E_MP2 = 0 
         #for i in range(self.no):
         #    for j in range(self.no):
@@ -60,6 +60,7 @@ class mp2_wfn(object):
         #                E_MP2 += ( ERI_MO[i,a,j,b] * ( 2 * ERI_MO[i,a,j,b] - ERI_MO[i,b,j,a] ) ) / ( self.e[i] + self.e[j] - self.e[a] - self.e[b] )
 
         #E_tot = self.E_tot + E_MP2
+        #t2 = 0
 
         # Transform the AO ERIs to the MO basis.
         ERI_MO = np.einsum('mnlg,gs->mnls', self.H.ERI, self.C)
