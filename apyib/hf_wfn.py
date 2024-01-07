@@ -54,11 +54,13 @@ class hf_wfn(object):
         C = X @ C_p
 
         # Compute the inital density matrix.
-        D = np.zeros_like(C)
-        for mu in range(self.nbf):
-            for nu in range(self.nbf):
-                for m in range(self.ndocc):
-                    D[mu, nu] += C[mu, m] * np.conjugate(np.transpose(C[nu, m]))
+        #D = np.zeros_like(C)
+        #for mu in range(self.nbf):
+        #    for nu in range(self.nbf):
+        #        for m in range(self.ndocc):
+        #            D[mu, nu] += C[mu, m] * np.conjugate(np.transpose(C[nu, m]))
+
+        D = np.einsum('mp,np->mn', C[0:self.nbf,0:self.ndocc], np.conjugate(C[0:self.nbf,0:self.ndocc]))
 
         # Compute the inital Hartree-Fock Energy
         E_SCF = 0
@@ -80,13 +82,15 @@ class hf_wfn(object):
         while i <= parameters['max_iterations']:
             E_old = E_SCF
             D_old = D
-            F = np.zeros_like(F_p)
-            for mu in range(self.nbf):
-                for nu in range(self.nbf):
-                    F[mu, nu] += H_core[mu, nu]
-                    for lambd in range(self.nbf):
-                        for sigma in range(self.nbf):
-                            F[mu, nu] += D[lambd, sigma] * ( 2 * H.ERI[mu, nu, lambd, sigma] - H.ERI[mu, lambd, nu, sigma] )
+            #F = np.zeros_like(F_p)
+            #for mu in range(self.nbf):
+            #    for nu in range(self.nbf):
+            #        F[mu, nu] += H_core[mu, nu]
+            #        for lambd in range(self.nbf):
+            #            for sigma in range(self.nbf):
+            #                F[mu, nu] += D[lambd, sigma] * ( 2 * H.ERI[mu, nu, lambd, sigma] - H.ERI[mu, lambd, nu, sigma] )
+
+            F = H_core + np.einsum('ls,mnls->mn', D, 2 * H.ERI - H.ERI.swapaxes(1,2))
 
             # Solve DIIS equations.
             if parameters['DIIS']:
@@ -99,12 +103,14 @@ class hf_wfn(object):
                 C = X @ C_p
 
             # Compute the new density.
-            D = np.zeros_like(D)
-            for mu in range(self.nbf):
-                for nu in range(self.nbf):
-                    for m in range(self.ndocc):
-                        D[mu, nu] += C[mu, m] * np.conjugate(np.transpose(C[nu, m]))
-    
+            #D = np.zeros_like(D)
+            #for mu in range(self.nbf):
+            #    for nu in range(self.nbf):
+            #        for m in range(self.ndocc):
+            #            D[mu, nu] += C[mu, m] * np.conjugate(np.transpose(C[nu, m]))
+
+            D = np.einsum('mp,np->mn', C[0:self.nbf,0:self.ndocc], np.conjugate(C[0:self.nbf,0:self.ndocc]))
+
             # Compute the new energy.
             E_SCF = 0.0
             for mu in range(self.nbf):

@@ -65,7 +65,7 @@ class finite_difference(object):
             print("Psi4 Energy: ", p4_rhf_e)
 
             # Computing parameters for the method of choice.
-            if self.parameters['method'] == 'HF':
+            if self.parameters['method'] == 'RHF':
                 pos_e.append(e_tot)
                 pos_wfns.append(C)
                 print("\n")
@@ -137,7 +137,7 @@ class finite_difference(object):
             print("Psi4 Energy: ", p4_rhf_e)
 
             # Computing parameters for the method of choice.
-            if self.parameters['method'] == 'HF':
+            if self.parameters['method'] == 'RHF':
                 neg_e.append(e_tot)
                 neg_wfns.append(C)
                 print("\n")
@@ -226,7 +226,7 @@ class finite_difference(object):
             print("Psi4 Energy: ", p4_rhf_e)
 
             # Computing parameters for the method of choice.
-            if self.parameters['method'] == 'HF':
+            if self.parameters['method'] == 'RHF':
                 pos_e.append(e_tot)
                 pos_wfns.append(C)
                 print("\n")
@@ -291,7 +291,7 @@ class finite_difference(object):
             print("Psi4 Energy: ", p4_rhf_e)
 
             # Computing parameters for the method of choice.
-            if self.parameters['method'] == 'HF':
+            if self.parameters['method'] == 'RHF':
                 neg_e.append(e_tot)
                 neg_wfns.append(C)
                 print("\n")
@@ -372,7 +372,7 @@ class finite_difference(object):
             print("SCF Energy: ", e_tot)
 
             # Computing parameters for the method of choice.
-            if self.parameters['method'] == 'HF':
+            if self.parameters['method'] == 'RHF':
                 pos_e.append(e_tot)
                 pos_wfns.append(C)
                 print("\n")
@@ -429,7 +429,7 @@ class finite_difference(object):
             print("SCF Energy: ", e_tot)
 
             # Computing parameters for the method of choice.
-            if self.parameters['method'] == 'HF':
+            if self.parameters['method'] == 'RHF':
                 neg_e.append(e_tot)
                 neg_wfns.append(C)
                 print("\n")

@@ -109,7 +109,7 @@ class ci_wfn(object):
         
         E_CID =  np.einsum('ijab,ijab->', self.t2, 2*self.ERI_MO[0:o,0:o,o:nbf,o:nbf]-self.ERI_MO.swapaxes(2,3)[0:o,0:o,o:nbf,o:nbf])
         t2 = self.t2.copy()
-        print(E_CID)
+        #print(E_CID)
 
         # Start iterative procedure.
         iteration = 1 
