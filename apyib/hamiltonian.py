@@ -37,13 +37,12 @@ class Hamiltonian(object):
 
         # Compute the nuclear repulsion energy.
         F_el = [0.0, 0.0, 0.0]
-        for axis in range(3):
-            F_el[axis] += parameters['F_el'][axis] * -1
+        for alpha in range(3):
+            F_el[alpha] += parameters['F_el'][alpha] * -1
         self.E_nuc = self.molecule.nuclear_repulsion_energy(F_el)
 
-        # Testing
-        #self.ao_overlap_pp = mints.ao_overlap(self.basis_set, self.basis_set).np
-        #print("Overlap using 'mints.ao_overlap().np'")
-        #print(self.S)
-        #print("Overlap using 'mints.ao_overlap(self.basis_set, self.basis_set).np'")
-        #print(self.ao_overlap_pp)
+        # Add electric and magnetic potentials to the core Hamiltonian.
+        self.V = self.V.astype('complex128')
+        for alpha in range(3):
+            self.V -=  parameters['F_el'][alpha] * self.mu_el[alpha] + parameters['F_mag'][alpha] * self.mu_mag[alpha]
+

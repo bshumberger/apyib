@@ -38,8 +38,8 @@ class hf_wfn(object):
         H_core = H_core.astype('complex128')
 
         # Add electric and magnetic potentials to the core Hamiltonian.
-        for alpha in range(3):
-            H_core -=  parameters['F_el'][alpha] * H.mu_el[alpha] + parameters['F_mag'][alpha] * H.mu_mag[alpha]
+        #for alpha in range(3):
+        #    H_core -=  parameters['F_el'][alpha] * H.mu_el[alpha] + parameters['F_mag'][alpha] * H.mu_mag[alpha]
 
         # Compute the orthogonalization matrix.
         X = np.linalg.inv(la.sqrtm(H.S))
@@ -139,6 +139,6 @@ class hf_wfn(object):
     
             i += 1
 
-        return e, E_SCF, E_tot, C
+        return E_SCF, E_tot, C
 
 

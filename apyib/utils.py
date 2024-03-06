@@ -1,4 +1,4 @@
-"""This script contains a set of functions for comparisons and improved performance."""
+"""This script contains a set of functions for comparisons, improved performance, and regular operations associated with multiple methods."""
 
 import numpy as np
 import psi4
@@ -92,6 +92,130 @@ def solve_DIIS(parameters, F, D, S, X, F_iter, e_iter, min_DIIS=1, max_DIIS=7):
         F += C_diis[j] * F_iter[j]
 
     return F
+
+
+
+def compute_F_MO(parameters, H, wfn, C):
+    """
+    Computes the MO basis Fock matrix from the AO basis.
+    """
+    # Set up the one-electron AO integrals.
+    h_AO = H.T + H.V
+
+    # Set up the two-electron AO integrals.
+    ERI_AO = H.ERI.astype('complex128')
+
+    # Compute the density.
+    D = np.einsum('mp,np->mn', C[0:wfn.nbf,0:wfn.ndocc], np.conjugate(C[0:wfn.nbf,0:wfn.ndocc]))
+
+    # Compute the Fock matrix elements.
+    F_AO = h_AO + np.einsum('ls,mnls->mn', D, 2 * ERI_AO - ERI_AO.swapaxes(1,2))
+
+    # Compute MO Fock matrix elements.
+    F_MO = np.einsum('ip,ij,jq->pq', np.conjugate(C), F_AO, C)
+
+    return F_MO
+
+
+
+def compute_ERI_MO(parameters, H, wfn, C):
+    """
+    Computes the MO basis electron repulsion integrals from the AO basis.
+    """
+    # Set up the two-electron AO integrals.
+    ERI_AO = H.ERI.astype('complex128')
+
+    # Compute the two-electron MO integrals.
+    ERI_MO = np.einsum('mnlg,gs->mnls', H.ERI, C)
+    ERI_MO = np.einsum('mnls,lr->mnrs', ERI_MO, np.conjugate(C))
+    ERI_MO = np.einsum('nq,mnrs->mqrs', C, ERI_MO)
+    ERI_MO = np.einsum('mp,mqrs->pqrs', np.conjugate(C), ERI_MO)
+
+    return ERI_MO
+
+
+
+def compute_F_SO(wfn, F_MO):
+    """
+    Compute the spin orbital basis Fock matrix from the MO basis Fock matrix.
+    """
+    # Compute number of spin orbitals.
+    nSO = 2 * wfn.nbf
+
+    # Compute the SO Fock matrix.
+    F_SO = np.zeros([nSO, nSO])
+    F_SO = F_SO.astype('complex128')
+    for p in range(0, nSO):
+        if p % 2 == 0:
+            p_spin = 1
+        elif p % 2 != 0:
+            p_spin = -1
+        for q in range(0, nSO):
+            if q % 2 == 0:
+                q_spin = 1
+            elif q % 2 != 0:
+                q_spin = -1
+
+            # Compute the spin integration.
+            spin_int = p_spin * q_spin
+            if spin_int < 0:
+                spin_int = 0
+
+            # Compute spin orbital matrix elements.
+            F_SO[p,q] = F_MO[p//2,q//2] * spin_int
+
+    return F_SO
+
+
+def compute_ERI_SO(wfn, ERI_MO):
+    """
+    Compute the spin orbital electron repulsion integrals from the MO basis electron repulsion integrals.
+    """
+    # Compute the number of spin orbitals.
+    #nSO = 2 * wfn.nbf
+    nSO0 = 2*ERI_MO.shape[0]
+    nSO1 = 2*ERI_MO.shape[1]
+    nSO2 = 2*ERI_MO.shape[2]
+    nSO3 = 2*ERI_MO.shape[3]
+
+    # Compute the SO ERIs.
+    ERI_SO = np.zeros([nSO0, nSO1, nSO2, nSO3])
+    ERI_SO = ERI_SO.astype('complex128')
+    for p in range(0, nSO0):
+        if p % 2 == 0:
+            p_spin = 1
+        elif p % 2 != 0:
+            p_spin = -1
+        for q in range(0, nSO1):
+            if q % 2 == 0:
+                q_spin = 1
+            elif q % 2 != 0:
+                q_spin = -1
+            for r in range(0, nSO2):
+                if r % 2 == 0:
+                    r_spin = 1
+                elif r % 2 != 0:
+                    r_spin = -1
+                for s in range(0, nSO3):
+                    if s % 2 == 0:
+                        s_spin = 1
+                    elif s % 2 != 0:
+                        s_spin = -1
+
+                    # Compute the spin integration.
+                    spin_int_pq = p_spin * q_spin
+                    if spin_int_pq < 0:
+                        spin_int_pq = 0
+                    spin_int_rs = r_spin * s_spin
+                    if spin_int_rs < 0:
+                        spin_int_rs = 0
+                    spin_int = spin_int_pq * spin_int_rs
+
+                    # Compute spin orbital matrix elements.
+                    ERI_SO[p,q,r,s] = ERI_MO[p//2,q//2,r//2,s//2] * spin_int
+
+    return ERI_SO
+
 
 
 
