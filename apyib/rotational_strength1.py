@@ -400,7 +400,7 @@ class AAT(object):
 
 
     # Computes the terms in the CID AATs with spin-orbitals. Note that the phase corrections were applied in the finite difference code.
-    def compute_cid_aat_SO_Crawdad(self, alpha, beta):
+    def compute_cid_aat_SO(self, alpha, beta):
 
         # Compute SO overlaps.
         # < psi | psi >
@@ -436,11 +436,11 @@ class AAT(object):
         hf_ngng = np.linalg.det(so_overlap_nn[0:2*self.ndocc, 0:2*self.ndocc])
 
         # Compute normalization the normalization for each wavefunction.
-        N_unperturbed = 1#np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.unperturbed_t2), self.unperturbed_t2))
-        N_nuc_pos = 1#np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_pos_t2[alpha]), self.nuc_pos_t2[alpha]))
-        N_nuc_neg = 1#np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_neg_t2[alpha]), self.nuc_neg_t2[alpha]))
-        N_mag_pos = 1#np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.mag_pos_t2[beta]), self.mag_pos_t2[beta]))
-        N_mag_neg = 1#np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.mag_neg_t2[beta]), self.mag_neg_t2[beta]))
+        N_unperturbed = np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.unperturbed_t2), self.unperturbed_t2))
+        N_nuc_pos = np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_pos_t2[alpha]), self.nuc_pos_t2[alpha]))
+        N_nuc_neg = np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_neg_t2[alpha]), self.nuc_neg_t2[alpha]))
+        N_mag_pos = np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.mag_pos_t2[beta]), self.mag_pos_t2[beta]))
+        N_mag_neg = np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.mag_neg_t2[beta]), self.mag_neg_t2[beta]))
 
         #print(N_nuc_pos - N_nuc_neg, N_mag_pos - N_mag_neg, N_unperturbed)
 
@@ -461,11 +461,19 @@ class AAT(object):
                     for b in range(ndocc, nbf):
 
                         # Compute determinant overlap.
+                        # < ijab | d0/dH >
+                        det_overlap_egp = self.compute_det_2_row_SO(so_overlap_up, i, j, a, b)
+                        det_overlap_egn = self.compute_det_2_row_SO(so_overlap_un, i, j, a, b)
+                        
                         # < dijab/dR | d0/dH >
                         det_overlap_epgp = self.compute_det_2_row_SO(so_overlap_pp, i, j, a, b)
                         det_overlap_epgn = self.compute_det_2_row_SO(so_overlap_pn, i, j, a, b)
                         det_overlap_engp = self.compute_det_2_row_SO(so_overlap_np, i, j, a, b)
                         det_overlap_engn = self.compute_det_2_row_SO(so_overlap_nn, i, j, a, b)
+
+                        # < d0/dR | ijab >
+                        det_overlap_gpe = self.compute_det_2_column_SO(so_overlap_pu, i, j, a, b)
+                        det_overlap_gne = self.compute_det_2_column_SO(so_overlap_nu, i, j, a, b)
 
                         # < d0/dR | dijab/dH >
                         det_overlap_gpep = self.compute_det_2_column_SO(so_overlap_pp, i, j, a, b)
@@ -474,17 +482,11 @@ class AAT(object):
                         det_overlap_gnen = self.compute_det_2_column_SO(so_overlap_nn, i, j, a, b)
 
                         # Compute contribution of this component to the AAT.
-                        I += 0.25 * np.conjugate(self.nuc_pos_t2[alpha][i][j][a-ndocc][b-ndocc]) * ((1/(N_nuc_pos*N_mag_pos)) * det_overlap_epgp) # FD1
-                        I -= 0.25 * np.conjugate(self.nuc_pos_t2[alpha][i][j][a-ndocc][b-ndocc]) * ((1/(N_nuc_pos*N_mag_neg)) * det_overlap_epgn) # FD1
-                        I -= 0.25 * np.conjugate(self.nuc_neg_t2[alpha][i][j][a-ndocc][b-ndocc]) * ((1/(N_nuc_neg*N_mag_pos)) * det_overlap_engp) # FD1
-                        I += 0.25 * np.conjugate(self.nuc_neg_t2[alpha][i][j][a-ndocc][b-ndocc]) * ((1/(N_nuc_neg*N_mag_neg)) * det_overlap_engn) # FD1
-
-                        I += 0.25 * self.mag_pos_t2[beta][i][j][a-ndocc][b-ndocc] * ((1/(N_nuc_pos*N_mag_pos)) * det_overlap_gpep) # FD1
-                        I -= 0.25 * self.mag_pos_t2[beta][i][j][a-ndocc][b-ndocc] * ((1/(N_nuc_neg*N_mag_pos)) * det_overlap_gnep) # FD1
-                        I -= 0.25 * self.mag_neg_t2[beta][i][j][a-ndocc][b-ndocc] * ((1/(N_nuc_pos*N_mag_neg)) * det_overlap_gpen) # FD1
-                        I += 0.25 * self.mag_neg_t2[beta][i][j][a-ndocc][b-ndocc] * ((1/(N_nuc_neg*N_mag_neg)) * det_overlap_gnen) # FD1
-
-
+                        I += 0.25 * np.conjugate((self.nuc_pos_t2[alpha][i][j][a-ndocc][b-ndocc] - self.nuc_neg_t2[alpha][i][j][a-ndocc][b-ndocc])) * ((1/(N_unperturbed*N_mag_pos)) * det_overlap_egp - (1/(N_unperturbed*N_mag_neg)) * det_overlap_egn)
+                        I += 0.25 * np.conjugate(self.unperturbed_t2[i][j][a-ndocc][b-ndocc]) * ((1/(N_nuc_pos*N_mag_pos)) * det_overlap_epgp - (1/(N_nuc_pos*N_mag_neg)) * det_overlap_epgn - (1/(N_nuc_neg*N_mag_pos)) * det_overlap_engp + (1/(N_nuc_neg*N_mag_neg)) * det_overlap_engn)
+                        I += 0.25 * (self.mag_pos_t2[beta][i][j][a-ndocc][b-ndocc] - self.mag_neg_t2[beta][i][j][a-ndocc][b-ndocc]) * ((1/(N_nuc_pos*N_unperturbed)) * det_overlap_gpe - (1/(N_nuc_neg*N_unperturbed)) * det_overlap_gne)
+                        I += 0.25 * self.unperturbed_t2[i][j][a-ndocc][b-ndocc] * ((1/(N_nuc_pos*N_mag_pos)) * det_overlap_gpep - (1/(N_nuc_pos*N_mag_neg)) * det_overlap_gpen - (1/(N_nuc_neg*N_mag_pos)) * det_overlap_gnep + (1/(N_nuc_neg*N_mag_neg)) * det_overlap_gnen)
+ 
                         # Compute the terms including the doubly excited determinant in the bra and ket. 
                         for k in range(0, ndocc):
                             for l in range(0, ndocc):
@@ -492,6 +494,17 @@ class AAT(object):
                                     for d in range(ndocc, nbf):
 
                                         # Compute determinant overlap.
+                                        # < ijab | klcd >
+                                        det_overlap_ee = self.compute_det_2_row_2_column_SO(so_overlap_uu, i, j, a, b, k, l, c, d)
+
+                                        # < ijab | dklcd/dH >
+                                        det_overlap_eep = self.compute_det_2_row_2_column_SO(so_overlap_up, i, j, a, b, k, l, c, d)
+                                        det_overlap_een = self.compute_det_2_row_2_column_SO(so_overlap_un, i, j, a, b, k, l, c, d)
+
+                                        # < dijab/dR | klcd >
+                                        det_overlap_epe = self.compute_det_2_row_2_column_SO(so_overlap_pu, i, j, a, b, k, l, c, d)
+                                        det_overlap_ene = self.compute_det_2_row_2_column_SO(so_overlap_nu, i, j, a, b, k, l, c, d)
+
                                         # < dijab/dR | dklcd/dH >
                                         det_overlap_epep = self.compute_det_2_row_2_column_SO(so_overlap_pp, i, j, a, b, k, l, c, d)
                                         det_overlap_epen = self.compute_det_2_row_2_column_SO(so_overlap_pn, i, j, a, b, k, l, c, d)
@@ -499,10 +512,10 @@ class AAT(object):
                                         det_overlap_enen = self.compute_det_2_row_2_column_SO(so_overlap_nn, i, j, a, b, k, l, c, d)
 
                                         # Compute contribution of this component to the AAT.
-                                        I += 0.25**2 * np.conjugate(self.nuc_pos_t2[alpha][i][j][a-ndocc][b-ndocc]) * self.mag_pos_t2[beta][k][l][c-ndocc][d-ndocc] * (1/(N_nuc_pos*N_mag_pos)) * det_overlap_epep # FD1
-                                        I -= 0.25**2 * np.conjugate(self.nuc_pos_t2[alpha][i][j][a-ndocc][b-ndocc]) * self.mag_neg_t2[beta][k][l][c-ndocc][d-ndocc] * (1/(N_nuc_pos*N_mag_neg)) * det_overlap_epen # FD1
-                                        I -= 0.25**2 * np.conjugate(self.nuc_neg_t2[alpha][i][j][a-ndocc][b-ndocc]) * self.mag_pos_t2[beta][k][l][c-ndocc][d-ndocc] * (1/(N_nuc_neg*N_mag_pos)) * det_overlap_enep # FD1
-                                        I += 0.25**2 * np.conjugate(self.nuc_neg_t2[alpha][i][j][a-ndocc][b-ndocc]) * self.mag_neg_t2[beta][k][l][c-ndocc][d-ndocc] * (1/(N_nuc_neg*N_mag_neg)) * det_overlap_enen # FD1
+                                        I += 0.25**2 * np.conjugate((self.nuc_pos_t2[alpha][i][j][a-ndocc][b-ndocc] - self.nuc_neg_t2[alpha][i][j][a-ndocc][b-ndocc])) * (self.mag_pos_t2[beta][k][l][c-ndocc][d-ndocc] - self.mag_neg_t2[beta][k][l][c-ndocc][d-ndocc]) * (1/(N_unperturbed**2)) * det_overlap_ee
+                                        I += 0.25**2 * np.conjugate((self.nuc_pos_t2[alpha][i][j][a-ndocc][b-ndocc] - self.nuc_neg_t2[alpha][i][j][a-ndocc][b-ndocc])) * self.unperturbed_t2[k][l][c-ndocc][d-ndocc] * ((1/(N_unperturbed*N_mag_pos)) * det_overlap_eep - (1/(N_unperturbed*N_mag_neg)) * det_overlap_een)
+                                        I += 0.25**2 * np.conjugate(self.unperturbed_t2[i][j][a-ndocc][b-ndocc]) * (self.mag_pos_t2[beta][k][l][c-ndocc][d-ndocc] - self.mag_neg_t2[beta][k][l][c-ndocc][d-ndocc]) * ((1/(N_nuc_pos*N_unperturbed)) * det_overlap_epe - (1/(N_nuc_neg*N_unperturbed)) * det_overlap_ene)
+                                        I += 0.25**2 * np.conjugate(self.unperturbed_t2[i][j][a-ndocc][b-ndocc]) * self.unperturbed_t2[k][l][c-ndocc][d-ndocc] * ((1/(N_nuc_pos*N_mag_pos)) * det_overlap_epep - (1/(N_nuc_pos*N_mag_neg)) * det_overlap_epen - (1/(N_nuc_neg*N_mag_pos)) * det_overlap_enep + (1/(N_nuc_neg*N_mag_neg)) * det_overlap_enen)
 
  
         return I * 1/(4 * self.nuc_pert_strength * self.mag_pert_strength)
@@ -537,11 +550,16 @@ class AAT(object):
         hf_ngng = np.linalg.det(mo_overlap_nn[0:self.ndocc, 0:self.ndocc])
 
         # Compute normalization the normalization for each wavefunction.
-        N_unperturbed = 1#np.sqrt(1 + 0.5**2 * (2*np.einsum('ijab,ijab->', np.conjugate(self.unperturbed_t2), self.unperturbed_t2) - np.einsum('ijab,ijba->', np.conjugate(self.unperturbed_t2), self.unperturbed_t2)))
-        N_nuc_pos = 1#np.sqrt(1 + 0.5**2 * (2*np.einsum('ijab,ijab->', np.conjugate(self.nuc_pos_t2[alpha]), self.nuc_pos_t2[alpha]) - np.einsum('ijab,ijba->', np.conjugate(self.nuc_pos_t2[alpha]), self.nuc_pos_t2[alpha])))
-        N_nuc_neg = 1#np.sqrt(1 + 0.5**2 * (2*np.einsum('ijab,ijab->', np.conjugate(self.nuc_neg_t2[alpha]), self.nuc_neg_t2[alpha]) - np.einsum('ijab,ijba->', np.conjugate(self.nuc_neg_t2[alpha]), self.nuc_neg_t2[alpha])))
-        N_mag_pos = 1#np.sqrt(1 + 0.5**2 * (2*np.einsum('ijab,ijab->', np.conjugate(self.mag_pos_t2[beta]), self.mag_pos_t2[beta]) - np.einsum('ijab,ijba->', np.conjugate(self.mag_pos_t2[beta]), self.mag_pos_t2[beta])))
-        N_mag_neg = 1#np.sqrt(1 + 0.5**2 * (2*np.einsum('ijab,ijab->', np.conjugate(self.mag_neg_t2[beta]), self.mag_neg_t2[beta]) - np.einsum('ijab,ijba->', np.conjugate(self.mag_neg_t2[beta]), self.mag_neg_t2[beta])))
+        N_unperturbed = np.sqrt(1 + 0.5**2 * (2*np.einsum('ijab,ijab->', np.conjugate(self.unperturbed_t2), self.unperturbed_t2) - np.einsum('ijab,ijba->', np.conjugate(self.unperturbed_t2), self.unperturbed_t2)))
+        N_nuc_pos = 1#np.sqrt(1 + 0.5**2 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_pos_t2[alpha]), self.nuc_pos_t2[alpha]))
+        N_nuc_neg = 1#np.sqrt(1 + 0.5**2 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_neg_t2[alpha]), self.nuc_neg_t2[alpha]))
+        N_mag_pos = 1#np.sqrt(1 + 0.5**2 * np.einsum('ijab,ijab->', np.conjugate(self.mag_pos_t2[beta]), self.mag_pos_t2[beta]))
+        N_mag_neg = 1#np.sqrt(1 + 0.5**2 * np.einsum('ijab,ijab->', np.conjugate(self.mag_neg_t2[beta]), self.mag_neg_t2[beta]))
+
+        N_nuc_pos = np.sqrt(1 + 0.5**2 * (2*np.einsum('ijab,ijab->', np.conjugate(self.nuc_pos_t2[alpha]), self.nuc_pos_t2[alpha]) - np.einsum('ijab,ijba->', np.conjugate(self.nuc_pos_t2[alpha]), self.nuc_pos_t2[alpha])))
+        N_nuc_neg = np.sqrt(1 + 0.5**2 * (2*np.einsum('ijab,ijab->', np.conjugate(self.nuc_neg_t2[alpha]), self.nuc_neg_t2[alpha]) - np.einsum('ijab,ijba->', np.conjugate(self.nuc_neg_t2[alpha]), self.nuc_neg_t2[alpha])))
+        N_mag_pos = np.sqrt(1 + 0.5**2 * (2*np.einsum('ijab,ijab->', np.conjugate(self.mag_pos_t2[beta]), self.mag_pos_t2[beta]) - np.einsum('ijab,ijba->', np.conjugate(self.mag_pos_t2[beta]), self.mag_pos_t2[beta])))
+        N_mag_neg = np.sqrt(1 + 0.5**2 * (2*np.einsum('ijab,ijab->', np.conjugate(self.mag_neg_t2[beta]), self.mag_neg_t2[beta]) - np.einsum('ijab,ijba->', np.conjugate(self.mag_neg_t2[beta]), self.mag_neg_t2[beta])))
 
         #print(N_nuc_pos - N_nuc_neg, N_mag_pos - N_mag_neg, N_unperturbed)
 
@@ -945,133 +963,6 @@ class AAT(object):
 
 
         return I * (1 / (4 * self.nuc_pert_strength * self.mag_pert_strength))
-
-
-
-    # Computes the terms in the CID AATs with spin-orbitals. Note that the phase corrections were applied in the finite difference code.
-    def compute_cid_aat_SO_BS(self, alpha, beta):
-
-        # Compute SO overlaps.
-        # < psi | psi >
-        mo_overlap_uu = compute_mo_overlap(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, self.unperturbed_basis, self.unperturbed_wfn)
-        so_overlap_uu = compute_so_overlap(self.nbf, mo_overlap_uu)
-
-        # < psi | dpsi/dH >
-        mo_overlap_up = compute_mo_overlap(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, self.mag_pos_basis[beta], self.mag_pos_wfn[beta])
-        so_overlap_up = compute_so_overlap(self.nbf, mo_overlap_up)
-        mo_overlap_un = compute_mo_overlap(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, self.mag_neg_basis[beta], self.mag_neg_wfn[beta])
-        so_overlap_un = compute_so_overlap(self.nbf, mo_overlap_un)
-
-        # < dpsi/dR | psi >
-        mo_overlap_pu = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_pos_basis[alpha], self.nuc_pos_wfn[alpha], self.unperturbed_basis, self.unperturbed_wfn)
-        so_overlap_pu = compute_so_overlap(self.nbf, mo_overlap_pu)
-        mo_overlap_nu = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_neg_basis[alpha], self.nuc_neg_wfn[alpha], self.unperturbed_basis, self.unperturbed_wfn)
-        so_overlap_nu = compute_so_overlap(self.nbf, mo_overlap_nu)
-
-        # < dpsi/dR | dpsi/dH >
-        mo_overlap_pp = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_pos_basis[alpha], self.nuc_pos_wfn[alpha], self.mag_pos_basis[beta], self.mag_pos_wfn[beta])
-        so_overlap_pp = compute_so_overlap(self.nbf, mo_overlap_pp)
-        mo_overlap_pn = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_pos_basis[alpha], self.nuc_pos_wfn[alpha], self.mag_neg_basis[beta], self.mag_neg_wfn[beta])
-        so_overlap_pn = compute_so_overlap(self.nbf, mo_overlap_pn)
-        mo_overlap_np = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_neg_basis[alpha], self.nuc_neg_wfn[alpha], self.mag_pos_basis[beta], self.mag_pos_wfn[beta])
-        so_overlap_np = compute_so_overlap(self.nbf, mo_overlap_np)
-        mo_overlap_nn = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_neg_basis[alpha], self.nuc_neg_wfn[alpha], self.mag_neg_basis[beta], self.mag_neg_wfn[beta])
-        so_overlap_nn = compute_so_overlap(self.nbf, mo_overlap_nn)
-
-        # Compute Hartree-Fock overlaps.
-        hf_pgpg = np.linalg.det(so_overlap_pp[0:2*self.ndocc, 0:2*self.ndocc])
-        hf_ngpg = np.linalg.det(so_overlap_pn[0:2*self.ndocc, 0:2*self.ndocc])
-        hf_pgng = np.linalg.det(so_overlap_np[0:2*self.ndocc, 0:2*self.ndocc])
-        hf_ngng = np.linalg.det(so_overlap_nn[0:2*self.ndocc, 0:2*self.ndocc])
-
-        # Compute normalization the normalization for each wavefunction.
-        N_unperturbed = 1#np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.unperturbed_t2), self.unperturbed_t2))
-        N_nuc_pos = 1#np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_pos_t2[alpha]), self.nuc_pos_t2[alpha]))
-        N_nuc_neg = 1#np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_neg_t2[alpha]), self.nuc_neg_t2[alpha]))
-        N_mag_pos = 1#np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.mag_pos_t2[beta]), self.mag_pos_t2[beta]))
-        N_mag_neg = 1#np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.mag_neg_t2[beta]), self.mag_neg_t2[beta]))
-
-        #print(N_nuc_pos - N_nuc_neg, N_mag_pos - N_mag_neg, N_unperturbed)
-
-        # Compute the HF term of the CID AAT.
-        I = ( (1/(N_nuc_pos*N_mag_pos)) * hf_pgpg - (1/(N_nuc_pos*N_mag_neg)) * hf_pgng - (1/(N_nuc_neg*N_mag_pos)) * hf_ngpg + (1/(N_nuc_neg*N_mag_neg)) * hf_ngng)
-
-        I = 0
-
-        # Using spin-orbital formulation for MP2 and CID contribution to the AATs.
-        ndocc = 2 * self.ndocc
-        nbf = 2 * self.nbf
-
-        # Compute the terms including only one doubly excited determinant in either the bra or ket. 
-        for i in range(0, ndocc):
-            for j in range(0, ndocc):
-                for a in range(ndocc, nbf):
-                    for b in range(ndocc, nbf):
-
-                        # Compute determinant overlap.
-                        # < ijab | d0/dH >
-                        det_overlap_egp = self.compute_det_2_row_SO(so_overlap_up, i, j, a, b)
-                        det_overlap_egn = self.compute_det_2_row_SO(so_overlap_un, i, j, a, b)
-
-                        # < dijab/dR | d0/dH >
-                        det_overlap_epgp = self.compute_det_2_row_SO(so_overlap_pp, i, j, a, b)
-                        det_overlap_epgn = self.compute_det_2_row_SO(so_overlap_pn, i, j, a, b)
-                        det_overlap_engp = self.compute_det_2_row_SO(so_overlap_np, i, j, a, b)
-                        det_overlap_engn = self.compute_det_2_row_SO(so_overlap_nn, i, j, a, b)
-
-                        # < d0/dR | ijab >
-                        det_overlap_gpe = self.compute_det_2_column_SO(so_overlap_pu, i, j, a, b)
-                        det_overlap_gne = self.compute_det_2_column_SO(so_overlap_nu, i, j, a, b)
-
-                        # < d0/dR | dijab/dH >
-                        det_overlap_gpep = self.compute_det_2_column_SO(so_overlap_pp, i, j, a, b)
-                        det_overlap_gpen = self.compute_det_2_column_SO(so_overlap_pn, i, j, a, b)
-                        det_overlap_gnep = self.compute_det_2_column_SO(so_overlap_np, i, j, a, b)
-                        det_overlap_gnen = self.compute_det_2_column_SO(so_overlap_nn, i, j, a, b)
-
-                        # Compute contribution of this component to the AAT.
-                        I += 0.25 * np.conjugate((self.nuc_pos_t2[alpha][i][j][a-ndocc][b-ndocc] - self.nuc_neg_t2[alpha][i][j][a-ndocc][b-ndocc])) * ((1/(N_unperturbed*N_mag_pos)) * det_overlap_egp - (1/(N_unperturbed*N_mag_neg)) * det_overlap_egn)
-                        I += 0.25 * np.conjugate(self.unperturbed_t2[i][j][a-ndocc][b-ndocc]) * ((1/(N_nuc_pos*N_mag_pos)) * det_overlap_epgp - (1/(N_nuc_pos*N_mag_neg)) * det_overlap_epgn - (1/(N_nuc_neg*N_mag_pos)) * det_overlap_engp + (1/(N_nuc_neg*N_mag_neg)) * det_overlap_engn)
-                        I += 0.25 * (self.mag_pos_t2[beta][i][j][a-ndocc][b-ndocc] - self.mag_neg_t2[beta][i][j][a-ndocc][b-ndocc]) * ((1/(N_nuc_pos*N_unperturbed)) * det_overlap_gpe - (1/(N_nuc_neg*N_unperturbed)) * det_overlap_gne)
-                        I += 0.25 * self.unperturbed_t2[i][j][a-ndocc][b-ndocc] * ((1/(N_nuc_pos*N_mag_pos)) * det_overlap_gpep - (1/(N_nuc_pos*N_mag_neg)) * det_overlap_gpen - (1/(N_nuc_neg*N_mag_pos)) * det_overlap_gnep + (1/(N_nuc_neg*N_mag_neg)) * det_overlap_gnen)
-
-                        # Compute the terms including the doubly excited determinant in the bra and ket. 
-                        for k in range(0, ndocc):
-                            for l in range(0, ndocc):
-                                for c in range(ndocc, nbf):
-                                    for d in range(ndocc, nbf):
-
-                                        # Compute determinant overlap.
-                                        # < ijab | klcd >
-                                        det_overlap_ee = self.compute_det_2_row_2_column_SO(so_overlap_uu, i, j, a, b, k, l, c, d)
-
-                                        # < ijab | dklcd/dH >
-                                        det_overlap_eep = self.compute_det_2_row_2_column_SO(so_overlap_up, i, j, a, b, k, l, c, d)
-                                        det_overlap_een = self.compute_det_2_row_2_column_SO(so_overlap_un, i, j, a, b, k, l, c, d)
-
-                                        # < dijab/dR | klcd >
-                                        det_overlap_epe = self.compute_det_2_row_2_column_SO(so_overlap_pu, i, j, a, b, k, l, c, d)
-                                        det_overlap_ene = self.compute_det_2_row_2_column_SO(so_overlap_nu, i, j, a, b, k, l, c, d)
-
-                                        # < dijab/dR | dklcd/dH >
-                                        det_overlap_epep = self.compute_det_2_row_2_column_SO(so_overlap_pp, i, j, a, b, k, l, c, d)
-                                        det_overlap_epen = self.compute_det_2_row_2_column_SO(so_overlap_pn, i, j, a, b, k, l, c, d)
-                                        det_overlap_enep = self.compute_det_2_row_2_column_SO(so_overlap_np, i, j, a, b, k, l, c, d)
-                                        det_overlap_enen = self.compute_det_2_row_2_column_SO(so_overlap_nn, i, j, a, b, k, l, c, d)
-
-                                        # Compute contribution of this component to the AAT.
-                                        I += 0.25**2 * np.conjugate((self.nuc_pos_t2[alpha][i][j][a-ndocc][b-ndocc] - self.nuc_neg_t2[alpha][i][j][a-ndocc][b-ndocc])) * (self.mag_pos_t2[beta][k][l][c-ndocc][d-ndocc] - self.mag_neg_t2[beta][k][l][c-ndocc][d-ndocc]) * (1/(N_unperturbed**2)) * det_overlap_ee
-                                        I += 0.25**2 * np.conjugate((self.nuc_pos_t2[alpha][i][j][a-ndocc][b-ndocc] - self.nuc_neg_t2[alpha][i][j][a-ndocc][b-ndocc])) * self.unperturbed_t2[k][l][c-ndocc][d-ndocc] * ((1/(N_unperturbed*N_mag_pos)) * det_overlap_eep - (1/(N_unperturbed*N_mag_neg)) * det_overlap_een)
-                                        I += 0.25**2 * np.conjugate(self.unperturbed_t2[i][j][a-ndocc][b-ndocc]) * (self.mag_pos_t2[beta][k][l][c-ndocc][d-ndocc] - self.mag_neg_t2[beta][k][l][c-ndocc][d-ndocc]) * ((1/(N_nuc_pos*N_unperturbed)) * det_overlap_epe - (1/(N_nuc_neg*N_unperturbed)) * det_overlap_ene)
-                                        I += 0.25**2 * np.conjugate(self.unperturbed_t2[i][j][a-ndocc][b-ndocc]) * self.unperturbed_t2[k][l][c-ndocc][d-ndocc] * ((1/(N_nuc_pos*N_mag_pos)) * det_overlap_epep - (1/(N_nuc_pos*N_mag_neg)) * det_overlap_epen - (1/(N_nuc_neg*N_mag_pos)) * det_overlap_enep + (1/(N_nuc_neg*N_mag_neg)) * det_overlap_enen)
-
-
-        return I * 1/(4 * self.nuc_pert_strength * self.mag_pert_strength)
-
-
-
-
-
 
 
 
