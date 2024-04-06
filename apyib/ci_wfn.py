@@ -287,13 +287,13 @@ class ci_wfn(object):
 
             r_T2 = ERI_SO[0:o,0:o,o:nbf,o:nbf].copy() - ERI_SO.swapaxes(2,3)[0:o,0:o,o:nbf,o:nbf].copy()
             r_T2 -= np.einsum('mbij,ma->ijab', ERI_SO[0:o,o:nbf,0:o,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,0:o,0:o], t1)
-            r_T2 -= np.einsum('amij,mb->ijab', ERI_SO[o:nbf,0:o,0:o,0:o] - ERI_SO.swapaxes(2,3)[o:nbf,0:o,0:o,0:o], t1)  # Permutation and sign.
+            r_T2 -= np.einsum('amij,mb->ijab', ERI_SO[o:nbf,0:o,0:o,0:o] - ERI_SO.swapaxes(2,3)[o:nbf,0:o,0:o,0:o], t1)
             r_T2 += np.einsum('abej,ie->ijab', ERI_SO[o:nbf,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[o:nbf,o:nbf,o:nbf,0:o], t1)
-            r_T2 += np.einsum('abie,je->ijab', ERI_SO[o:nbf,o:nbf,0:o,o:nbf] - ERI_SO.swapaxes(2,3)[o:nbf,o:nbf,0:o,o:nbf], t1)   # Permutation and sign.
+            r_T2 += np.einsum('abie,je->ijab', ERI_SO[o:nbf,o:nbf,0:o,o:nbf] - ERI_SO.swapaxes(2,3)[o:nbf,o:nbf,0:o,o:nbf], t1)
             r_T2 += np.einsum('be,ijae->ijab', F_SO[o:nbf,o:nbf], t2)
-            r_T2 += np.einsum('ae,ijeb->ijab', F_SO[o:nbf,o:nbf], t2)  # Permutation and sign.
+            r_T2 += np.einsum('ae,ijeb->ijab', F_SO[o:nbf,o:nbf], t2)
             r_T2 -= np.einsum('mj,imab->ijab', F_SO[0:o,0:o], t2)
-            r_T2 -= np.einsum('mi,mjab->ijab', F_SO[0:o,0:o], t2)   # Permutation and sign.
+            r_T2 -= np.einsum('mi,mjab->ijab', F_SO[0:o,0:o], t2)
             r_T2 += 0.5 * np.einsum('mnij,mnab->ijab', ERI_SO[0:o,0:o,0:o,0:o] - ERI_SO.swapaxes(2,3)[0:o,0:o,0:o,0:o], t2)
             r_T2 += 0.5 * np.einsum('abef,ijef->ijab', ERI_SO[o:nbf,o:nbf,o:nbf,o:nbf] - ERI_SO.swapaxes(2,3)[o:nbf,o:nbf,o:nbf,o:nbf], t2)
             r_T2 += np.einsum('mbej,imae->ijab', ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o], t2)
