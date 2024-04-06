@@ -42,6 +42,10 @@ def run_psi4(parameters, method='RHF'):
         # Run Psi4 MP2 code and return the energy and wavefunction.
         e, wfn = psi4.energy("mp2", return_wfn=True)
 
+    elif method == 'CISD':
+        # Run Psi4 CISD code and return the energy and wavefunction.
+        e, wfn = psi4.energy("cisd", return_wfn=True)
+
     return e, wfn
 
 

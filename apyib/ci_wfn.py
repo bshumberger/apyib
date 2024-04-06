@@ -213,6 +213,125 @@ class ci_wfn(object):
 
 
 
+    def solve_CISD_SO(self):
+        """ 
+        Solves the CISD amplitudes and energies.
+        """
+
+        # For readability.
+        nbf = 2*self.nbf
+        o = 2*self.no
+        v = 2*self.nv
+        F_MO = self.F_MO.copy()
+        ERI_MO = self.ERI_MO.copy()
+
+        # Compute Fock matrix in spin-orbital basis.
+        F_SO = compute_F_SO(self.wfn, F_MO)
+
+        # Compute ERI in spin-orbital basis.
+        ERI_SO = compute_ERI_SO(self.wfn, ERI_MO)
+    
+        # Swap axes for Dirac notation.
+        ERI_SO = ERI_SO.swapaxes(1,2)                 # (pr|qs) -> <pq|rs>
+
+        # Set up the numerator for the T1 guess amplitudes.
+        t1 = np.zeros_like(F_SO[0:o,o:nbf])
+
+        # Set up the denominator for the T1 guess amplitudes.
+        Dia = np.ones_like(F_SO)
+        for i in range(0,o):
+            for a in range(o,nbf):
+                Dia[i][a] *= F_SO[i][i] - F_SO[a][a]
+        Dia = Dia[0:o,o:nbf]
+
+        # Initial T1 guess amplitude.
+        t1 = t1 / Dia
+
+        # Set up the numerators for the T2 guess amplitudes.
+        t2 = ERI_SO.copy()[0:o,0:o,o:nbf,o:nbf] - ERI_SO.copy().swapaxes(2,3)[0:o,0:o,o:nbf,o:nbf]
+
+        # Set up the denominators for the T2 guess amplitudes.
+        Dijab = np.ones_like(ERI_SO)
+        for i in range(0,o):
+            for j in range(0,o):
+                for a in range(o,nbf):
+                    for b in range(o,nbf):
+                        Dijab[i][j][a][b] *= F_SO[i][i] + F_SO[j][j] - F_SO[a][a] - F_SO[b][b]
+        Dijab = Dijab[0:o,0:o,o:nbf,o:nbf]
+
+        # Initial T2 guess amplitude.
+        t2 = t2 / Dijab
+
+        # Solve for initial CID energy.
+        E_CISD =  np.einsum('ia,ia->', t1, F_SO[0:o,o:nbf] ) + 0.25 * np.einsum('ijab,ijab->', t2, ERI_SO[0:o,0:o,o:nbf,o:nbf] - ERI_SO.swapaxes(2,3)[0:o,0:o,o:nbf,o:nbf])
+        t1 = t1.copy()
+        t2 = t2.copy()
+        #print(E_CISD)
+
+        # Start iterative procedure.
+        iteration = 1 
+        while iteration <= self.parameters['max_iterations']:
+            E_CISD_old = E_CISD
+            t1_old = t1.copy()
+            t2_old = t2.copy()
+
+            # Solving for the residual. Note that the equations for the T2 amplitudes must all be permuted to have final indices of i,j,a,b for Tijab.
+            r_T1 = F_SO[0:o,o:nbf].copy()
+            r_T1 -= np.einsum('mi,ma->ia', F_SO[0:o,0:o], t1)
+            r_T1 += np.einsum('ae,ie->ia', F_SO[o:nbf,o:nbf], t1)
+            r_T1 += np.einsum('maei,me->ia', ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o], t1)
+            r_T1 += np.einsum('me,miea->ia', F_SO[0:o,o:nbf], t2)
+            r_T1 += 0.5 * np.einsum('maef,mief->ia', ERI_SO[0:o,o:nbf,o:nbf,o:nbf] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,o:nbf], t2)
+            r_T1 -= 0.5 * np.einsum('mnei,mnea->ia', ERI_SO[0:o,0:o,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,0:o,o:nbf,0:o], t2)
+            r_T1 -= E_CISD * t1
+
+            r_T2 = ERI_SO[0:o,0:o,o:nbf,o:nbf].copy() - ERI_SO.swapaxes(2,3)[0:o,0:o,o:nbf,o:nbf].copy()
+            r_T2 -= np.einsum('mbij,ma->ijab', ERI_SO[0:o,o:nbf,0:o,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,0:o,0:o], t1)
+            r_T2 -= np.einsum('amij,mb->ijab', ERI_SO[o:nbf,0:o,0:o,0:o] - ERI_SO.swapaxes(2,3)[o:nbf,0:o,0:o,0:o], t1)  # Permutation and sign.
+            r_T2 += np.einsum('abej,ie->ijab', ERI_SO[o:nbf,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[o:nbf,o:nbf,o:nbf,0:o], t1)
+            r_T2 += np.einsum('abie,je->ijab', ERI_SO[o:nbf,o:nbf,0:o,o:nbf] - ERI_SO.swapaxes(2,3)[o:nbf,o:nbf,0:o,o:nbf], t1)   # Permutation and sign.
+            r_T2 += np.einsum('be,ijae->ijab', F_SO[o:nbf,o:nbf], t2)
+            r_T2 += np.einsum('ae,ijeb->ijab', F_SO[o:nbf,o:nbf], t2)  # Permutation and sign.
+            r_T2 -= np.einsum('mj,imab->ijab', F_SO[0:o,0:o], t2)
+            r_T2 -= np.einsum('mi,mjab->ijab', F_SO[0:o,0:o], t2)   # Permutation and sign.
+            r_T2 += 0.5 * np.einsum('mnij,mnab->ijab', ERI_SO[0:o,0:o,0:o,0:o] - ERI_SO.swapaxes(2,3)[0:o,0:o,0:o,0:o], t2)
+            r_T2 += 0.5 * np.einsum('abef,ijef->ijab', ERI_SO[o:nbf,o:nbf,o:nbf,o:nbf] - ERI_SO.swapaxes(2,3)[o:nbf,o:nbf,o:nbf,o:nbf], t2)
+            r_T2 += np.einsum('mbej,imae->ijab', ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o], t2)
+            r_T2 += np.einsum('mbei,mjae->ijab', ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o], t2)
+            r_T2 += np.einsum('maej,imeb->ijab', ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o], t2)
+            r_T2 += np.einsum('maei,mjeb->ijab', ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o], t2)
+            r_T2 -= E_CISD * t2
+
+            t1 += r_T1 /Dia
+            t2 += r_T2 / Dijab
+
+            # Compute new CISD energy.
+            E_CISD = np.einsum('ia,ia->', t1, F_SO[0:o,o:nbf]) + 0.25 * np.einsum('ijab,ijab->', t2, ERI_SO[0:o,0:o,o:nbf,o:nbf] - ERI_SO.swapaxes(2,3)[0:o,0:o,o:nbf,o:nbf])
+
+            # Compute total energy.
+            E_tot = self.E_tot + E_CISD
+
+            # Compute convergence data.
+            rms_t1 = np.einsum('ia,ia->', t1_old - t1, t1_old - t1)
+            rms_t1 = np.sqrt(rms_t1)
+
+            rms_t2 = np.einsum('ijab,ijab->', t2_old - t2, t2_old - t2)
+            rms_t2 = np.sqrt(rms_t2)
+            delta_E = E_CISD_old - E_CISD
+
+            #print(" %02d %20.12f %20.12f %20.12f %20.12f %20.12f %20.12f %20.12f %20.12f %20.12f" % (iteration, E_CISD.real, E_CISD.imag, E_tot, delta_E.real, delta_E.imag, rms_t1.real, rms_t1.imag, rms_t2.real, rms_t2.imag))
+
+            if iteration > 1:
+                if abs(delta_E) < self.parameters['e_convergence'] and rms_t1 < self.parameters['d_convergence'] and rms_t2 < self.parameters['d_convergence']:
+                    print("Convergence criteria met.")
+                    break
+            if iteration == self.parameters['max_iterations']:
+                if abs(delta_E) > self.parameters['e_convergence'] or rms_t2 > self.parameters['d_convergence']:
+                    print("Not converged.")
+            iteration += 1
+
+        return E_CISD, t1, t2
+
 
 
     
