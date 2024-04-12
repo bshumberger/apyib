@@ -364,7 +364,7 @@ class finite_difference(object):
         print("Computing energies and wavefunctions for positive magnetic field perturbations.")
         for alpha in range(3):
             self.parameters['F_mag'][alpha] += pert_strength
-            #print(self.parameters['F_mag'])
+            print(self.parameters['F_mag'])
             #print(self.parameters['geom'])
 
             # Build the Hamiltonian in the AO basis.

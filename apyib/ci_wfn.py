@@ -43,6 +43,13 @@ class ci_wfn(object):
         self.F_MO = compute_F_MO(self.parameters, self.H, self.wfn, self.C)
         self.ERI_MO = compute_ERI_MO(self.parameters, self.H, self.wfn, self.C)
 
+        # Compute the SCF energy.
+        H_core_MO = np.einsum('ip,ij,jq->pq', np.conjugate(self.C), self.H.T + self.H.V, self.C)
+    
+        E = 0.0 
+        for i in range(0,self.no):
+            E += H_core_MO[i][i] + self.F_MO[i][i]
+        print('Total Energy from SCF in CID Code:', E + self.H.E_nuc)
 
 
     def solve_CID(self):
@@ -61,7 +68,7 @@ class ci_wfn(object):
         ERI_MO = ERI_MO.swapaxes(1,2)                 # (pr|qs) -> <pq|rs>
 
         # Set up the numerators for the T2 guess amplitudes.
-        t2 = ERI_MO.copy()[0:o,0:o,o:nbf,o:nbf]
+        t2 = ERI_MO.copy().swapaxes(0,2).swapaxes(1,3)[0:o,0:o,o:nbf,o:nbf]
 
         # Set up the denominators for the T2 guess amplitudes.
         Dijab = np.ones_like(ERI_MO)
@@ -86,8 +93,8 @@ class ci_wfn(object):
             E_CID_old = E_CID
             t2_old = t2.copy()
 
-            # Trying with pycc type algorithm.
-            r_T2 = 0.5 * ERI_MO[0:o,0:o,o:nbf,o:nbf].copy()                                                                                 # First term of the t2 equation.
+            # Solving for the residual.
+            r_T2 = 0.5 * ERI_MO.copy().swapaxes(0,2).swapaxes(1,3)[0:o,0:o,o:nbf,o:nbf]                                                     # First term of the t2 equation.
             r_T2 += np.einsum('ijae,be->ijab', t2, F_MO[o:nbf,o:nbf])                                                                       # Contribution to Fae
             r_T2 -= np.einsum('imab,mj->ijab', t2, F_MO[0:o,0:o])                                                                           # Contribution to Fmi
             r_T2 += 0.5 * np.einsum('mnab,mnij->ijab', t2, ERI_MO[0:o,0:o,0:o,0:o])                                                         # Contribution to Tmnab and Wmnij
@@ -148,7 +155,7 @@ class ci_wfn(object):
         ERI_SO = ERI_SO.swapaxes(1,2)                 # (pr|qs) -> <pq|rs>
 
         # Set up the numerators for the T2 guess amplitudes.
-        t2 = ERI_SO.copy()[0:o,0:o,o:nbf,o:nbf] - ERI_SO.copy().swapaxes(2,3)[0:o,0:o,o:nbf,o:nbf]
+        t2 = ERI_SO.copy().swapaxes(0,2).swapaxes(1,3)[0:o,0:o,o:nbf,o:nbf] - ERI_SO.copy().swapaxes(0,2).swapaxes(1,3).swapaxes(2,3)[0:o,0:o,o:nbf,o:nbf]
 
         # Set up the denominators for the T2 guess amplitudes.
         Dijab = np.ones_like(ERI_SO)
@@ -174,15 +181,15 @@ class ci_wfn(object):
             t2_old = t2.copy()
 
             # Solving for the residual. Note that the equations for the T2 amplitudes must all be permuted to have final indices of i,j,a,b for Tijab.
-            r_T2 = ERI_SO[0:o,0:o,o:nbf,o:nbf].copy() - ERI_SO.swapaxes(2,3)[0:o,0:o,o:nbf,o:nbf].copy()                                    # First term of the t2 equation.
-            r_T2 += np.einsum('ijae,be->ijab', t2, F_SO[o:nbf,o:nbf]) + np.einsum('ijeb,ae->ijab', t2, F_SO[o:nbf,o:nbf])                   # Contribution to Fae
-            r_T2 -= np.einsum('imab,mj->ijab', t2, F_SO[0:o,0:o]) + np.einsum('mjab,mi->ijab', t2, F_SO[0:o,0:o])                           # Contribution to Fmi
-            r_T2 += 0.5 * np.einsum('mnab,mnij->ijab', t2, ERI_SO[0:o,0:o,0:o,0:o] - ERI_SO.swapaxes(2,3)[0:o,0:o,0:o,0:o])                 # Contribution to Tmnab and Wmnij
-            r_T2 += 0.5 * np.einsum('ijef,abef->ijab', t2, ERI_SO[o:nbf,o:nbf,o:nbf,o:nbf] - ERI_SO.swapaxes(2,3)[o:nbf,o:nbf,o:nbf,o:nbf]) # Contribution to Tejif and Wabef
-            r_T2 += np.einsum('imae,mbej->ijab', t2, ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o])               # Contribution to Wmbej
-            r_T2 += np.einsum('mjae,mbei->ijab', t2, ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o])               # Contribution to Wmbej
-            r_T2 += np.einsum('imeb,maej->ijab', t2, ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o])               # Contribution to Wmbej
-            r_T2 += np.einsum('mjeb,maei->ijab', t2, ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o])               # Contribution to Wmbej
+            r_T2 = ERI_SO.copy().swapaxes(0,2).swapaxes(1,3)[0:o,0:o,o:nbf,o:nbf] - ERI_SO.copy().swapaxes(0,2).swapaxes(1,3).swapaxes(2,3)[0:o,0:o,o:nbf,o:nbf]        # First term of the t2 equation.
+            r_T2 += np.einsum('ijae,be->ijab', t2, F_SO[o:nbf,o:nbf]) + np.einsum('ijeb,ae->ijab', t2, F_SO[o:nbf,o:nbf])                                               # Contribution to Fae
+            r_T2 -= np.einsum('imab,mj->ijab', t2, F_SO[0:o,0:o]) + np.einsum('mjab,mi->ijab', t2, F_SO[0:o,0:o])                                                       # Contribution to Fmi
+            r_T2 += 0.5 * np.einsum('mnab,mnij->ijab', t2, ERI_SO[0:o,0:o,0:o,0:o] - ERI_SO.swapaxes(2,3)[0:o,0:o,0:o,0:o])                                             # Contribution to Tmnab and Wmnij
+            r_T2 += 0.5 * np.einsum('ijef,abef->ijab', t2, ERI_SO[o:nbf,o:nbf,o:nbf,o:nbf] - ERI_SO.swapaxes(2,3)[o:nbf,o:nbf,o:nbf,o:nbf])                             # Contribution to Tejif and Wabef
+            r_T2 += np.einsum('imae,mbej->ijab', t2, ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o])                                           # Contribution to Wmbej
+            r_T2 += np.einsum('mjae,mbei->ijab', t2, ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o])                                           # Contribution to Wmbej
+            r_T2 += np.einsum('imeb,maej->ijab', t2, ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o])                                           # Contribution to Wmbej
+            r_T2 += np.einsum('mjeb,maei->ijab', t2, ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o])                                           # Contribution to Wmbej
 
             r_T2 -= E_CID * t2
             t2 += r_T2 / Dijab
@@ -275,31 +282,31 @@ class ci_wfn(object):
             t1_old = t1.copy()
             t2_old = t2.copy()
 
-            # Solving for the residual. Note that the equations for the T2 amplitudes must all be permuted to have final indices of i,j,a,b for Tijab.
+            # Solving for the residuals. Note that the equations for the T2 amplitudes must all be permuted to have final indices of i,j,a,b for Tijab.
             r_T1 = F_SO[0:o,o:nbf].copy()
-            r_T1 -= np.einsum('mi,ma->ia', F_SO[0:o,0:o], t1)
-            r_T1 += np.einsum('ae,ie->ia', F_SO[o:nbf,o:nbf], t1)
-            r_T1 += np.einsum('maei,me->ia', ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o], t1)
-            r_T1 += np.einsum('me,miea->ia', F_SO[0:o,o:nbf], t2)
-            r_T1 += 0.5 * np.einsum('maef,mief->ia', ERI_SO[0:o,o:nbf,o:nbf,o:nbf] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,o:nbf], t2)
-            r_T1 -= 0.5 * np.einsum('mnei,mnea->ia', ERI_SO[0:o,0:o,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,0:o,o:nbf,0:o], t2)
+            r_T1 -= np.einsum('ji,ja->ia', F_SO[0:o,0:o], t1)
+            r_T1 += np.einsum('ab,ib->ia', F_SO[o:nbf,o:nbf], t1)
+            r_T1 += np.einsum('jabi,jb->ia', ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o], t1)
+            r_T1 += np.einsum('jb,ijab->ia', F_SO[0:o,o:nbf], t2)
+            r_T1 += 0.5 * np.einsum('ajcb,ijcb->ia', ERI_SO[o:nbf,0:o,o:nbf,o:nbf] - ERI_SO.swapaxes(2,3)[o:nbf,0:o,o:nbf,o:nbf], t2)
+            r_T1 -= 0.5 * np.einsum('kjib,kjab->ia', ERI_SO[0:o,0:o,0:o,o:nbf] - ERI_SO.swapaxes(2,3)[0:o,0:o,0:o,o:nbf], t2)
             r_T1 -= E_CISD * t1
 
             r_T2 = ERI_SO[0:o,0:o,o:nbf,o:nbf].copy() - ERI_SO.swapaxes(2,3)[0:o,0:o,o:nbf,o:nbf].copy()
-            r_T2 -= np.einsum('mbij,ma->ijab', ERI_SO[0:o,o:nbf,0:o,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,0:o,0:o], t1)
-            r_T2 -= np.einsum('amij,mb->ijab', ERI_SO[o:nbf,0:o,0:o,0:o] - ERI_SO.swapaxes(2,3)[o:nbf,0:o,0:o,0:o], t1)
-            r_T2 += np.einsum('abej,ie->ijab', ERI_SO[o:nbf,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[o:nbf,o:nbf,o:nbf,0:o], t1)
-            r_T2 += np.einsum('abie,je->ijab', ERI_SO[o:nbf,o:nbf,0:o,o:nbf] - ERI_SO.swapaxes(2,3)[o:nbf,o:nbf,0:o,o:nbf], t1)
-            r_T2 += np.einsum('be,ijae->ijab', F_SO[o:nbf,o:nbf], t2)
-            r_T2 += np.einsum('ae,ijeb->ijab', F_SO[o:nbf,o:nbf], t2)
-            r_T2 -= np.einsum('mj,imab->ijab', F_SO[0:o,0:o], t2)
-            r_T2 -= np.einsum('mi,mjab->ijab', F_SO[0:o,0:o], t2)
-            r_T2 += 0.5 * np.einsum('mnij,mnab->ijab', ERI_SO[0:o,0:o,0:o,0:o] - ERI_SO.swapaxes(2,3)[0:o,0:o,0:o,0:o], t2)
-            r_T2 += 0.5 * np.einsum('abef,ijef->ijab', ERI_SO[o:nbf,o:nbf,o:nbf,o:nbf] - ERI_SO.swapaxes(2,3)[o:nbf,o:nbf,o:nbf,o:nbf], t2)
-            r_T2 += np.einsum('mbej,imae->ijab', ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o], t2)
-            r_T2 += np.einsum('mbei,mjae->ijab', ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o], t2)
-            r_T2 += np.einsum('maej,imeb->ijab', ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o], t2)
-            r_T2 += np.einsum('maei,mjeb->ijab', ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o], t2)
+            r_T2 -= np.einsum('kbij,ka->ijab', ERI_SO[0:o,o:nbf,0:o,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,0:o,0:o], t1)
+            r_T2 -= np.einsum('akij,kb->ijab', ERI_SO[o:nbf,0:o,0:o,0:o] - ERI_SO.swapaxes(2,3)[o:nbf,0:o,0:o,0:o], t1)
+            r_T2 += np.einsum('abcj,ic->ijab', ERI_SO[o:nbf,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[o:nbf,o:nbf,o:nbf,0:o], t1)
+            r_T2 += np.einsum('abic,jc->ijab', ERI_SO[o:nbf,o:nbf,0:o,o:nbf] - ERI_SO.swapaxes(2,3)[o:nbf,o:nbf,0:o,o:nbf], t1)
+            r_T2 += np.einsum('bc,ijac->ijab', F_SO[o:nbf,o:nbf], t2)
+            r_T2 += np.einsum('ac,ijcb->ijab', F_SO[o:nbf,o:nbf], t2)
+            r_T2 -= np.einsum('kj,ikab->ijab', F_SO[0:o,0:o], t2)
+            r_T2 -= np.einsum('ki,kjab->ijab', F_SO[0:o,0:o], t2)
+            r_T2 += 0.5 * np.einsum('klij,klab->ijab', ERI_SO[0:o,0:o,0:o,0:o] - ERI_SO.swapaxes(2,3)[0:o,0:o,0:o,0:o], t2)
+            r_T2 += 0.5 * np.einsum('abcd,ijcd->ijab', ERI_SO[o:nbf,o:nbf,o:nbf,o:nbf] - ERI_SO.swapaxes(2,3)[o:nbf,o:nbf,o:nbf,o:nbf], t2)
+            r_T2 += np.einsum('kbcj,ikac->ijab', ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o], t2)
+            r_T2 += np.einsum('kbci,kjac->ijab', ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o], t2)
+            r_T2 += np.einsum('kacj,ikcb->ijab', ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o], t2)
+            r_T2 += np.einsum('kaci,kjcb->ijab', ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o], t2)
             r_T2 -= E_CISD * t2
 
             t1 += r_T1 /Dia

@@ -35,11 +35,6 @@ class hf_wfn(object):
         # Compute the core Hamiltonian.
         H = self.H
         H_core = H.T + H.V
-        H_core = H_core.astype('complex128')
-
-        # Add electric and magnetic potentials to the core Hamiltonian.
-        #for alpha in range(3):
-        #    H_core -=  parameters['F_el'][alpha] * H.mu_el[alpha] + parameters['F_mag'][alpha] * H.mu_mag[alpha]
 
         # Compute the orthogonalization matrix.
         X = np.linalg.inv(la.sqrtm(H.S))
@@ -115,9 +110,9 @@ class hf_wfn(object):
             E_SCF = 0.0
             for mu in range(self.nbf):
                 for nu in range(self.nbf):
-                    E_SCF += D[mu, nu] * ( H_core[mu, nu] + F[mu, nu] )
-            E_tot = E_SCF.real + H.E_nuc
-    
+                    E_SCF += D[nu, mu] * ( H_core[mu, nu] + F[mu, nu] )
+            E_tot = E_SCF + H.E_nuc
+
             # Compute the energy convergence.
             delta_E = E_SCF - E_old
     
@@ -138,6 +133,37 @@ class hf_wfn(object):
                     print("Not converged.")
     
             i += 1
+
+        #################################################
+        ## Compute the AO to MO transformed SCF energy.
+        #H_core_MO = np.einsum('ip,ij,jq->pq', np.conjugate(C), H.T + H.V, C)
+        #F_MO = np.einsum('ip,ij,jq->pq', np.conjugate(C), F, C)
+        #E1 = 0.0 
+        #for i in range(0,self.ndocc):
+        #    E1 += H_core_MO[i][i] + F_MO[i][i]
+        #print('AO to MO Transformed Energy:', E1 + self.H.E_nuc)
+
+        ## Compute AO density based SCF energy.
+        #E_SCF1 = np.einsum('vu,uv->', D, H_core + F)
+        #print('AO Density-Based Energy:',E_SCF1 + self.H.E_nuc)
+
+        ##print(C,'\n')
+        #print('D')
+        #print(D,'\n')
+        #print('C[0:self.nbf,0:self.ndocc] @ np.conjugate(np.transpose(C)[0:self.ndocc,0:self.nbf])')
+        #print(C[0:self.nbf,0:self.ndocc] @ np.conjugate(np.transpose(C)[0:self.ndocc,0:self.nbf]), '\n')
+        #print('C[0:self.nbf,0:self.ndocc]')
+        #print(C[0:self.nbf,0:self.ndocc], '\n')
+        #print('np.conjugate(np.transpose(C)[0:self.ndocc,0:self.nbf])')
+        #print(np.conjugate(np.transpose(C)[0:self.ndocc,0:self.nbf]), '\n')
+
+        # Test MO Density
+        #print(np.conjugate(np.transpose(C))@H.S@D@H.S@C)
+
+        # Test Idempotency
+        #print(D - (D@H.S@D))
+        #################################################
+
 
         return E_SCF, E_tot, C
 
