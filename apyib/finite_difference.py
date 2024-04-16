@@ -58,6 +58,8 @@ class finite_difference(object):
             # Solve the SCF procedure and compute the energy and wavefunction.
             e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
             print("SCF Energy: ", e_tot)
+            print("SCF Electronic Energy: ", e_elec)
+            print("Nuclear Repulsion Energy: ", wfn.H.E_nuc)
 
             # Run Psi4.
             self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
@@ -133,6 +135,8 @@ class finite_difference(object):
             # Solve the SCF procedure and compute the energy and wavefunction.
             e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
             print("SCF Energy: ", e_tot)
+            print("SCF Electronic Energy: ", e_elec)
+            print("Nuclear Repulsion Energy: ", wfn.H.E_nuc)
 
             # Run Psi4.
             self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
@@ -364,7 +368,7 @@ class finite_difference(object):
         print("Computing energies and wavefunctions for positive magnetic field perturbations.")
         for alpha in range(3):
             self.parameters['F_mag'][alpha] += pert_strength
-            print(self.parameters['F_mag'])
+            #print(self.parameters['F_mag'])
             #print(self.parameters['geom'])
 
             # Build the Hamiltonian in the AO basis.

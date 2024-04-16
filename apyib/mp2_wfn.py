@@ -53,7 +53,7 @@ class mp2_wfn(object):
         Dijab = Dijab[0:self.no,0:self.no,self.no:self.nbf,self.no:self.nbf]
 
         # Initial T2 guess amplitude.
-        t2 = ERI_MO[0:self.no,0:self.no,self.no:self.nbf,self.no:self.nbf] / Dijab
+        t2 = ERI_MO.copy().swapaxes(0,2).swapaxes(1,3)[0:self.no,0:self.no,self.no:self.nbf,self.no:self.nbf] / Dijab
 
         # Compute the MP2 energy.
         E_MP2 = np.einsum('ijab,ijab->', 2 * ERI_MO[0:self.no,0:self.no,self.no:self.nbf,self.no:self.nbf] - ERI_MO.swapaxes(2,3)[0:self.no,0:self.no,self.no:self.nbf,self.no:self.nbf], t2)
@@ -85,7 +85,7 @@ class mp2_wfn(object):
         Dijab = Dijab[0:2*self.no,0:2*self.no,2*self.no:2*self.nbf,2*self.no:2*self.nbf]
 
         # Initial T2 guess amplitude.
-        t2 = (ERI_SO[0:2*self.no,0:2*self.no,2*self.no:2*self.nbf,2*self.no:2*self.nbf] - ERI_SO.swapaxes(2,3)[0:2*self.no,0:2*self.no,2*self.no:2*self.nbf,2*self.no:2*self.nbf]) / Dijab
+        t2 = (ERI_SO.copy().swapaxes(0,2).swapaxes(1,3)[0:2*self.no,0:2*self.no,2*self.no:2*self.nbf,2*self.no:2*self.nbf] - ERI_SO.copy().swapaxes(2,3).swapaxes(0,2).swapaxes(1,3)[0:2*self.no,0:2*self.no,2*self.no:2*self.nbf,2*self.no:2*self.nbf]) / Dijab
 
         # Compute the MP2 energy.
         E_MP2 = 0.25 * np.einsum('ijab,ijab->', ERI_SO[0:2*self.no,0:2*self.no,2*self.no:2*self.nbf,2*self.no:2*self.nbf] - ERI_SO.swapaxes(2,3)[0:2*self.no,0:2*self.no,2*self.no:2*self.nbf,2*self.no:2*self.nbf], t2) 
