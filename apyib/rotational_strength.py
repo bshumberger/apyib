@@ -447,7 +447,7 @@ class AAT(object):
         # Compute the HF term of the CID AAT.
         I = ( (1/(N_nuc_pos*N_mag_pos)) * hf_pgpg - (1/(N_nuc_pos*N_mag_neg)) * hf_pgng - (1/(N_nuc_neg*N_mag_pos)) * hf_ngpg + (1/(N_nuc_neg*N_mag_neg)) * hf_ngng)
         
-        I = 0
+        #I = 0
 
         # Using spin-orbital formulation for MP2 and CID contribution to the AATs.
         ndocc = 2 * self.ndocc
@@ -547,9 +547,9 @@ class AAT(object):
 
 
         # Compute the HF term of the CID AAT.
-        I = (1 / (4 * self.nuc_pert_strength * self.mag_pert_strength)) * ( (1/(N_nuc_pos*N_mag_pos)) * hf_pgpg - (1/(N_nuc_pos*N_mag_neg)) * hf_pgng - (1/(N_nuc_neg*N_mag_pos)) * hf_ngpg + (1/(N_nuc_neg*N_mag_neg)) * hf_ngng)
+        I = ((1/(N_nuc_pos*N_mag_pos)) * hf_pgpg**2 - (1/(N_nuc_pos*N_mag_neg)) * hf_pgng**2 - (1/(N_nuc_neg*N_mag_pos)) * hf_ngpg**2 + (1/(N_nuc_neg*N_mag_neg)) * hf_ngng**2)
     
-        I = 0
+        #I = 0
 
         # Compute the terms including only one doubly excited determinant in either the bra or ket. 
         for i in range(0, self.ndocc):
@@ -985,18 +985,18 @@ class AAT(object):
         hf_ngng = np.linalg.det(so_overlap_nn[0:2*self.ndocc, 0:2*self.ndocc])
 
         # Compute normalization the normalization for each wavefunction.
-        N_unperturbed = 1#np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.unperturbed_t2), self.unperturbed_t2))
-        N_nuc_pos = 1#np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_pos_t2[alpha]), self.nuc_pos_t2[alpha]))
-        N_nuc_neg = 1#np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_neg_t2[alpha]), self.nuc_neg_t2[alpha]))
-        N_mag_pos = 1#np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.mag_pos_t2[beta]), self.mag_pos_t2[beta]))
-        N_mag_neg = 1#np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.mag_neg_t2[beta]), self.mag_neg_t2[beta]))
+        N_unperturbed = 1#np.sqrt(1 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.unperturbed_t2), self.unperturbed_t2))
+        N_nuc_pos = 1#np.sqrt(1 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_pos_t2[alpha]), self.nuc_pos_t2[alpha]))
+        N_nuc_neg = 1#np.sqrt(1 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_neg_t2[alpha]), self.nuc_neg_t2[alpha]))
+        N_mag_pos = 1#np.sqrt(1 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.mag_pos_t2[beta]), self.mag_pos_t2[beta]))
+        N_mag_neg = 1#np.sqrt(1 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.mag_neg_t2[beta]), self.mag_neg_t2[beta]))
 
         #print(N_nuc_pos - N_nuc_neg, N_mag_pos - N_mag_neg, N_unperturbed)
 
         # Compute the HF term of the CID AAT.
         I = ( (1/(N_nuc_pos*N_mag_pos)) * hf_pgpg - (1/(N_nuc_pos*N_mag_neg)) * hf_pgng - (1/(N_nuc_neg*N_mag_pos)) * hf_ngpg + (1/(N_nuc_neg*N_mag_neg)) * hf_ngng)
 
-        I = 0
+        #I = 0
 
         # Using spin-orbital formulation for MP2 and CID contribution to the AATs.
         ndocc = 2 * self.ndocc
