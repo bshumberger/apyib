@@ -436,11 +436,11 @@ class AAT(object):
         hf_ngng = np.linalg.det(so_overlap_nn[0:2*self.ndocc, 0:2*self.ndocc])
 
         # Compute normalization the normalization for each wavefunction.
-        N_unperturbed = 1#np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.unperturbed_t2), self.unperturbed_t2))
-        N_nuc_pos = 1#np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_pos_t2[alpha]), self.nuc_pos_t2[alpha]))
-        N_nuc_neg = 1#np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_neg_t2[alpha]), self.nuc_neg_t2[alpha]))
-        N_mag_pos = 1#np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.mag_pos_t2[beta]), self.mag_pos_t2[beta]))
-        N_mag_neg = 1#np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.mag_neg_t2[beta]), self.mag_neg_t2[beta]))
+        N_unperturbed = np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.unperturbed_t2), self.unperturbed_t2))
+        N_nuc_pos = np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_pos_t2[alpha]), self.nuc_pos_t2[alpha]))
+        N_nuc_neg = np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_neg_t2[alpha]), self.nuc_neg_t2[alpha]))
+        N_mag_pos = np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.mag_pos_t2[beta]), self.mag_pos_t2[beta]))
+        N_mag_neg = np.sqrt(1 + 0.25**2 * np.einsum('ijab,ijab->', np.conjugate(self.mag_neg_t2[beta]), self.mag_neg_t2[beta]))
 
         #print(N_nuc_pos - N_nuc_neg, N_mag_pos - N_mag_neg, N_unperturbed)
 
@@ -537,11 +537,11 @@ class AAT(object):
         hf_ngng = np.linalg.det(mo_overlap_nn[0:self.ndocc, 0:self.ndocc])
 
         # Compute normalization the normalization for each wavefunction.
-        N_unperturbed = 1#np.sqrt(1 + 0.5**2 * (2*np.einsum('ijab,ijab->', np.conjugate(self.unperturbed_t2), self.unperturbed_t2) - np.einsum('ijab,ijba->', np.conjugate(self.unperturbed_t2), self.unperturbed_t2)))
-        N_nuc_pos = 1#np.sqrt(1 + 0.5**2 * (2*np.einsum('ijab,ijab->', np.conjugate(self.nuc_pos_t2[alpha]), self.nuc_pos_t2[alpha]) - np.einsum('ijab,ijba->', np.conjugate(self.nuc_pos_t2[alpha]), self.nuc_pos_t2[alpha])))
-        N_nuc_neg = 1#np.sqrt(1 + 0.5**2 * (2*np.einsum('ijab,ijab->', np.conjugate(self.nuc_neg_t2[alpha]), self.nuc_neg_t2[alpha]) - np.einsum('ijab,ijba->', np.conjugate(self.nuc_neg_t2[alpha]), self.nuc_neg_t2[alpha])))
-        N_mag_pos = 1#np.sqrt(1 + 0.5**2 * (2*np.einsum('ijab,ijab->', np.conjugate(self.mag_pos_t2[beta]), self.mag_pos_t2[beta]) - np.einsum('ijab,ijba->', np.conjugate(self.mag_pos_t2[beta]), self.mag_pos_t2[beta])))
-        N_mag_neg = 1#np.sqrt(1 + 0.5**2 * (2*np.einsum('ijab,ijab->', np.conjugate(self.mag_neg_t2[beta]), self.mag_neg_t2[beta]) - np.einsum('ijab,ijba->', np.conjugate(self.mag_neg_t2[beta]), self.mag_neg_t2[beta])))
+        N_unperturbed = np.sqrt(1 + (2*np.einsum('ijab,ijab->', np.conjugate(self.unperturbed_t2), self.unperturbed_t2) - np.einsum('ijab,ijba->', np.conjugate(self.unperturbed_t2), self.unperturbed_t2)))
+        N_nuc_pos = np.sqrt(1 + (2*np.einsum('ijab,ijab->', np.conjugate(self.nuc_pos_t2[alpha]), self.nuc_pos_t2[alpha]) - np.einsum('ijab,ijba->', np.conjugate(self.nuc_pos_t2[alpha]), self.nuc_pos_t2[alpha])))
+        N_nuc_neg = np.sqrt(1 + (2*np.einsum('ijab,ijab->', np.conjugate(self.nuc_neg_t2[alpha]), self.nuc_neg_t2[alpha]) - np.einsum('ijab,ijba->', np.conjugate(self.nuc_neg_t2[alpha]), self.nuc_neg_t2[alpha])))
+        N_mag_pos = np.sqrt(1 + (2*np.einsum('ijab,ijab->', np.conjugate(self.mag_pos_t2[beta]), self.mag_pos_t2[beta]) - np.einsum('ijab,ijba->', np.conjugate(self.mag_pos_t2[beta]), self.mag_pos_t2[beta])))
+        N_mag_neg = np.sqrt(1 + (2*np.einsum('ijab,ijab->', np.conjugate(self.mag_neg_t2[beta]), self.mag_neg_t2[beta]) - np.einsum('ijab,ijba->', np.conjugate(self.mag_neg_t2[beta]), self.mag_neg_t2[beta])))
 
         #print(N_nuc_pos - N_nuc_neg, N_mag_pos - N_mag_neg, N_unperturbed)
 
@@ -985,11 +985,11 @@ class AAT(object):
         hf_ngng = np.linalg.det(so_overlap_nn[0:2*self.ndocc, 0:2*self.ndocc])
 
         # Compute normalization the normalization for each wavefunction.
-        N_unperturbed = 1#np.sqrt(1 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.unperturbed_t2), self.unperturbed_t2))
-        N_nuc_pos = 1#np.sqrt(1 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_pos_t2[alpha]), self.nuc_pos_t2[alpha]))
-        N_nuc_neg = 1#np.sqrt(1 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_neg_t2[alpha]), self.nuc_neg_t2[alpha]))
-        N_mag_pos = 1#np.sqrt(1 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.mag_pos_t2[beta]), self.mag_pos_t2[beta]))
-        N_mag_neg = 1#np.sqrt(1 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.mag_neg_t2[beta]), self.mag_neg_t2[beta]))
+        N_unperturbed = np.sqrt(1 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.unperturbed_t2), self.unperturbed_t2))
+        N_nuc_pos = np.sqrt(1 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_pos_t2[alpha]), self.nuc_pos_t2[alpha]))
+        N_nuc_neg = np.sqrt(1 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_neg_t2[alpha]), self.nuc_neg_t2[alpha]))
+        N_mag_pos = np.sqrt(1 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.mag_pos_t2[beta]), self.mag_pos_t2[beta]))
+        N_mag_neg = np.sqrt(1 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.mag_neg_t2[beta]), self.mag_neg_t2[beta]))
 
         #print(N_nuc_pos - N_nuc_neg, N_mag_pos - N_mag_neg, N_unperturbed)
 
