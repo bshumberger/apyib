@@ -58,8 +58,6 @@ class finite_difference(object):
             # Solve the SCF procedure and compute the energy and wavefunction.
             e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
             print("SCF Energy: ", e_tot)
-            print("SCF Electronic Energy: ", e_elec)
-            print("Nuclear Repulsion Energy: ", wfn.H.E_nuc)
 
             # Run Psi4.
             self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
@@ -135,8 +133,6 @@ class finite_difference(object):
             # Solve the SCF procedure and compute the energy and wavefunction.
             e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
             print("SCF Energy: ", e_tot)
-            print("SCF Electronic Energy: ", e_elec)
-            print("Nuclear Repulsion Energy: ", wfn.H.E_nuc)
 
             # Run Psi4.
             self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
@@ -944,6 +940,191 @@ class finite_difference(object):
             self.parameters['F_mag'][alpha] += pert_strength
 
         return pos_e, neg_e, pos_wfns, neg_wfns, pos_basis, neg_basis, pos_t2, neg_t2
+
+
+
+    # Computes the energies and wavefunctions for nuclear displacements.
+    def nuclear_and_electric_field_perturbations(self, nuc_pert_strength, elec_pert_strength):
+        # Set properties of the finite difference procedure.
+        pos_mu = []
+        neg_mu = []
+
+        # Computing energies and wavefunctions with positive displacements.
+        print("Computing energies and wavefunctions for positive nuclear displacements.")
+        for alpha in range(3*self.natom):
+            pert_geom = np.copy(self.geom)
+
+            # Perturb the geometry.
+            pert_geom[alpha // 3][alpha % 3] += nuc_pert_strength
+            pert_geom = psi4.core.Matrix.from_array(pert_geom)
+            self.molecule.set_geometry(pert_geom)
+            self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+
+            pos_e = []
+            neg_e = []
+
+            for beta in range(6):
+                if beta % 2 == 0:
+                    self.parameters['F_el'][beta // 2] += elec_pert_strength
+                if beta % 2 == 1:
+                    self.parameters['F_el'][beta // 2] -= elec_pert_strength
+
+                # Build the Hamiltonian in the AO basis.
+                H = Hamiltonian(self.parameters)
+
+                # Set the Hamiltonian defining this instance of the wavefunction object.
+                wfn = hf_wfn(H)
+
+                # Solve the SCF procedure and compute the energy and wavefunction.
+                e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
+                print("SCF Energy: ", e_tot)
+
+                # Run Psi4.
+                self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+                p4_rhf_e, p4_rhf_wfn = run_psi4(self.parameters)
+                print("Psi4 Energy: ", p4_rhf_e)
+
+                # Computing parameters for the method of choice.
+                if self.parameters['method'] == 'RHF':
+                    if beta % 2 == 0:
+                        pos_e.append(e_tot)
+                    if beta % 2 == 1:
+                        neg_e.append(e_tot)
+                    print("\n")
+
+                if self.parameters['method'] == 'MP2':
+                    # Run MP2 code.
+                    wfn_MP2 = mp2_wfn(self.parameters, e_elec, e_tot, C)
+                    e_MP2, t2 = wfn_MP2.solve_MP2()
+                    print("MP2 Energy: ", e_tot + e_MP2)
+
+                    # Run Psi4.
+                    self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+                    p4_mp2_e, p4_mp2_wfn = run_psi4(self.parameters, 'MP2')
+                    print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
+
+                    # Append new energies, wavefunctions, and amplitudes.
+                    if beta % 2 == 0:
+                        pos_e.append(e_tot + e_MP2)
+                    if beta % 2 == 1:
+                        neg_e.append(e_tot + e_MP2)
+
+                if self.parameters['method'] == 'CID':
+                    # Run CID code.
+                    wfn_CID = ci_wfn(self.parameters, e_elec, e_tot, C)
+                    e_CID, t2 = wfn_CID.solve_CID()
+                    print("CID Energy: ", e_tot + e_CID, "\n")
+
+                    # Append new energies, wavefunctions, and amplitudes. 
+                    if beta % 2 == 0:
+                        pos_e.append(e_tot + e_CID)
+                    if beta % 2 == 1:
+                        neg_e.append(e_tot + e_CID)
+
+                # Reset the field.
+                if beta % 2 == 0:
+                    self.parameters['F_el'][beta // 2] -= elec_pert_strength
+                if beta % 2 == 1:
+                    self.parameters['F_el'][beta // 2] += elec_pert_strength
+
+            # Compute and append electric dipoles.
+            for beta in range(3):
+                mu = -(pos_e[beta] - neg_e[beta]) / (2 * elec_pert_strength)
+                pos_mu.append(mu)
+
+            # Reset the geometry.
+            pert_geom = self.geom
+
+        # Computing energies and wavefunctions with negative displacements.
+        print("Computing energies and wavefunctions for negative nuclear displacements.")
+        for alpha in range(3*self.natom):
+            pert_geom = np.copy(self.geom)
+
+            # Perturb the geometry.
+            pert_geom[alpha // 3][alpha % 3] -= nuc_pert_strength
+            pert_geom = psi4.core.Matrix.from_array(pert_geom)
+            self.molecule.set_geometry(pert_geom)
+            self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+
+            pos_e = []
+            neg_e = []
+
+            for beta in range(6):
+                if beta % 2 == 0:
+                    self.parameters['F_el'][beta // 2] += elec_pert_strength
+                if beta % 2 == 1:
+                    self.parameters['F_el'][beta // 2] -= elec_pert_strength
+
+                # Build the Hamiltonian in the AO basis.
+                H = Hamiltonian(self.parameters)
+
+                # Set the Hamiltonian defining this instance of the wavefunction object.
+                wfn = hf_wfn(H)
+
+                # Solve the SCF procedure and compute the energy and wavefunction.
+                e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
+                print("SCF Energy: ", e_tot)
+
+                # Run Psi4.
+                self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+                p4_rhf_e, p4_rhf_wfn = run_psi4(self.parameters)
+                print("Psi4 Energy: ", p4_rhf_e)
+
+                # Computing parameters for the method of choice.
+                if self.parameters['method'] == 'RHF':
+                    if beta % 2 == 0:
+                        pos_e.append(e_tot)
+                    if beta % 2 == 1:
+                        neg_e.append(e_tot)
+                    print("\n")
+
+                if self.parameters['method'] == 'MP2':
+                    # Run MP2 code.
+                    wfn_MP2 = mp2_wfn(self.parameters, e_elec, e_tot, C)
+                    e_MP2, t2 = wfn_MP2.solve_MP2()
+                    print("MP2 Energy: ", e_tot + e_MP2)
+
+                    # Run Psi4.
+                    self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+                    p4_mp2_e, p4_mp2_wfn = run_psi4(self.parameters, 'MP2')
+                    print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
+
+                    # Append new energies, wavefunctions, and amplitudes.
+                    if beta % 2 == 0:
+                        pos_e.append(e_tot + e_MP2)
+                    if beta % 2 == 1:
+                        neg_e.append(e_tot + e_MP2)
+
+                if self.parameters['method'] == 'CID':
+                    # Run CID code.
+                    wfn_CID = ci_wfn(self.parameters, e_elec, e_tot, C)
+                    e_CID, t2 = wfn_CID.solve_CID()
+                    print("CID Energy: ", e_tot + e_CID, "\n")
+
+                    # Append new energies, wavefunctions, and amplitudes. 
+                    if beta % 2 == 0:
+                        pos_e.append(e_tot + e_CID)
+                    if beta % 2 == 1:
+                        neg_e.append(e_tot + e_CID)
+
+                # Reset the field.
+                if beta % 2 == 0:
+                    self.parameters['F_el'][beta // 2] -= elec_pert_strength
+                if beta % 2 == 1:
+                    self.parameters['F_el'][beta // 2] += elec_pert_strength
+
+            # Compute and append electric dipoles.
+            for beta in range(3):
+                mu = -(pos_e[beta] - neg_e[beta]) / (2 * elec_pert_strength)
+                neg_mu.append(mu)
+
+            # Reset the geometry.
+            pert_geom = self.geom
+
+        return pos_mu, neg_mu
+
+
+
 
 
 

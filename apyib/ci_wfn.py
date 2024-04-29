@@ -49,7 +49,7 @@ class ci_wfn(object):
         E = 0.0 
         for i in range(0,self.no):
             E += H_core_MO[i][i] + self.F_MO[i][i]
-        print('Total Energy from SCF in CID Code:', E + self.H.E_nuc)
+        #print('Total Energy from SCF in CID Code:', E + self.H.E_nuc)
 
 
     def solve_CID(self):
