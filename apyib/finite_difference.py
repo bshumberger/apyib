@@ -943,7 +943,7 @@ class finite_difference(object):
 
 
 
-    # Computes the energies and wavefunctions for nuclear displacements.
+    # Computes the dipole moment derivatives using electric field perturbations and nuclear displacements.
     def nuclear_and_electric_field_perturbations(self, nuc_pert_strength, elec_pert_strength):
         # Set properties of the finite difference procedure.
         pos_mu = []
@@ -1125,7 +1125,266 @@ class finite_difference(object):
 
 
 
+    # Computes the Hessian using nuclear displacements.
+    def second_nuclear_displacements(self, nuc_pert_strength):
+        # Set properties of the finite difference procedure.
+        pos_E = [] 
+        neg_E = [] 
 
+        # Computing energies and wavefunctions with positive displacements.
+        print("Computing energies and wavefunctions for positive nuclear displacements.")
+        for alpha in range(3*self.natom):
+            pert_geom = np.copy(self.geom)
 
+            # Perturb the geometry.
+            pert_geom[alpha // 3][alpha % 3] += nuc_pert_strength
+            pert_geom_alpha = np.copy(pert_geom)
 
+            pos_e = [] 
+            neg_e = [] 
 
+            # Perturb the geometry again.
+            for beta in range(3*self.natom):
+                pert_geom_alpha[beta // 3][beta % 3] += nuc_pert_strength
+                pert_geom_alpha_beta = psi4.core.Matrix.from_array(pert_geom_alpha)
+                self.molecule.set_geometry(pert_geom_alpha_beta)
+                self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+
+                # Build the Hamiltonian in the AO basis.
+                H = Hamiltonian(self.parameters)
+                #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(H.basis_set)).np)
+
+                # Set the Hamiltonian defining this instance of the wavefunction object.
+                wfn = hf_wfn(H)
+
+                # Solve the SCF procedure and compute the energy and wavefunction.
+                e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
+                print("SCF Energy: ", e_tot)
+
+                # Run Psi4.
+                self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+                p4_rhf_e, p4_rhf_wfn = run_psi4(self.parameters)
+                print("Psi4 Energy: ", p4_rhf_e)
+
+                # Computing parameters for the method of choice.
+                if self.parameters['method'] == 'RHF':
+                    pos_e.append(e_tot)
+                    print("\n")
+
+                if self.parameters['method'] == 'MP2':
+                    # Run MP2 code.
+                    wfn_MP2 = mp2_wfn(self.parameters, e_elec, e_tot, C)
+                    e_MP2, t2 = wfn_MP2.solve_MP2()
+                    print("MP2 Energy: ", e_tot + e_MP2)
+
+                    # Run Psi4.
+                    self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+                    p4_mp2_e, p4_mp2_wfn = run_psi4(self.parameters, 'MP2')
+                    print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
+
+                    # Append new energies, wavefunctions, and amplitudes.
+                    pos_e.append(e_tot + e_MP2)
+
+                if self.parameters['method'] == 'CID':
+                    # Run CID code.
+                    wfn_CID = ci_wfn(self.parameters, e_elec, e_tot, C)
+                    e_CID, t2 = wfn_CID.solve_CID()
+                    print("CID Energy: ", e_tot + e_CID, "\n")
+
+                    # Append new energies, wavefunctions, and amplitudes. 
+                    pos_e.append(e_tot + e_CID)
+
+                # Reset the second geometric perturbation.
+                pert_geom_alpha = np.copy(pert_geom)
+
+            # Perturb the geometry again.
+            for beta in range(3*self.natom):
+                pert_geom_alpha[beta // 3][beta % 3] -= nuc_pert_strength
+                pert_geom_alpha_beta = psi4.core.Matrix.from_array(pert_geom_alpha)
+                self.molecule.set_geometry(pert_geom_alpha_beta)
+                self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+
+                # Build the Hamiltonian in the AO basis.
+                H = Hamiltonian(self.parameters)
+                #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(H.basis_set)).np)
+
+                # Set the Hamiltonian defining this instance of the wavefunction object.
+                wfn = hf_wfn(H)
+
+                # Solve the SCF procedure and compute the energy and wavefunction.
+                e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
+                print("SCF Energy: ", e_tot)
+
+                # Run Psi4.
+                self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+                p4_rhf_e, p4_rhf_wfn = run_psi4(self.parameters)
+                print("Psi4 Energy: ", p4_rhf_e)
+
+                # Computing parameters for the method of choice.
+                if self.parameters['method'] == 'RHF':
+                    neg_e.append(e_tot)
+                    print("\n")
+
+                if self.parameters['method'] == 'MP2':
+                    # Run MP2 code.
+                    wfn_MP2 = mp2_wfn(self.parameters, e_elec, e_tot, C)
+                    e_MP2, t2 = wfn_MP2.solve_MP2()
+                    print("MP2 Energy: ", e_tot + e_MP2)
+
+                    # Run Psi4.
+                    self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+                    p4_mp2_e, p4_mp2_wfn = run_psi4(self.parameters, 'MP2')
+                    print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
+
+                    # Append new energies, wavefunctions, and amplitudes.
+                    neg_e.append(e_tot + e_MP2)
+
+                if self.parameters['method'] == 'CID':
+                    # Run CID code.
+                    wfn_CID = ci_wfn(self.parameters, e_elec, e_tot, C)
+                    e_CID, t2 = wfn_CID.solve_CID()
+                    print("CID Energy: ", e_tot + e_CID, "\n")
+
+                    # Append new energies, wavefunctions, and amplitudes. 
+                    neg_e.append(e_tot + e_CID)
+
+                # Reset the second geometric perturbation.
+                pert_geom_alpha = np.copy(pert_geom)
+
+            # Compute and append gradients.
+            for beta in range(len(pos_e)):
+                g = (pos_e[beta] - neg_e[beta]) / (2 * nuc_pert_strength)
+                pos_E.append(g)
+
+            # Reset the geometry.
+            pert_geom = np.copy(self.geom)
+
+        # Computing energies and wavefunctions with negative displacements.
+        print("Computing energies and wavefunctions for negative nuclear displacements.")
+        for alpha in range(3*self.natom):
+            pert_geom = np.copy(self.geom)
+
+            # Perturb the geometry.
+            pert_geom[alpha // 3][alpha % 3] -= nuc_pert_strength
+            pert_geom_alpha = np.copy(pert_geom)
+
+            pos_e = []
+            neg_e = []
+
+            # Perturb the geometry again.
+            for beta in range(3*self.natom):
+                pert_geom_alpha[beta // 3][beta % 3] += nuc_pert_strength
+                pert_geom_alpha_beta = psi4.core.Matrix.from_array(pert_geom_alpha)
+                self.molecule.set_geometry(pert_geom_alpha_beta)
+                self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+
+                # Build the Hamiltonian in the AO basis.
+                H = Hamiltonian(self.parameters)
+                #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(H.basis_set)).np)
+
+                # Set the Hamiltonian defining this instance of the wavefunction object.
+                wfn = hf_wfn(H)
+
+                # Solve the SCF procedure and compute the energy and wavefunction.
+                e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
+                print("SCF Energy: ", e_tot)
+
+                # Run Psi4.
+                self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+                p4_rhf_e, p4_rhf_wfn = run_psi4(self.parameters)
+                print("Psi4 Energy: ", p4_rhf_e)
+
+                # Computing parameters for the method of choice.
+                if self.parameters['method'] == 'RHF':
+                    pos_e.append(e_tot)
+                    print("\n")
+
+                if self.parameters['method'] == 'MP2':
+                    # Run MP2 code.
+                    wfn_MP2 = mp2_wfn(self.parameters, e_elec, e_tot, C)
+                    e_MP2, t2 = wfn_MP2.solve_MP2()
+                    print("MP2 Energy: ", e_tot + e_MP2)
+
+                    # Run Psi4.
+                    self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+                    p4_mp2_e, p4_mp2_wfn = run_psi4(self.parameters, 'MP2')
+                    print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
+
+                    # Append new energies, wavefunctions, and amplitudes.
+                    pos_e.append(e_tot + e_MP2)
+
+                if self.parameters['method'] == 'CID':
+                    # Run CID code.
+                    wfn_CID = ci_wfn(self.parameters, e_elec, e_tot, C)
+                    e_CID, t2 = wfn_CID.solve_CID()
+                    print("CID Energy: ", e_tot + e_CID, "\n")
+
+                    # Append new energies, wavefunctions, and amplitudes. 
+                    pos_e.append(e_tot + e_CID)
+
+                # Reset the second geometric perturbation.
+                pert_geom_alpha = np.copy(pert_geom)
+
+            # Perturb the geometry again.
+            for beta in range(3*self.natom):
+                pert_geom_alpha[beta // 3][beta % 3] -= nuc_pert_strength
+                pert_geom_alpha_beta = psi4.core.Matrix.from_array(pert_geom_alpha)
+                self.molecule.set_geometry(pert_geom_alpha_beta)
+                self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+
+                # Build the Hamiltonian in the AO basis.
+                H = Hamiltonian(self.parameters)
+                #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(H.basis_set)).np)
+
+                # Set the Hamiltonian defining this instance of the wavefunction object.
+                wfn = hf_wfn(H)
+
+                # Solve the SCF procedure and compute the energy and wavefunction.
+                e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
+                print("SCF Energy: ", e_tot)
+
+                # Run Psi4.
+                self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+                p4_rhf_e, p4_rhf_wfn = run_psi4(self.parameters)
+                print("Psi4 Energy: ", p4_rhf_e)
+
+                # Computing parameters for the method of choice.
+                if self.parameters['method'] == 'RHF':
+                    neg_e.append(e_tot)
+                    print("\n")
+
+                if self.parameters['method'] == 'MP2':
+                    # Run MP2 code.
+                    wfn_MP2 = mp2_wfn(self.parameters, e_elec, e_tot, C)
+                    e_MP2, t2 = wfn_MP2.solve_MP2()
+                    print("MP2 Energy: ", e_tot + e_MP2)
+
+                    # Run Psi4.
+                    self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+                    p4_mp2_e, p4_mp2_wfn = run_psi4(self.parameters, 'MP2')
+                    print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
+
+                    # Append new energies, wavefunctions, and amplitudes.
+                    neg_e.append(e_tot + e_MP2)
+
+                if self.parameters['method'] == 'CID':
+                    # Run CID code.
+                    wfn_CID = ci_wfn(self.parameters, e_elec, e_tot, C)
+                    e_CID, t2 = wfn_CID.solve_CID()
+                    print("CID Energy: ", e_tot + e_CID, "\n")
+
+                    # Append new energies, wavefunctions, and amplitudes. 
+                    neg_e.append(e_tot + e_CID)
+
+                # Reset the second geometric perturbation.
+                pert_geom_alpha = np.copy(pert_geom)
+
+            # Compute and append gradients.
+            for beta in range(len(pos_e)):
+                g = (pos_e[beta] - neg_e[beta]) / (2 * nuc_pert_strength)
+                neg_E.append(g)
+
+            # Reset the geometry.
+            pert_geom = np.copy(self.geom)
+
+        return pos_E, neg_E
