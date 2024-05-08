@@ -395,7 +395,7 @@ class AAT(object):
         # Compute the AAT.
         I = (1 / (4 * self.nuc_pert_strength * self.mag_pert_strength)) * (hf_pp - hf_np - hf_pn + hf_nn)
 
-        return I
+        return I.imag
 
 
 
@@ -505,7 +505,7 @@ class AAT(object):
                                         I += 0.25**2 * np.conjugate(self.nuc_neg_t2[alpha][i][j][a-ndocc][b-ndocc]) * self.mag_neg_t2[beta][k][l][c-ndocc][d-ndocc] * (1/(N_nuc_neg*N_mag_neg)) * det_overlap_enen # FD1
 
  
-        return I * 1/(4 * self.nuc_pert_strength * self.mag_pert_strength)
+        return (I * 1/(4 * self.nuc_pert_strength * self.mag_pert_strength)).imag
 
 
 
@@ -944,7 +944,7 @@ class AAT(object):
 
 
 
-        return I * (1 / (4 * self.nuc_pert_strength * self.mag_pert_strength))
+        return (I * (1 / (4 * self.nuc_pert_strength * self.mag_pert_strength))).imag
 
 
 
@@ -1066,7 +1066,7 @@ class AAT(object):
                                         I += 0.25**2 * np.conjugate(self.unperturbed_t2[i][j][a-ndocc][b-ndocc]) * self.unperturbed_t2[k][l][c-ndocc][d-ndocc] * ((1/(N_nuc_pos*N_mag_pos)) * det_overlap_epep - (1/(N_nuc_pos*N_mag_neg)) * det_overlap_epen - (1/(N_nuc_neg*N_mag_pos)) * det_overlap_enep + (1/(N_nuc_neg*N_mag_neg)) * det_overlap_enen)
 
 
-        return I * 1/(4 * self.nuc_pert_strength * self.mag_pert_strength)
+        return (I * 1/(4 * self.nuc_pert_strength * self.mag_pert_strength)).imag
 
 
 

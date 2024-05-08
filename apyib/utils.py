@@ -171,6 +171,7 @@ def compute_F_SO(wfn, F_MO):
     return F_SO
 
 
+
 def compute_ERI_SO(wfn, ERI_MO):
     """
     Compute the spin orbital electron repulsion integrals from the MO basis electron repulsion integrals.
@@ -219,6 +220,44 @@ def compute_ERI_SO(wfn, ERI_MO):
                     ERI_SO[p,q,r,s] = ERI_MO[p//2,q//2,r//2,s//2] * spin_int
 
     return ERI_SO
+
+
+
+def line_shape(frequency, intensity, fwhm, number_of_points, min_freq, max_freq):
+    """
+    Fits the VCD rotatory strengths to a line shape function.
+    """
+    # Sorts the frequencies and intensities for a given test in ascending order of frequencies.
+    freq, ints = zip(*sorted(zip(frequency, intensity)))
+
+    # Define the interval at which points will be plotted for the x-coordinate.
+    delta = float((max_freq - min_freq)/number_of_points)
+
+    # Obtain the values associated with the x-coordinates in cm-1.
+    freq_axis = np.arange(min_freq, max_freq, delta)
+
+    # Initialize the array associated with the y-coordinates.
+    ints_axis = np.zeros_like(freq_axis)
+
+    # Compute the intensity associated with the given frequency.
+    for a in range(len(freq_axis)):
+        for b in range(len(freq)):
+            ints_axis[a] += ints[b]*((0.5 * fwhm)**2/(4*(freq_axis[a]-freq[b])**2+(0.5 * fwhm)**2))
+
+    return freq_axis, ints_axis
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
