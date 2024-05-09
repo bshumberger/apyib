@@ -407,17 +407,12 @@ class AAT(object):
 
     # Computes the Hartree-Fock AATs.
     def compute_hf_aat(self, alpha, beta):
-        # Compute phase corrected wavefunctions.
-        pc_nuc_pos_wfn = self.nuc_pos_wfn[alpha] #compute_phase(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, self.nuc_pos_basis[alpha], self.nuc_pos_wfn[alpha])
-        pc_nuc_neg_wfn = self.nuc_neg_wfn[alpha] #compute_phase(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, self.nuc_neg_basis[alpha], self.nuc_neg_wfn[alpha])
-        pc_mag_pos_wfn = self.mag_pos_wfn[beta] #compute_phase(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, self.mag_pos_basis[beta], self.mag_pos_wfn[beta])
-        pc_mag_neg_wfn = self.mag_neg_wfn[beta] #compute_phase(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, self.mag_neg_basis[beta], self.mag_neg_wfn[beta])
 
         # Compute molecular orbital overlaps with phase correction applied.
-        mo_overlap_pp = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_pos_basis[alpha], pc_nuc_pos_wfn, self.mag_pos_basis[beta], pc_mag_pos_wfn)
-        mo_overlap_np = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_neg_basis[alpha], pc_nuc_neg_wfn, self.mag_pos_basis[beta], pc_mag_pos_wfn)
-        mo_overlap_pn = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_pos_basis[alpha], pc_nuc_pos_wfn, self.mag_neg_basis[beta], pc_mag_neg_wfn)
-        mo_overlap_nn = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_neg_basis[alpha], pc_nuc_neg_wfn, self.mag_neg_basis[beta], pc_mag_neg_wfn)
+        mo_overlap_pp = self.mo_overlap_pp[alpha][beta] 
+        mo_overlap_np = self.mo_overlap_np[alpha][beta] 
+        mo_overlap_pn = self.mo_overlap_pn[alpha][beta] 
+        mo_overlap_nn = self.mo_overlap_nn[alpha][beta] 
 
         # Compute Hartree-Fock overlaps.
         # The HF determinant in the spatial orbital basis needs to be squared to acount for the beta spin.
