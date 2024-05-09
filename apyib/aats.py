@@ -109,16 +109,16 @@ class AAT(object):
     def __init__(self, parameters, nbf, ndocc, unperturbed_wfn, unperturbed_basis, unperturbed_t2, nuc_pos_wfn, nuc_neg_wfn, nuc_pos_basis, nuc_neg_basis, nuc_pos_t2, nuc_neg_t2, mag_pos_wfn, mag_neg_wfn, mag_pos_basis, mag_neg_basis, mag_pos_t2, mag_neg_t2, nuc_pert_strength, mag_pert_strength):
 
         # Basis sets and wavefunctions from calculations with respect to nuclear displacements.
-        self.nuc_pos_basis = nuc_pos_basis
-        self.nuc_neg_basis = nuc_neg_basis
+        #self.nuc_pos_basis = nuc_pos_basis
+        #self.nuc_neg_basis = nuc_neg_basis
         self.nuc_pos_wfn = nuc_pos_wfn
         self.nuc_neg_wfn = nuc_neg_wfn
         self.nuc_pos_t2 = nuc_pos_t2
         self.nuc_neg_t2 = nuc_neg_t2
 
         # Basis sets and wavefunctions from calculations with respect to magnetic field perturbations.
-        self.mag_pos_basis = mag_pos_basis
-        self.mag_neg_basis = mag_neg_basis
+        #self.mag_pos_basis = mag_pos_basis
+        #self.mag_neg_basis = mag_neg_basis
         self.mag_pos_wfn = mag_pos_wfn
         self.mag_neg_wfn = mag_neg_wfn
         self.mag_pos_t2 = mag_pos_t2
@@ -129,13 +129,47 @@ class AAT(object):
         self.mag_pert_strength = mag_pert_strength
 
         # Components required for permutations.
+        H = Hamiltonian(parameters)
+        natom = H.molecule.natom()
         self.nbf = nbf
         self.ndocc = ndocc
 
         # Components required for unperturbed wavefunction.
-        self.unperturbed_basis = unperturbed_basis
+        #self.unperturbed_basis = unperturbed_basis
         self.unperturbed_wfn = unperturbed_wfn
         self.unperturbed_t2 = unperturbed_t2
+
+        # Compute SO overlaps.
+        # < psi | psi >
+        self.mo_overlap_uu = compute_mo_overlap(self.ndocc, self.nbf, unperturbed_basis, self.unperturbed_wfn, unperturbed_basis, self.unperturbed_wfn)
+
+        # < psi | dpsi/dH >
+        self.mo_overlap_up = []
+        self.mo_overlap_un = []
+        for beta in range(3):
+            self.mo_overlap_up.append(compute_mo_overlap(self.ndocc, self.nbf, unperturbed_basis, self.unperturbed_wfn, mag_pos_basis[beta], self.mag_pos_wfn[beta]))
+            self.mo_overlap_un.append(compute_mo_overlap(self.ndocc, self.nbf, unperturbed_basis, self.unperturbed_wfn, mag_neg_basis[beta], self.mag_neg_wfn[beta]))
+
+        # < dpsi/dR | psi >
+        self.mo_overlap_pu = []
+        self.mo_overlap_nu = []
+        for alpha in range(3*natom):
+            self.mo_overlap_pu.append(compute_mo_overlap(self.ndocc, self.nbf, nuc_pos_basis[alpha], self.nuc_pos_wfn[alpha], unperturbed_basis, self.unperturbed_wfn))
+            self.mo_overlap_nu.append(compute_mo_overlap(self.ndocc, self.nbf, nuc_neg_basis[alpha], self.nuc_neg_wfn[alpha], unperturbed_basis, self.unperturbed_wfn))
+
+        # < dpsi/dR | dpsi/dH >
+        alpha = 3 * natom
+        beta = 3
+        self.mo_overlap_pp = [[[] for _ in range(beta)] for _ in range(alpha)]
+        self.mo_overlap_pn = [[[] for _ in range(beta)] for _ in range(alpha)] 
+        self.mo_overlap_np = [[[] for _ in range(beta)] for _ in range(alpha)] 
+        self.mo_overlap_nn = [[[] for _ in range(beta)] for _ in range(alpha)] 
+        for alpha in range(3*natom):
+            for beta in range(3):
+                self.mo_overlap_pp[alpha][beta] = compute_mo_overlap(self.ndocc, self.nbf, nuc_pos_basis[alpha], self.nuc_pos_wfn[alpha], mag_pos_basis[beta], self.mag_pos_wfn[beta])
+                self.mo_overlap_pn[alpha][beta] = compute_mo_overlap(self.ndocc, self.nbf, nuc_pos_basis[alpha], self.nuc_pos_wfn[alpha], mag_neg_basis[beta], self.mag_neg_wfn[beta])
+                self.mo_overlap_np[alpha][beta] = compute_mo_overlap(self.ndocc, self.nbf, nuc_neg_basis[alpha], self.nuc_neg_wfn[alpha], mag_pos_basis[beta], self.mag_pos_wfn[beta])
+                self.mo_overlap_nn[alpha][beta] = compute_mo_overlap(self.ndocc, self.nbf, nuc_neg_basis[alpha], self.nuc_neg_wfn[alpha], mag_neg_basis[beta], self.mag_neg_wfn[beta])
 
     ## Computes the permutations required for the Hartree-Fock wavefunction.
     #def compute_perms(self):
@@ -512,23 +546,42 @@ class AAT(object):
 # Computes the terms in the CID AATs with spatial orbitals. Note that the phase corrections were applied in the finite difference code.
     def compute_cid_aat(self, alpha, beta):
 
-        # Compute SO overlaps.
+        ## Compute MO overlaps.
+        ## < psi | psi >
+        #mo_overlap_uu = compute_mo_overlap(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, self.unperturbed_basis, self.unperturbed_wfn)
+
+        ## < psi | dpsi/dH >
+        #mo_overlap_up = compute_mo_overlap(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, self.mag_pos_basis[beta], self.mag_pos_wfn[beta])
+        #mo_overlap_un = compute_mo_overlap(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, self.mag_neg_basis[beta], self.mag_neg_wfn[beta])
+
+        ## < dpsi/dR | psi >
+        #mo_overlap_pu = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_pos_basis[alpha], self.nuc_pos_wfn[alpha], self.unperturbed_basis, self.unperturbed_wfn)
+        #mo_overlap_nu = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_neg_basis[alpha], self.nuc_neg_wfn[alpha], self.unperturbed_basis, self.unperturbed_wfn)
+
+        ## < dpsi/dR | dpsi/dH >
+        #mo_overlap_pp = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_pos_basis[alpha], self.nuc_pos_wfn[alpha], self.mag_pos_basis[beta], self.mag_pos_wfn[beta])
+        #mo_overlap_pn = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_pos_basis[alpha], self.nuc_pos_wfn[alpha], self.mag_neg_basis[beta], self.mag_neg_wfn[beta])
+        #mo_overlap_np = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_neg_basis[alpha], self.nuc_neg_wfn[alpha], self.mag_pos_basis[beta], self.mag_pos_wfn[beta])
+        #mo_overlap_nn = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_neg_basis[alpha], self.nuc_neg_wfn[alpha], self.mag_neg_basis[beta], self.mag_neg_wfn[beta])
+
+        # Compute MO overlaps.
         # < psi | psi >
-        mo_overlap_uu = compute_mo_overlap(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, self.unperturbed_basis, self.unperturbed_wfn)
+        mo_overlap_uu = self.mo_overlap_uu
 
         # < psi | dpsi/dH >
-        mo_overlap_up = compute_mo_overlap(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, self.mag_pos_basis[beta], self.mag_pos_wfn[beta])
-        mo_overlap_un = compute_mo_overlap(self.ndocc, self.nbf, self.unperturbed_basis, self.unperturbed_wfn, self.mag_neg_basis[beta], self.mag_neg_wfn[beta])
+        mo_overlap_up = self.mo_overlap_up[beta]
+        mo_overlap_un = self.mo_overlap_un[beta]
 
         # < dpsi/dR | psi >
-        mo_overlap_pu = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_pos_basis[alpha], self.nuc_pos_wfn[alpha], self.unperturbed_basis, self.unperturbed_wfn)
-        mo_overlap_nu = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_neg_basis[alpha], self.nuc_neg_wfn[alpha], self.unperturbed_basis, self.unperturbed_wfn)
+        mo_overlap_pu = self.mo_overlap_pu[alpha]
+        mo_overlap_nu = self.mo_overlap_nu[alpha]
 
         # < dpsi/dR | dpsi/dH >
-        mo_overlap_pp = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_pos_basis[alpha], self.nuc_pos_wfn[alpha], self.mag_pos_basis[beta], self.mag_pos_wfn[beta])
-        mo_overlap_pn = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_pos_basis[alpha], self.nuc_pos_wfn[alpha], self.mag_neg_basis[beta], self.mag_neg_wfn[beta])
-        mo_overlap_np = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_neg_basis[alpha], self.nuc_neg_wfn[alpha], self.mag_pos_basis[beta], self.mag_pos_wfn[beta])
-        mo_overlap_nn = compute_mo_overlap(self.ndocc, self.nbf, self.nuc_neg_basis[alpha], self.nuc_neg_wfn[alpha], self.mag_neg_basis[beta], self.mag_neg_wfn[beta])
+        mo_overlap_pp = self.mo_overlap_pp[alpha][beta] 
+        mo_overlap_pn = self.mo_overlap_pn[alpha][beta] 
+        mo_overlap_np = self.mo_overlap_np[alpha][beta] 
+        mo_overlap_nn = self.mo_overlap_nn[alpha][beta] 
+
 
         # Compute Hartree-Fock overlaps.
         hf_pgpg = np.linalg.det(mo_overlap_pp[0:self.ndocc, 0:self.ndocc])
