@@ -104,6 +104,8 @@ class vcd(object):
         neg_e = neg_e.reshape((3 * self.natom, 3 * self.natom))
         hessian = (pos_e - neg_e) / (2 * hessian_nuc_disp)
 
+        print("Hessian (au): \n", hessian)
+
         # Mass weight the Cartesian coordinate Hessian [E_h / (m_e * a_0**2].
         mass_weight = np.eye((3 * self.natom))
         for i in range(3 * self.natom):
@@ -136,6 +138,8 @@ class vcd(object):
         P = (pos_mu - neg_mu) / (2 * APT_nuc_disp)
         P_i = P.T @ S
 
+        print("Atomic Polar Tensors (au): \n", P)
+
         # Compute energies and wavefunctions for finite difference calculations of nuclear displacements for AATs.
         nuc_pos_e, nuc_neg_e, nuc_pos_wfns, nuc_neg_wfns, nuc_pos_basis, nuc_neg_basis, nuc_pos_t2, nuc_neg_t2 = fin_diff.nuclear_displacements(AAT_nuc_disp)
 
@@ -154,6 +158,8 @@ class vcd(object):
                 elif self.parameters['method'] == 'MP2' or self.parameters['method'] == 'CID':
                     I[lambd_alpha][beta] = AATs.compute_cid_aat(lambd_alpha, beta)
 
+        print("Electronic Atomic Axial Tensors (au): \n", I)
+
         # Compute the nuclear component of the AATs [(e * h) / m_e].
         geom, mass, elem, Z, uniq = self.H.molecule.to_arrays()
 
@@ -164,6 +170,8 @@ class vcd(object):
             for beta in range(3):
                 for gamma in range(3):
                     J[lambd_alpha][beta] += 1/4 * eps[alpha, beta, gamma] * geom[lambd, gamma] * Z[lambd]
+
+        print("Nuclear Atomic Axial Tensors (au): \n", J)
 
         # Compute the AATs in the normal coordinate basis [(e * h) / m_e].
         M = I + J
@@ -186,10 +194,107 @@ class vcd(object):
 
 
 
+    def compute_vcd_from_input(self, Hessian, APT, AAT_elec):
+        """
+        Compute components for VCD spectral generation from user input.
+        """
+        # Set up physical constants.
+        _c = psi4.qcel.constants.get("speed of light in vacuum") # m/s
+        _me = psi4.qcel.constants.get("electron mass") # kg
+        _na = psi4.qcel.constants.get("Avogadro constant") # 1/mol
+        _e = psi4.qcel.constants.get("atomic unit of charge") # C 
+        _e0 = psi4.qcel.constants.get("electric constant") # F/m = s^4 A^2/(kg m^3)
+        _h = psi4.qcel.constants.get("Planck constant") # J s
+        _hbar = _h/(2*np.pi) # J s/rad
+        _mu0 = 1/(_c**2 * _e0) # s^2/(m F) = kg m/(s^2 A^2)
+        _ke = 1/(4 * np.pi * _e0) # kg m^3/(C^2 s^2)
+        _alpha = _ke * _e**2/(_hbar * _c) # dimensionless
+        _a0 = _hbar/(_me * _c * _alpha) # m 
+        _Eh = (_hbar**2)/(_me * _a0**2) # J 
+        _u = 1/(1000 * _na) # kg
+        _D = 1/(10**(21) * _c) # C m/Debye
+        _bohr2angstroms = _a0 * 10**(10)
 
+        # Frequencies in au --> cm^-1
+        conv_freq_au2wavenumber = np.sqrt(_Eh/(_a0 * _a0 * _me)) * (1.0/(2.0 * np.pi * _c * 100.0))
+        # IR intensities in au --> km/mol
+        conv_ir_au2kmmol = (_e**2 * _ke * _na * np.pi)/(1000 * 3 * _me * _c**2)
+        # VCD rotatory strengths in au --> (esu cm)**2 * (10**(44))
+        conv_vcd_au2cgs = (_e**2 * _hbar * _a0)/(_me * _c) * (1000 * _c)**2 * (10**(44))
 
+        # Set up the Levi-Civita tensor.
+        epsilon = [[[0, 0, 0],
+                    [0, 0, 1],
+                    [0, -1, 0]],
+                   [[0, 0, -1],
+                    [0, 0, 0,],
+                    [1, 0, 0]],
+                   [[0, 1, 0],
+                    [-1, 0, 0],
+                    [0, 0, 0]]]
 
+        eps = np.array(epsilon)
 
+        # Obtain Hessian from user input.
+        hessian = Hessian.copy()
+
+        # Mass weight the Cartesian coordinate Hessian [E_h / (m_e * a_0**2].
+        mass_weight = np.eye((3 * self.natom))
+        for i in range(3 * self.natom):
+            mass_weight[i] *= np.sqrt(1 / (self.H.molecule.mass(i // 3) * _u / _me))
+
+        # Obtain the normal coordinate Hessian [E_h / (m_e * a_0**2].
+        hessian_m = mass_weight.T @ hessian @ mass_weight
+
+        # Compute the eigenvalues and eigenvectors.
+        l, L_m = np.linalg.eigh(hessian_m)
+
+        # Mass weight the eigenvectors.
+        L = mass_weight @ L_m
+
+        # Flip the eigenvalues and eigenvectors and capture only the vibrational degrees of freedom.
+        S = np.flip(L, 1)[:,0:(3 * self.natom - 6)]
+        l = np.flip(l)[0:(3 * self.natom - 6)]
+
+        # Compute the vibrational frequencies in atomic units.
+        w = np.sqrt(l)
+
+        # Compute the APTs in the normal coordinate basis [(e * a_0) / (a_0 * sqrt(m_e))].
+        P = APT.copy()
+        P_i = P.T @ S 
+
+        # Compute the electronic component of the AATs [(e * h) / m_e].
+        I = AAT_elec.copy()
+
+        # Compute the nuclear component of the AATs [(e * h) / m_e].
+        geom, mass, elem, Z, uniq = self.H.molecule.to_arrays()
+
+        J = np.zeros((3 * self.natom, 3)) 
+        for lambd_alpha in range(3 * self.natom):
+            alpha = lambd_alpha % 3 
+            lambd = lambd_alpha // 3
+            for beta in range(3):
+                for gamma in range(3):
+                    J[lambd_alpha][beta] += 1/4 * eps[alpha, beta, gamma] * geom[lambd, gamma] * Z[lambd]
+
+        # Compute the AATs in the normal coordinate basis [(e * h) / m_e].
+        M = I + J
+        M_i = M.T @ S 
+
+        # Compute the VCD rotational strengths and IR dipole strengths.
+        R = np.zeros((3 * self.natom - 6)) 
+        D = np.zeros((3 * self.natom - 6)) 
+        for i in range(3 * self.natom - 6): 
+            R[i] = np.einsum('i,i->', P_i[:,i].real, M_i[:,i].real)
+            D[i] = np.einsum('i,i->', P_i[:,i].real, P_i[:,i].real)
+
+        print("\nFrequency   IR Intensity   Rotational Strength")
+        print(" (cm-1)      (km/mol)    (esu**2 cm**2 10**44)")
+        print("----------------------------------------------")
+        for i in range(3 * self.natom - 6): 
+            print(f" {w[i] * conv_freq_au2wavenumber:7.2f}     {D[i] * conv_ir_au2kmmol:8.3f}        {R[i] * conv_vcd_au2cgs:8.3f}")
+
+        return w * conv_freq_au2wavenumber, D * conv_ir_au2kmmol, R * conv_vcd_au2cgs
 
 
 

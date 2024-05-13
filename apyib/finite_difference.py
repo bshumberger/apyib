@@ -57,12 +57,12 @@ class finite_difference(object):
 
             # Solve the SCF procedure and compute the energy and wavefunction.
             e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
-            #print("SCF Energy: ", e_tot)
+            print("SCF Energy: ", e_tot)
 
             # Run Psi4.
             self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
             p4_rhf_e, p4_rhf_wfn = run_psi4(self.parameters)
-            #print("Psi4 Energy: ", p4_rhf_e)
+            print("Psi4 Energy: ", p4_rhf_e)
 
             # Computing parameters for the method of choice.
             if self.parameters['method'] == 'RHF':
@@ -71,7 +71,7 @@ class finite_difference(object):
                 pos_wfns.append(pc_C)
                 t2 = np.zeros((wfn.ndocc, wfn.ndocc, wfn.nbf-wfn.ndocc, wfn.nbf-wfn.ndocc))
                 pos_t2.append(t2)
-                #print("\n")
+                print("\n")
 
             if self.parameters['method'] == 'MP2':
                 # Correct the phase.
@@ -80,12 +80,12 @@ class finite_difference(object):
                 # Run MP2 code.
                 wfn_MP2 = mp2_wfn(self.parameters, e_elec, e_tot, pc_C)
                 e_MP2, t2 = wfn_MP2.solve_MP2()
-                #print("MP2 Energy: ", e_tot + e_MP2)
+                print("MP2 Energy: ", e_tot + e_MP2)
                 
                 # Run Psi4.
                 self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
                 p4_mp2_e, p4_mp2_wfn = run_psi4(self.parameters, 'MP2')
-                #print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
+                print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
 
                 # Append new energies, wavefunctions, and amplitudes.
                 pos_e.append(e_tot + e_MP2)
@@ -99,7 +99,7 @@ class finite_difference(object):
                 # Run CID code.
                 wfn_CID = ci_wfn(self.parameters, e_elec, e_tot, pc_C)
                 e_CID, t2 = wfn_CID.solve_CID()
-                #print("CID Energy: ", e_tot + e_CID, "\n")
+                print("CID Energy: ", e_tot + e_CID, "\n")
    
                 # Append new energies, wavefunctions, and amplitudes. 
                 pos_e.append(e_tot + e_CID)
@@ -132,12 +132,12 @@ class finite_difference(object):
 
             # Solve the SCF procedure and compute the energy and wavefunction.
             e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
-            #print("SCF Energy: ", e_tot)
+            print("SCF Energy: ", e_tot)
 
             # Run Psi4.
             self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
             p4_rhf_e, p4_rhf_wfn = run_psi4(self.parameters)
-            #print("Psi4 Energy: ", p4_rhf_e)
+            print("Psi4 Energy: ", p4_rhf_e)
 
             # Computing parameters for the method of choice.
             if self.parameters['method'] == 'RHF':
@@ -146,7 +146,7 @@ class finite_difference(object):
                 neg_wfns.append(pc_C)
                 t2 = np.zeros((wfn.ndocc, wfn.ndocc, wfn.nbf-wfn.ndocc, wfn.nbf-wfn.ndocc))
                 neg_t2.append(t2)
-                #print("\n")
+                print("\n")
 
             if self.parameters['method'] == 'MP2':
                 # Correct the phase.
@@ -155,12 +155,12 @@ class finite_difference(object):
                 # Run MP2 code.
                 wfn_MP2 = mp2_wfn(self.parameters, e_elec, e_tot, pc_C)
                 e_MP2, t2 = wfn_MP2.solve_MP2()
-                #print("MP2 Energy: ", e_tot + e_MP2)
+                print("MP2 Energy: ", e_tot + e_MP2)
     
                 # Run Psi4.
                 self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
                 p4_mp2_e, p4_mp2_wfn = run_psi4(self.parameters, 'MP2')
-                #print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
+                print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
 
                 # Append new energies, wavefunctions, and amplitudes.
                 neg_e.append(e_tot + e_MP2)
@@ -174,7 +174,7 @@ class finite_difference(object):
                 # Run CID code.
                 wfn_CID = ci_wfn(self.parameters, e_elec, e_tot, pc_C)
                 e_CID, t2 = wfn_CID.solve_CID()
-                #print("CID Energy: ", e_tot + e_CID, "\n")
+                print("CID Energy: ", e_tot + e_CID, "\n")
     
                 # Append new energies, wavefunctions, and amplitudes.
                 neg_e.append(e_tot + e_CID)
@@ -222,11 +222,11 @@ class finite_difference(object):
 
             # Solve the SCF procedure and compute the energy and wavefunction.
             e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
-            #print("SCF Energy: ", e_tot)
+            print("SCF Energy: ", e_tot)
 
             # Run Psi4.
             p4_rhf_e, p4_rhf_wfn = run_psi4(self.parameters)
-            #print("Psi4 Energy: ", p4_rhf_e)
+            print("Psi4 Energy: ", p4_rhf_e)
 
             # Computing parameters for the method of choice.
             if self.parameters['method'] == 'RHF':
@@ -235,7 +235,7 @@ class finite_difference(object):
                 pos_wfns.append(pc_C)
                 t2 = np.zeros((wfn.ndocc, wfn.ndocc, wfn.nbf-wfn.ndocc, wfn.nbf-wfn.ndocc))
                 pos_t2.append(t2)
-                #print("\n")
+                print("\n")
 
             if self.parameters['method'] == 'MP2':
                 # Correct the phase.
@@ -244,12 +244,12 @@ class finite_difference(object):
                 # Run MP2 code.
                 wfn_MP2 = mp2_wfn(self.parameters, e_elec, e_tot, pc_C)
                 e_MP2, t2 = wfn_MP2.solve_MP2()
-                #print("MP2 Energy: ", e_tot + e_MP2)
+                print("MP2 Energy: ", e_tot + e_MP2)
     
                 # Run Psi4.
                 self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
                 p4_mp2_e, p4_mp2_wfn = run_psi4(self.parameters, 'MP2')
-                #print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
+                print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
 
                 # Append new energies, wavefunctions, and amplitudes.
                 pos_e.append(e_tot + e_MP2)
@@ -263,7 +263,7 @@ class finite_difference(object):
                 # Run CID code.
                 wfn_CID = ci_wfn(self.parameters, e_elec, e_tot, pc_C)
                 e_CID, t2 = wfn_CID.solve_CID()
-                #print("CID Energy: ", e_tot + e_CID, "\n")
+                print("CID Energy: ", e_tot + e_CID, "\n")
 
                 # Append new energies, wavefunctions, and amplitudes.
                 pos_e.append(e_tot + e_CID)
@@ -290,11 +290,11 @@ class finite_difference(object):
 
             # Solve the SCF procedure and compute the energy and wavefunction.
             e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
-            #print("SCF Energy: ", e_tot)
+            print("SCF Energy: ", e_tot)
 
             # Run Psi4.
             p4_rhf_e, p4_rhf_wfn = run_psi4(self.parameters)
-            #print("Psi4 Energy: ", p4_rhf_e)
+            print("Psi4 Energy: ", p4_rhf_e)
 
             # Computing parameters for the method of choice.
             if self.parameters['method'] == 'RHF':
@@ -303,7 +303,7 @@ class finite_difference(object):
                 neg_wfns.append(pc_C)
                 t2 = np.zeros((wfn.ndocc, wfn.ndocc, wfn.nbf-wfn.ndocc, wfn.nbf-wfn.ndocc))
                 neg_t2.append(t2)
-                #print("\n")
+                print("\n")
 
             if self.parameters['method'] == 'MP2':
                 # Correct the phase.
@@ -312,12 +312,12 @@ class finite_difference(object):
                 # Run MP2 code.
                 wfn_MP2 = mp2_wfn(self.parameters, e_elec, e_tot, pc_C)
                 e_MP2, t2 = wfn_MP2.solve_MP2()
-                #print("MP2 Energy: ", e_tot + e_MP2)
+                print("MP2 Energy: ", e_tot + e_MP2)
     
                 # Run Psi4.
                 self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
                 p4_mp2_e, p4_mp2_wfn = run_psi4(self.parameters, 'MP2')
-                #print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
+                print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
 
                 # Append new energies, wavefunctions, and amplitudes.
                 neg_e.append(e_tot + e_MP2)
@@ -331,7 +331,7 @@ class finite_difference(object):
                 # Run CID code.
                 wfn_CID = ci_wfn(self.parameters, e_elec, e_tot, pc_C)
                 e_CID, t2 = wfn_CID.solve_CID()
-                #print("CID Energy: ", e_tot + e_CID, "\n")
+                print("CID Energy: ", e_tot + e_CID, "\n")
 
                 # Append new energies, wavefunctions, and amplitudes.
                 neg_e.append(e_tot + e_CID)
@@ -375,7 +375,7 @@ class finite_difference(object):
 
             # Solve the SCF procedure and compute the energy and wavefunction.
             e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
-            #print("SCF Energy: ", e_tot)
+            print("SCF Energy: ", e_tot)
 
             # Computing parameters for the method of choice.
             if self.parameters['method'] == 'RHF':
@@ -384,7 +384,7 @@ class finite_difference(object):
                 pos_wfns.append(pc_C)
                 t2 = np.zeros((wfn.ndocc, wfn.ndocc, wfn.nbf-wfn.ndocc, wfn.nbf-wfn.ndocc))
                 pos_t2.append(t2)
-                #print("\n")
+                print("\n")
 
             if self.parameters['method'] == 'MP2':
                 # Correct the phase.
@@ -393,7 +393,7 @@ class finite_difference(object):
                 # Run MP2 code.
                 wfn_MP2 = mp2_wfn(self.parameters, e_elec, e_tot, pc_C)
                 e_MP2, t2 = wfn_MP2.solve_MP2()
-                #print("MP2 Energy: ", e_tot + e_MP2, "\n")
+                print("MP2 Energy: ", e_tot + e_MP2, "\n")
 
                 # Append new energies, wavefunctions, and amplitudes.
                 pos_e.append(e_tot + e_MP2)
@@ -407,7 +407,7 @@ class finite_difference(object):
                 # Run CID code.
                 wfn_CID = ci_wfn(self.parameters, e_elec, e_tot, pc_C)
                 e_CID, t2 = wfn_CID.solve_CID()
-                #print("CID Energy: ", e_tot + e_CID, "\n")
+                print("CID Energy: ", e_tot + e_CID, "\n")
 
                 # Append new energies, wavefunctions, and amplitudes.
                 pos_e.append(e_tot + e_CID)
@@ -435,7 +435,7 @@ class finite_difference(object):
 
             # Solve the SCF procedure and compute the energy and wavefunction.
             e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
-            #print("SCF Energy: ", e_tot)
+            print("SCF Energy: ", e_tot)
 
             # Computing parameters for the method of choice.
             if self.parameters['method'] == 'RHF':
@@ -444,7 +444,7 @@ class finite_difference(object):
                 neg_wfns.append(pc_C)
                 t2 = np.zeros((wfn.ndocc, wfn.ndocc, wfn.nbf-wfn.ndocc, wfn.nbf-wfn.ndocc))
                 neg_t2.append(t2)
-                #print("\n")
+                print("\n")
 
             if self.parameters['method'] == 'MP2':
                 # Correct the phase.
@@ -453,7 +453,7 @@ class finite_difference(object):
                 # Run MP2 code.
                 wfn_MP2 = mp2_wfn(self.parameters, e_elec, e_tot, pc_C)
                 e_MP2, t2 = wfn_MP2.solve_MP2()
-                #print("MP2 Energy: ", e_tot + e_MP2, "\n")
+                print("MP2 Energy: ", e_tot + e_MP2, "\n")
 
                 # Append new energies, wavefunctions, and amplitudes.
                 neg_e.append(e_tot + e_MP2)
@@ -467,7 +467,7 @@ class finite_difference(object):
                 # Run CID code.
                 wfn_CID = ci_wfn(self.parameters, e_elec, e_tot, pc_C)
                 e_CID, t2 = wfn_CID.solve_CID()
-                #print("CID Energy: ", e_tot + e_CID, "\n")
+                print("CID Energy: ", e_tot + e_CID, "\n")
 
                 # Append new energies, wavefunctions, and amplitudes.
                 neg_e.append(e_tot + e_CID)
@@ -977,12 +977,12 @@ class finite_difference(object):
 
                 # Solve the SCF procedure and compute the energy and wavefunction.
                 e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
-                #print("SCF Energy: ", e_tot)
+                print("SCF Energy: ", e_tot)
 
                 # Run Psi4.
                 self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
                 p4_rhf_e, p4_rhf_wfn = run_psi4(self.parameters)
-                #print("Psi4 Energy: ", p4_rhf_e)
+                print("Psi4 Energy: ", p4_rhf_e)
 
                 # Computing parameters for the method of choice.
                 if self.parameters['method'] == 'RHF':
@@ -990,18 +990,18 @@ class finite_difference(object):
                         pos_e.append(e_tot)
                     if beta % 2 == 1:
                         neg_e.append(e_tot)
-                    #print("\n")
+                    print("\n")
 
                 if self.parameters['method'] == 'MP2':
                     # Run MP2 code.
                     wfn_MP2 = mp2_wfn(self.parameters, e_elec, e_tot, C)
                     e_MP2, t2 = wfn_MP2.solve_MP2()
-                    #print("MP2 Energy: ", e_tot + e_MP2)
+                    print("MP2 Energy: ", e_tot + e_MP2)
 
                     # Run Psi4.
                     self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
                     p4_mp2_e, p4_mp2_wfn = run_psi4(self.parameters, 'MP2')
-                    #print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
+                    print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
 
                     # Append new energies, wavefunctions, and amplitudes.
                     if beta % 2 == 0:
@@ -1013,7 +1013,7 @@ class finite_difference(object):
                     # Run CID code.
                     wfn_CID = ci_wfn(self.parameters, e_elec, e_tot, C)
                     e_CID, t2 = wfn_CID.solve_CID()
-                    #print("CID Energy: ", e_tot + e_CID, "\n")
+                    print("CID Energy: ", e_tot + e_CID, "\n")
 
                     # Append new energies, wavefunctions, and amplitudes. 
                     if beta % 2 == 0:
@@ -1063,12 +1063,12 @@ class finite_difference(object):
 
                 # Solve the SCF procedure and compute the energy and wavefunction.
                 e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
-                #print("SCF Energy: ", e_tot)
+                print("SCF Energy: ", e_tot)
 
                 # Run Psi4.
                 self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
                 p4_rhf_e, p4_rhf_wfn = run_psi4(self.parameters)
-                #print("Psi4 Energy: ", p4_rhf_e)
+                print("Psi4 Energy: ", p4_rhf_e)
 
                 # Computing parameters for the method of choice.
                 if self.parameters['method'] == 'RHF':
@@ -1076,18 +1076,18 @@ class finite_difference(object):
                         pos_e.append(e_tot)
                     if beta % 2 == 1:
                         neg_e.append(e_tot)
-                    #print("\n")
+                    print("\n")
 
                 if self.parameters['method'] == 'MP2':
                     # Run MP2 code.
                     wfn_MP2 = mp2_wfn(self.parameters, e_elec, e_tot, C)
                     e_MP2, t2 = wfn_MP2.solve_MP2()
-                    #print("MP2 Energy: ", e_tot + e_MP2)
+                    print("MP2 Energy: ", e_tot + e_MP2)
 
                     # Run Psi4.
                     self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
                     p4_mp2_e, p4_mp2_wfn = run_psi4(self.parameters, 'MP2')
-                    #print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
+                    print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
 
                     # Append new energies, wavefunctions, and amplitudes.
                     if beta % 2 == 0:
@@ -1099,7 +1099,7 @@ class finite_difference(object):
                     # Run CID code.
                     wfn_CID = ci_wfn(self.parameters, e_elec, e_tot, C)
                     e_CID, t2 = wfn_CID.solve_CID()
-                    #print("CID Energy: ", e_tot + e_CID, "\n")
+                    print("CID Energy: ", e_tot + e_CID, "\n")
 
                     # Append new energies, wavefunctions, and amplitudes. 
                     if beta % 2 == 0:
@@ -1145,6 +1145,7 @@ class finite_difference(object):
 
             # Perturb the geometry again.
             for beta in range(3*self.natom):
+                print("Alpha: ", alpha, "Beta: ", beta)
                 pert_geom_alpha[beta // 3][beta % 3] += nuc_pert_strength
                 pert_geom_alpha_beta = psi4.core.Matrix.from_array(pert_geom_alpha)
                 self.molecule.set_geometry(pert_geom_alpha_beta)
@@ -1152,35 +1153,35 @@ class finite_difference(object):
 
                 # Build the Hamiltonian in the AO basis.
                 H = Hamiltonian(self.parameters)
-                #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(H.basis_set)).np)
+                print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(H.basis_set)).np)
 
                 # Set the Hamiltonian defining this instance of the wavefunction object.
                 wfn = hf_wfn(H)
 
                 # Solve the SCF procedure and compute the energy and wavefunction.
                 e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
-                #print("SCF Energy: ", e_tot)
+                print("SCF Energy: ", e_tot)
 
                 # Run Psi4.
                 self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
                 p4_rhf_e, p4_rhf_wfn = run_psi4(self.parameters)
-                #print("Psi4 Energy: ", p4_rhf_e)
+                print("Psi4 Energy: ", p4_rhf_e)
 
                 # Computing parameters for the method of choice.
                 if self.parameters['method'] == 'RHF':
                     pos_e.append(e_tot)
-                    #print("\n")
+                    print("\n")
 
                 if self.parameters['method'] == 'MP2':
                     # Run MP2 code.
                     wfn_MP2 = mp2_wfn(self.parameters, e_elec, e_tot, C)
                     e_MP2, t2 = wfn_MP2.solve_MP2()
-                    #print("MP2 Energy: ", e_tot + e_MP2)
+                    print("MP2 Energy: ", e_tot + e_MP2)
 
                     # Run Psi4.
                     self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
                     p4_mp2_e, p4_mp2_wfn = run_psi4(self.parameters, 'MP2')
-                    #print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
+                    print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
 
                     # Append new energies, wavefunctions, and amplitudes.
                     pos_e.append(e_tot + e_MP2)
@@ -1189,7 +1190,7 @@ class finite_difference(object):
                     # Run CID code.
                     wfn_CID = ci_wfn(self.parameters, e_elec, e_tot, C)
                     e_CID, t2 = wfn_CID.solve_CID()
-                    #print("CID Energy: ", e_tot + e_CID, "\n")
+                    print("CID Energy: ", e_tot + e_CID, "\n")
 
                     # Append new energies, wavefunctions, and amplitudes. 
                     pos_e.append(e_tot + e_CID)
@@ -1199,6 +1200,7 @@ class finite_difference(object):
 
             # Perturb the geometry again.
             for beta in range(3*self.natom):
+                print("Alpha: ", alpha, "Beta: ", beta)
                 pert_geom_alpha[beta // 3][beta % 3] -= nuc_pert_strength
                 pert_geom_alpha_beta = psi4.core.Matrix.from_array(pert_geom_alpha)
                 self.molecule.set_geometry(pert_geom_alpha_beta)
@@ -1206,35 +1208,35 @@ class finite_difference(object):
 
                 # Build the Hamiltonian in the AO basis.
                 H = Hamiltonian(self.parameters)
-                #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(H.basis_set)).np)
+                print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(H.basis_set)).np)
 
                 # Set the Hamiltonian defining this instance of the wavefunction object.
                 wfn = hf_wfn(H)
 
                 # Solve the SCF procedure and compute the energy and wavefunction.
                 e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
-                #print("SCF Energy: ", e_tot)
+                print("SCF Energy: ", e_tot)
 
                 # Run Psi4.
                 self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
                 p4_rhf_e, p4_rhf_wfn = run_psi4(self.parameters)
-                #print("Psi4 Energy: ", p4_rhf_e)
+                print("Psi4 Energy: ", p4_rhf_e)
 
                 # Computing parameters for the method of choice.
                 if self.parameters['method'] == 'RHF':
                     neg_e.append(e_tot)
-                    #print("\n")
+                    print("\n")
 
                 if self.parameters['method'] == 'MP2':
                     # Run MP2 code.
                     wfn_MP2 = mp2_wfn(self.parameters, e_elec, e_tot, C)
                     e_MP2, t2 = wfn_MP2.solve_MP2()
-                    #print("MP2 Energy: ", e_tot + e_MP2)
+                    print("MP2 Energy: ", e_tot + e_MP2)
 
                     # Run Psi4.
                     self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
                     p4_mp2_e, p4_mp2_wfn = run_psi4(self.parameters, 'MP2')
-                    #print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
+                    print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
 
                     # Append new energies, wavefunctions, and amplitudes.
                     neg_e.append(e_tot + e_MP2)
@@ -1243,7 +1245,7 @@ class finite_difference(object):
                     # Run CID code.
                     wfn_CID = ci_wfn(self.parameters, e_elec, e_tot, C)
                     e_CID, t2 = wfn_CID.solve_CID()
-                    #print("CID Energy: ", e_tot + e_CID, "\n")
+                    print("CID Energy: ", e_tot + e_CID, "\n")
 
                     # Append new energies, wavefunctions, and amplitudes. 
                     neg_e.append(e_tot + e_CID)
@@ -1273,6 +1275,7 @@ class finite_difference(object):
 
             # Perturb the geometry again.
             for beta in range(3*self.natom):
+                print("Alpha: ", alpha, "Beta: ", beta)
                 pert_geom_alpha[beta // 3][beta % 3] += nuc_pert_strength
                 pert_geom_alpha_beta = psi4.core.Matrix.from_array(pert_geom_alpha)
                 self.molecule.set_geometry(pert_geom_alpha_beta)
@@ -1280,35 +1283,35 @@ class finite_difference(object):
 
                 # Build the Hamiltonian in the AO basis.
                 H = Hamiltonian(self.parameters)
-                #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(H.basis_set)).np)
+                print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(H.basis_set)).np)
 
                 # Set the Hamiltonian defining this instance of the wavefunction object.
                 wfn = hf_wfn(H)
 
                 # Solve the SCF procedure and compute the energy and wavefunction.
                 e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
-                #print("SCF Energy: ", e_tot)
+                print("SCF Energy: ", e_tot)
 
                 # Run Psi4.
                 self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
                 p4_rhf_e, p4_rhf_wfn = run_psi4(self.parameters)
-                #print("Psi4 Energy: ", p4_rhf_e)
+                print("Psi4 Energy: ", p4_rhf_e)
 
                 # Computing parameters for the method of choice.
                 if self.parameters['method'] == 'RHF':
                     pos_e.append(e_tot)
-                    #print("\n")
+                    print("\n")
 
                 if self.parameters['method'] == 'MP2':
                     # Run MP2 code.
                     wfn_MP2 = mp2_wfn(self.parameters, e_elec, e_tot, C)
                     e_MP2, t2 = wfn_MP2.solve_MP2()
-                    #print("MP2 Energy: ", e_tot + e_MP2)
+                    print("MP2 Energy: ", e_tot + e_MP2)
 
                     # Run Psi4.
                     self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
                     p4_mp2_e, p4_mp2_wfn = run_psi4(self.parameters, 'MP2')
-                    #print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
+                    print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
 
                     # Append new energies, wavefunctions, and amplitudes.
                     pos_e.append(e_tot + e_MP2)
@@ -1317,7 +1320,7 @@ class finite_difference(object):
                     # Run CID code.
                     wfn_CID = ci_wfn(self.parameters, e_elec, e_tot, C)
                     e_CID, t2 = wfn_CID.solve_CID()
-                    #print("CID Energy: ", e_tot + e_CID, "\n")
+                    print("CID Energy: ", e_tot + e_CID, "\n")
 
                     # Append new energies, wavefunctions, and amplitudes. 
                     pos_e.append(e_tot + e_CID)
@@ -1327,6 +1330,7 @@ class finite_difference(object):
 
             # Perturb the geometry again.
             for beta in range(3*self.natom):
+                print("Alpha: ", alpha, "Beta: ", beta)
                 pert_geom_alpha[beta // 3][beta % 3] -= nuc_pert_strength
                 pert_geom_alpha_beta = psi4.core.Matrix.from_array(pert_geom_alpha)
                 self.molecule.set_geometry(pert_geom_alpha_beta)
@@ -1334,35 +1338,35 @@ class finite_difference(object):
 
                 # Build the Hamiltonian in the AO basis.
                 H = Hamiltonian(self.parameters)
-                #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(H.basis_set)).np)
+                print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(H.basis_set)).np)
 
                 # Set the Hamiltonian defining this instance of the wavefunction object.
                 wfn = hf_wfn(H)
 
                 # Solve the SCF procedure and compute the energy and wavefunction.
                 e_elec, e_tot, C = wfn.solve_SCF(self.parameters)
-                #print("SCF Energy: ", e_tot)
+                print("SCF Energy: ", e_tot)
 
                 # Run Psi4.
                 self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
                 p4_rhf_e, p4_rhf_wfn = run_psi4(self.parameters)
-                #print("Psi4 Energy: ", p4_rhf_e)
+                print("Psi4 Energy: ", p4_rhf_e)
 
                 # Computing parameters for the method of choice.
                 if self.parameters['method'] == 'RHF':
                     neg_e.append(e_tot)
-                    #print("\n")
+                    print("\n")
 
                 if self.parameters['method'] == 'MP2':
                     # Run MP2 code.
                     wfn_MP2 = mp2_wfn(self.parameters, e_elec, e_tot, C)
                     e_MP2, t2 = wfn_MP2.solve_MP2()
-                    #print("MP2 Energy: ", e_tot + e_MP2)
+                    print("MP2 Energy: ", e_tot + e_MP2)
 
                     # Run Psi4.
                     self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
                     p4_mp2_e, p4_mp2_wfn = run_psi4(self.parameters, 'MP2')
-                    #print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
+                    print("Psi4 MP2 Energy: ", p4_mp2_e, "\n")
 
                     # Append new energies, wavefunctions, and amplitudes.
                     neg_e.append(e_tot + e_MP2)
@@ -1371,7 +1375,7 @@ class finite_difference(object):
                     # Run CID code.
                     wfn_CID = ci_wfn(self.parameters, e_elec, e_tot, C)
                     e_CID, t2 = wfn_CID.solve_CID()
-                    #print("CID Energy: ", e_tot + e_CID, "\n")
+                    print("CID Energy: ", e_tot + e_CID, "\n")
 
                     # Append new energies, wavefunctions, and amplitudes. 
                     neg_e.append(e_tot + e_CID)

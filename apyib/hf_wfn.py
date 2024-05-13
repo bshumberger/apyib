@@ -64,8 +64,8 @@ class hf_wfn(object):
                 E_SCF += D[mu, nu] * ( H_core[mu, nu] + H_core[mu, nu] )
         E_tot = E_SCF.real + H.E_nuc
 
-        #print("\n Iter      E_elec(real)       E_elec(imaginary)        E(tot)           Delta_E(real)       Delta_E(imaginary)      RMS_D(real)      RMS_D(imaginary)")
-        #print(" %02d %20.12f %20.12f %20.12f" % (0, E_SCF.real, E_SCF.imag, E_tot))
+        print("\n Iter      E_elec(real)       E_elec(imaginary)        E(tot)           Delta_E(real)       Delta_E(imaginary)      RMS_D(real)      RMS_D(imaginary)")
+        print(" %02d %20.12f %20.12f %20.12f" % (0, E_SCF.real, E_SCF.imag, E_tot))
 
         # Starting the SCF procedure.
         # Setting up DIIS arrays for the error matrices and Fock matrices.
@@ -122,7 +122,7 @@ class hf_wfn(object):
                 for nu in range(self.nbf):
                     rms_D2 += (D_old[mu, nu] - D[mu, nu])**2
             rms_D = np.sqrt(rms_D2)
-            #print(" %02d %20.12f %20.12f %20.12f %20.12f %20.12f %20.12f %20.12f" % (i, E_SCF.real, E_SCF.imag, E_tot, delta_E.real, delta_E.imag, rms_D.real, rms_D.imag))
+            print(" %02d %20.12f %20.12f %20.12f %20.12f %20.12f %20.12f %20.12f" % (i, E_SCF.real, E_SCF.imag, E_tot, delta_E.real, delta_E.imag, rms_D.real, rms_D.imag))
     
             if i > 1:
                 if abs(delta_E) < parameters['e_convergence'] and rms_D < parameters['d_convergence']:
