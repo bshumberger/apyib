@@ -15,13 +15,14 @@ jobs:
     defaults:
       run:
         shell: bash -l {0}
+
     name: apyib Test ${{ matrix.os }}, Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
     strategy:
         fail-fast: true
       matrix:
         os: [macOS-latest]
-        python-version: ['3.11']
+        python-version: ['3.8', '3.9', '3.10', '3.11']
 
     steps:
       - uses: actions/checkout@v3
@@ -33,6 +34,14 @@ jobs:
           df -h
           ulimit -a
 
+    - name: Create Psi4 Environment
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        miniconda-version: "latest"
+        activate-environment: p4env
+        environment-file: devtools/conda-envs/psi.yaml
+        python-version: ${{ matrix.python-version }}
+        auto-activate-base: true
 
       - name: Install Psi4
         run: |
@@ -66,4 +75,3 @@ jobs:
         uses: codecov/codecov-action@v3
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
