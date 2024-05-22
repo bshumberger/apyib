@@ -16,13 +16,13 @@ jobs:
       run:
         shell: bash -l {0}
 
-    #name: apyib Test ${{ matrix.os }}, Python ${{ matrix.python-version }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-        fail-fast: true
-      matrix:
-        os: [macOS-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11']
+#    name: apyib Test ${{ matrix.os }}, Python ${{ matrix.python-version }}
+#    runs-on: ${{ matrix.os }}
+#    strategy:
+#        fail-fast: true
+#      matrix:
+#        os: [macOS-latest]
+#        python-version: ['3.8', '3.9', '3.10', '3.11']
 #    steps:
 #      - uses: actions/checkout@v3
 #
