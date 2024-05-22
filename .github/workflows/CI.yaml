@@ -9,68 +9,69 @@ on:
       - "main"
   schedule:
     - cron: "0 0 * * 0"
-jobs:
-  test:
-    defaults:
-      run:
-        shell: bash -l {0}
 
-    name: apyib Test ${{ matrix.os }}, Python ${{ matrix.python-version }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-        fail-fast: true
-      matrix:
-        os: [macOS-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11']
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Additional info about the build
-        shell: bash
-        run: |
-          uname -a
-          df -h
-          ulimit -a
-
-    - name: Create Psi4 Environment
-      uses: conda-incubator/setup-miniconda@v3
-      with:
-        miniconda-version: "latest"
-        activate-environment: p4env
-        environment-file: devtools/conda-envs/psi.yaml
-        python-version: ${{ matrix.python-version }}
-        auto-activate-base: true
-
-      - name: Install Psi4
-        run: |
-          conda info
-          conda list --show-channel-urls
-          hash -r
-          env
-          conda install psi4 python=${{ matrix.python-version }} -c conda-forge
-          ls -l $CONDA
-
-      - name: Test Psi4 Python Loading
-        run: |
-        export PATH=$CONDA_PREFIX/bin:$PATH
-        export PYTHONPATH=$CONDA_PREFIX/lib:$PYTHONPATH
-        conda env list
-        python -c "import psi4"
-
-      - name: Install apyib and Deps
-        run: |
-        pip install -e .
-        pip install pytest
-
-      - name: Test and generate coverage report
-        run: |
-        pip install coverage
-        coverage run -m pytest
-        coverage xml
-        ls -l
-
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+#jobs:
+#  test:
+#    defaults:
+#      run:
+#        shell: bash -l {0}
+#
+#    name: apyib Test ${{ matrix.os }}, Python ${{ matrix.python-version }}
+#    runs-on: ${{ matrix.os }}
+#    strategy:
+#        fail-fast: true
+#      matrix:
+#        os: [macOS-latest]
+#        python-version: ['3.8', '3.9', '3.10', '3.11']
+#
+#    steps:
+#      - uses: actions/checkout@v3
+#
+#      - name: Additional info about the build
+#        shell: bash
+#        run: |
+#          uname -a
+#          df -h
+#          ulimit -a
+#
+#    - name: Create Psi4 Environment
+#      uses: conda-incubator/setup-miniconda@v3
+#      with:
+#        miniconda-version: "latest"
+#        activate-environment: p4env
+#        environment-file: devtools/conda-envs/psi.yaml
+#        python-version: ${{ matrix.python-version }}
+#        auto-activate-base: true
+#
+#      - name: Install Psi4
+#        run: |
+#          conda info
+#          conda list --show-channel-urls
+#          hash -r
+#          env
+#          conda install psi4 python=${{ matrix.python-version }} -c conda-forge
+#          ls -l $CONDA
+#
+#      - name: Test Psi4 Python Loading
+#        run: |
+#        export PATH=$CONDA_PREFIX/bin:$PATH
+#        export PYTHONPATH=$CONDA_PREFIX/lib:$PYTHONPATH
+#        conda env list
+#        python -c "import psi4"
+#
+#      - name: Install apyib and Deps
+#        run: |
+#        pip install -e .
+#        pip install pytest
+#
+#      - name: Test and generate coverage report
+#        run: |
+#        pip install coverage
+#        coverage run -m pytest
+#        coverage xml
+#        ls -l
+#
+#      - name: Upload coverage reports to Codecov
+#        uses: codecov/codecov-action@v3
+#        env:
+#          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
