@@ -15,7 +15,6 @@ jobs:
     defaults:
       run:
         shell: bash -l {0}
-
     name: apyib Test ${{ matrix.os }}, Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
     strategy:
