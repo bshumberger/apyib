@@ -23,8 +23,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-        with:
-          node-version: '20'
 
       - name: Additional info about the build
         shell: bash
@@ -44,6 +42,7 @@ jobs:
 
       - name: Install Psi4
         run: |
+          conda activate p4env
           conda info
           conda list --show-channel-urls
           hash -r
