@@ -26,6 +26,9 @@ parameters = {'geom': H2O,
             'max_iterations': 120}
 
 def test_mp2_h2o():
+    # Setting MP2 reference value.
+    g09_MP2 = -74.99122956431164
+
     # Run Psi4.
     p4_E_tot, p4_wfn = apyib.utils.run_psi4(parameters, 'MP2')
 
@@ -46,4 +49,4 @@ def test_mp2_h2o():
     print("Energy Difference between Homemade MP2 Code and Psi4: ", apyib_E_tot + apyib_E_MP2 - p4_E_tot)
 
     assert(abs(apyib_E_tot + apyib_E_MP2 - p4_E_tot) < 1e-12)
-
+    assert(abs(apyib_E_tot + apyib_E_MP2 - g09_MP2) < 1e-12)

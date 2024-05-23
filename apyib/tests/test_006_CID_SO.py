@@ -13,11 +13,10 @@ H2O = """
     nocom
     """
 
-
 # Set parameters for the calculation.
 parameters = {'geom': H2O,
             'basis': 'STO-3G',
-            'method': 'RHF',
+            'method': 'CID',
             'e_convergence': 1e-12,
             'd_convergence': 1e-12,
             'DIIS': True,
@@ -25,9 +24,9 @@ parameters = {'geom': H2O,
             'F_mag': [0.0, 0.0, 0.0],
             'max_iterations': 120}
 
-def test_rhf_h2o():
-    # Setting RHF reference value.
-    g09_RHF = -74.94207992819165
+def test_cid_h2o_so():
+    # Setting CID reference value.
+    g09_CID = -75.01073817893661
 
     # Run Psi4.
     p4_E_tot, p4_wfn = apyib.utils.run_psi4(parameters)
@@ -37,12 +36,16 @@ def test_rhf_h2o():
     wfn = apyib.hf_wfn.hf_wfn(H)
     apyib_E, apyib_E_tot, apyib_wfn = wfn.solve_SCF(parameters)
     
+    # Compute the MP2 energy and wavefunction.
+    wfn_CI = apyib.ci_wfn.ci_wfn(parameters, apyib_E, apyib_E_tot, apyib_wfn)
+    apyib_E_CID, t2 = wfn_CI.solve_CID_SO()
+    
     # Print energies and energy difference between apyib code and Psi4.
-    print("apyib Electronic Hartree-Fock Energy: ", apyib_E)
-    print("apyib Total Energy: ", apyib_E_tot)
-    print("Psi4 Total Energy: ", p4_E_tot)
-    print("Energy Difference between Homemade RHF Code and Psi4: ", apyib_E_tot - p4_E_tot)
+    print("Electronic Hartree-Fock Energy: ", apyib_E)
+    print("Electronic CID Energy: ", apyib_E_CID)
+    print("Total Energy: ", apyib_E_tot + apyib_E_CID)
+    print("Energy Difference between Homemade CID Code and Reference: ", apyib_E_tot + apyib_E_CID - g09_CID)
 
-    assert(abs(apyib_E_tot - p4_E_tot) < 1e-12)
-    assert(abs(apyib_E_tot - g09_RHF) < 1e-12)
+    assert(abs(apyib_E_tot + apyib_E_CID - g09_CID) < 1e-12)
+
 

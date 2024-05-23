@@ -25,7 +25,7 @@ parameters = {'geom': H2O,
             'max_iterations': 120}
 
 def test_cid_h2o():
-    # Setting reference CID value.
+    # Setting CID reference value.
     g09_CID = -75.01073817893661
 
     # Run Psi4.

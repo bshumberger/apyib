@@ -17,7 +17,7 @@ H2O = """
 # Set parameters for the calculation.
 parameters = {'geom': H2O,
             'basis': 'STO-3G',
-            'method': 'RHF',
+            'method': 'MP2',
             'e_convergence': 1e-12,
             'd_convergence': 1e-12,
             'DIIS': True,
@@ -25,24 +25,28 @@ parameters = {'geom': H2O,
             'F_mag': [0.0, 0.0, 0.0],
             'max_iterations': 120}
 
-def test_rhf_h2o():
-    # Setting RHF reference value.
-    g09_RHF = -74.94207992819165
+def test_mp2_h2o_so():
+    # Setting MP2 reference value.
+    g09_MP2 = -74.99122956431164
 
     # Run Psi4.
-    p4_E_tot, p4_wfn = apyib.utils.run_psi4(parameters)
+    p4_E_tot, p4_wfn = apyib.utils.run_psi4(parameters, 'MP2')
 
     # Run apyib.
     H = apyib.hamiltonian.Hamiltonian(parameters) 
     wfn = apyib.hf_wfn.hf_wfn(H)
     apyib_E, apyib_E_tot, apyib_wfn = wfn.solve_SCF(parameters)
     
+    # Compute the MP2 energy and wavefunction.
+    wfn_MP2 = apyib.mp2_wfn.mp2_wfn(parameters, apyib_E, apyib_E_tot, apyib_wfn)
+    apyib_E_MP2, t2 = wfn_MP2.solve_MP2_SO()
+     
     # Print energies and energy difference between apyib code and Psi4.
-    print("apyib Electronic Hartree-Fock Energy: ", apyib_E)
-    print("apyib Total Energy: ", apyib_E_tot)
-    print("Psi4 Total Energy: ", p4_E_tot)
-    print("Energy Difference between Homemade RHF Code and Psi4: ", apyib_E_tot - p4_E_tot)
+    print("Electronic Hartree-Fock Energy: ", apyib_E)
+    print("Electronic MP2 Energy: ", apyib_E_MP2)
+    print("Total Energy: ", apyib_E_tot + apyib_E_MP2)
+    print("Psi4 Energy: ", p4_E_tot)
+    print("Energy Difference between Homemade MP2 Code and Psi4: ", apyib_E_tot + apyib_E_MP2 - p4_E_tot)
 
-    assert(abs(apyib_E_tot - p4_E_tot) < 1e-12)
-    assert(abs(apyib_E_tot - g09_RHF) < 1e-12)
-
+    assert(abs(apyib_E_tot + apyib_E_MP2 - p4_E_tot) < 1e-12)
+    assert(abs(apyib_E_tot + apyib_E_MP2 - g09_MP2) < 1e-12)
