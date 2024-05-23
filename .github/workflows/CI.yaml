@@ -49,26 +49,26 @@ jobs:
           conda install psi4 python=${{ matrix.python-version }} -c conda-forge
           ls -l $CONDA
 
-    #  - name: Test Psi4 Python Loading
-    #    run: |
-    #    export PATH=$CONDA_PREFIX/bin:$PATH
-    #    export PYTHONPATH=$CONDA_PREFIX/lib:$PYTHONPATH
-    #    conda env list
-    #    python -c "import psi4"
+      - name: Test Psi4 Python Loading
+        run: |
+        export PATH=$CONDA_PREFIX/bin:$PATH
+        export PYTHONPATH=$CONDA_PREFIX/lib:$PYTHONPATH
+        conda env list
+        python -c "import psi4"
 
-    #  - name: Install apyib and Deps
-    #    run: |
-    #    pip install -e .
-    #    pip install pytest
+      - name: Install apyib and Deps
+        run: |
+        pip install -e .
+        pip install pytest
 
-    #  - name: Test and generate coverage report
-    #    run: |
-    #    pip install coverage
-    #    coverage run -m pytest
-    #    coverage xml
-    #    ls -l
+      - name: Test and generate coverage report
+        run: |
+        pip install coverage
+        coverage run -m pytest
+        coverage xml
+        ls -l
 
-    #  - name: Upload coverage reports to Codecov
-    #    uses: codecov/codecov-action@v3
-    #    env:
-    #      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v3
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
