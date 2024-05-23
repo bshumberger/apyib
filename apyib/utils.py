@@ -10,9 +10,9 @@ def run_psi4(parameters, method='RHF'):
     Run Psi4 for comparison to the apyib code. Note that psi4 does not do magnetic field perturbations.
     """
     # Set Psi4 options..
-    psi4.core.clean_options()
+    #psi4.core.clean_options()
     psi4.set_output_file("output.dat", False)
-    psi4.set_memory('2 GB')
+    #psi4.set_memory('2 GB')
 
     # Input geometry for Psi4.
     molecule = psi4.geometry(parameters['geom'])
