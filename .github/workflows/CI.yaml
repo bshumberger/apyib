@@ -51,22 +51,22 @@ jobs:
 
       - name: Test Psi4 Python Loading
         run: |
-        export PATH=$CONDA_PREFIX/bin:$PATH
-        export PYTHONPATH=$CONDA_PREFIX/lib:$PYTHONPATH
-        conda env list
-        python -c "import psi4"
+          export PATH=$CONDA_PREFIX/bin:$PATH
+          export PYTHONPATH=$CONDA_PREFIX/lib:$PYTHONPATH
+          conda env list
+          python -c "import psi4"
 
       - name: Install apyib and Deps
         run: |
-        pip install -e .
-        pip install pytest
+          pip install -e .
+          pip install pytest
 
       - name: Test and generate coverage report
         run: |
-        pip install coverage
-        coverage run -m pytest
-        coverage xml
-        ls -l
+          pip install coverage
+          coverage run -m pytest
+          coverage xml
+          ls -l
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
