@@ -12,14 +12,14 @@ on:
 
 jobs:
   test:
-    defaults:
-      run:
-        shell: bash -l {0}
+    #defaults:
+    #  run:
+    #    shell: bash -l {0}
 
-    name: apyib ${{ matrix.os }}, Python ${{ matrix.python-version }}
+    name: apyib Test ${{ matrix.os }}, Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
     strategy:
-        fail-fast: true
+      fail-fast: true
       matrix:
         os: [macOS-latest]
         python-version: ['3.8', '3.9', '3.10', '3.11']
