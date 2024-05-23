@@ -40,14 +40,14 @@ jobs:
           python-version: ${{ matrix.python-version }}
           auto-activate-base: true
 
-    #  - name: Install Psi4
-    #    run: |
-    #      conda info
-    #      conda list --show-channel-urls
-    #      hash -r
-    #      env
-    #      conda install psi4 python=${{ matrix.python-version }} -c conda-forge
-    #      ls -l $CONDA
+      - name: Install Psi4
+        run: |
+          conda info
+          conda list --show-channel-urls
+          hash -r
+          env
+          conda install psi4 python=${{ matrix.python-version }} -c conda-forge
+          ls -l $CONDA
 
     #  - name: Test Psi4 Python Loading
     #    run: |
