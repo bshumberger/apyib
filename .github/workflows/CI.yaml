@@ -42,8 +42,6 @@ jobs:
 
       - name: Install Psi4
         run: |
-          conda init
-          conda activate p4env
           conda info
           conda list --show-channel-urls
           hash -r
