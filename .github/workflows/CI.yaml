@@ -23,6 +23,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+        with:
+          node-version: '20'
 
       - name: Additional info about the build
         shell: bash
