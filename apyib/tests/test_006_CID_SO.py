@@ -54,7 +54,6 @@ def test_cid_h2o_cc_pvdz():
                   'max_iterations': 120}
 
     # Setting CID reference value.
-    #g09_CID = -76.17417471109950
     c4scf = -75.98979581991861
     c4ci = -0.21279410950205
     c4_CID = c4scf + c4ci
@@ -79,3 +78,30 @@ def test_cid_h2o_cc_pvdz():
     print("Energy Difference between Homemade CID Code and Reference: ", apyib_E_tot + apyib_E_CID - c4_CID)
 
     assert(abs(apyib_E_tot + apyib_E_CID - c4_CID) < 1e-11)
+
+def test_cid_SO_energy():
+    # Set parameters for the calculation.
+    parameters = {'geom': moldict["H2O"],
+                  'basis': 'STO-3G',
+                  'method': 'CID_SO',
+                  'e_convergence': 1e-12,
+                  'd_convergence': 1e-12,
+                  'DIIS': True,
+                  'F_el': [0.0, 0.0, 0.0],
+                  'F_mag': [0.0, 0.0, 0.0],
+                  'max_iterations': 120}
+
+    # Setting CID reference value.
+    #g09_CID = -75.01073817893661
+    c4scf = -74.94207992819220
+    c4ci = -0.06865825074438
+    c4_CID = c4scf + c4ci
+
+    # Compute energy.
+    E_list, T_list, C, basis = apyib.energy.energy(parameters)
+    apyib_E_tot = E_list[0] + E_list[1] + E_list[2]
+
+    # Print energies and energy difference between apyib code and Psi4.
+    print("Energy Difference between Homemade CID Code and Reference: ", apyib_E_tot - c4_CID)
+
+    assert(abs(apyib_E_tot - c4_CID) < 1e-11)

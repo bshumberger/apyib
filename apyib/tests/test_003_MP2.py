@@ -79,3 +79,27 @@ def test_mp2_h2o_6_31gd():
 
     assert(abs(apyib_E_tot + apyib_E_MP2 - p4_E_tot) < 1e-11)
     assert(abs(apyib_E_tot + apyib_E_MP2 - psi4_MP2) < 1e-11)
+
+def test_mp2_energy():
+    # Set parameters for the calculation.
+    parameters = {'geom': moldict["H2O"],
+                  'basis': '6-31G(d)',
+                  'method': 'MP2',
+                  'e_convergence': 1e-12,
+                  'd_convergence': 1e-12,
+                  'DIIS': True,
+                  'F_el': [0.0, 0.0, 0.0],
+                  'F_mag': [0.0, 0.0, 0.0],
+                  'max_iterations': 120}
+
+    # Setting MP2 reference value.
+    psi4_MP2 = -76.17533681889488
+
+    # Compute energy.
+    E_list, T_list, C, basis = apyib.energy.energy(parameters)
+    apyib_E_tot = E_list[0] + E_list[1] + E_list[2]
+    
+    # Print energies and energy difference between apyib code and Psi4.
+    print("Energy Difference between Homemade MP2 Code and Psi4: ", apyib_E_tot - psi4_MP2)
+
+    assert(abs(apyib_E_tot - psi4_MP2) < 1e-11)

@@ -9,7 +9,13 @@ class Hamiltonian(object):
     """
     # Define the specific properties of the Hamiltonian which is dependent on the molecule.
     def __init__(self, parameters):
-        
+
+        # Clear previous options incase of serial calculations.
+        psi4.core.clean_options()
+
+        # Set the basis set for the calculation.
+        psi4.set_options({'basis': parameters['basis']})
+ 
         # Define the molecule and basis set as properties of the Hamiltonian.
         self.molecule = psi4.geometry(parameters['geom'])
         self.basis_set = psi4.core.BasisSet.build(self.molecule)
