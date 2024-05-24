@@ -9,17 +9,40 @@ no_reorient
 units bohr
 """
 
+# HF/STO-3G Optimized geometry from CFOUR
+h2o_c4_hf = """
+O  0.000000000000000  -0.000000000000000   0.134464865292648
+H  0.000000000000000  -1.432565142139463  -1.067027493065974
+H  0.000000000000000   1.432565142139463  -1.067027493065974
+no_com
+no_reorient
+symmetry c1
+units bohr
+"""
+
+# CFOUR MP2/STO-3G optimized geometry from CFOUR
+h2o_c4_mp2 = """
+O  0.000000000000000  -0.000000000000000   0.141635981802241
+H  0.000000000000000  -1.437405158329807  -1.123932904416828
+H  0.000000000000000   1.437405158329807  -1.123932904416828
+no_com
+no_reorient
+symmetry c1
+units bohr
+"""
+
+# CFOUR CID/STO-3G optimized geometry from CFOUR
+h2o_c4_cid = """
+O  0.000000000000000  -0.000000000000000   0.143954618947726
+H  0.000000000000000  -1.450386234357036  -1.142332131421532
+H  0.000000000000000   1.450386234357036  -1.142332131421532
+no_com
+no_reorient
+symmetry c1
+units bohr
+"""
+
 # Chiral molecules
-# H2 dimer
-#H2_2 = """
-#H
-#H 1 0.75
-#H 2 1.5 1 90.0
-#H 3 0.75 2 90.0 1 60.0
-#no_com
-#no_reorient
-#symmetry c1
-#"""
 H2_2 = """
 H -0.708647297046685  1.417294594093371 -0.613706561565607
 H  0.                 1.417294594093371  0.613706561565607
@@ -113,6 +136,9 @@ no_com
 
 moldict = {}
 moldict["H2O"] = h2o
+moldict["H2O_C4_HF"] =h2o_c4_hf
+moldict["H2O_C4_MP2"] =h2o_c4_mp2
+moldict["H2O_C4_CID"] =h2o_c4_cid
 moldict["(H2)_2"] = H2_2
 moldict["H2O2"] = H2O2
 moldict["Ethylene Oxide"] = etho
