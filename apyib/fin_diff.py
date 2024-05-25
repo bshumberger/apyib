@@ -20,6 +20,8 @@ class finite_difference(object):
         self.unperturbed_basis = unperturbed_basis
         self.unperturbed_wfn = unperturbed_wfn
 
+
+
     def compute_Hessian(self, nuc_pert_strength):
         # Set properties of the finite difference procedure.
         pos_E = []
@@ -139,3 +141,134 @@ class finite_difference(object):
         hessian = (pos_E - neg_E) / (2 * nuc_pert_strength)
 
         return hessian
+
+
+
+    def compute_APT(self, nuc_pert_strength, elec_pert_strength):
+        # Set properties of the finite difference procedure.
+        pos_mu = [] 
+        neg_mu = [] 
+
+        # Computing energies and wavefunctions with positive nuclear displacements.
+        for alpha in range(3*self.natom):
+            pert_geom = np.copy(self.geom)
+
+            # Perturb the geometry.
+            pert_geom[alpha // 3][alpha % 3] += nuc_pert_strength
+            pert_geom = psi4.core.Matrix.from_array(pert_geom)
+            self.molecule.set_geometry(pert_geom)
+            self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+
+            pos_e = [] 
+            neg_e = [] 
+
+            # Perturb the electric field in the positive direction.
+            for beta in range(3):
+                self.parameters['F_el'][beta] += elec_pert_strength
+
+                # Compute energy.
+                E_list, T_list, C, basis = energy(self.parameters)
+                E_tot = E_list[0] + E_list[1] + E_list[2]
+
+                # Append the energy based on the perturbation.
+                pos_e.append(E_tot)
+
+                # Reset the field.
+                self.parameters['F_el'][beta] -= elec_pert_strength
+
+            # Perturb the electric field in the negative direction.
+            for beta in range(3):
+                self.parameters['F_el'][beta] -= elec_pert_strength
+
+                # Compute energy.
+                E_list, T_list, C, basis = energy(self.parameters)
+                E_tot = E_list[0] + E_list[1] + E_list[2]
+
+                # Append the energy based on the perturbation.
+                neg_e.append(E_tot)
+
+                # Reset the field.
+                self.parameters['F_el'][beta] += elec_pert_strength
+
+            # Compute and append electric dipoles.
+            for beta in range(3):
+                mu = -(pos_e[beta] - neg_e[beta]) / (2 * elec_pert_strength)
+                pos_mu.append(mu)
+
+            # Reset the geometry.
+            pert_geom = self.geom
+
+        # Computing energies and wavefunctions with negative nuclear displacements.
+        for alpha in range(3*self.natom):
+            pert_geom = np.copy(self.geom)
+
+            # Perturb the geometry.
+            pert_geom[alpha // 3][alpha % 3] -= nuc_pert_strength
+            pert_geom = psi4.core.Matrix.from_array(pert_geom)
+            self.molecule.set_geometry(pert_geom)
+            self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+
+            pos_e = []
+            neg_e = []
+
+            # Perturb the electric field in the positive direction.
+            for beta in range(3):
+                self.parameters['F_el'][beta] += elec_pert_strength
+
+                # Compute energy.
+                E_list, T_list, C, basis = energy(self.parameters)
+                E_tot = E_list[0] + E_list[1] + E_list[2]
+
+                # Append the energy based on the perturbation.
+                pos_e.append(E_tot)
+
+                # Reset the field.
+                self.parameters['F_el'][beta] -= elec_pert_strength
+
+            # Perturb the electric field in the negative direction.
+            for beta in range(3):
+                self.parameters['F_el'][beta] -= elec_pert_strength
+
+                # Compute energy.
+                E_list, T_list, C, basis = energy(self.parameters)
+                E_tot = E_list[0] + E_list[1] + E_list[2]
+
+                # Append the energy based on the perturbation.
+                neg_e.append(E_tot)
+
+                # Reset the field.
+                self.parameters['F_el'][beta] += elec_pert_strength
+
+            # Compute and append electric dipoles.
+            for beta in range(3):
+                mu = -(pos_e[beta] - neg_e[beta]) / (2 * elec_pert_strength)
+                neg_mu.append(mu)
+
+            # Reset the geometry.
+            pert_geom = self.geom
+
+        # Compute the APTs.
+        pos_mu = np.array(pos_mu)
+        neg_mu = np.array(neg_mu)
+        pos_mu = pos_mu.reshape((3 * self.natom, 3)) 
+        neg_mu = neg_mu.reshape((3 * self.natom, 3)) 
+        P = (pos_mu - neg_mu) / (2 * nuc_pert_strength)
+
+        return P
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
