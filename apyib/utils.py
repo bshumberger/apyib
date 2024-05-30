@@ -225,6 +225,85 @@ def compute_ERI_SO(wfn, ERI_MO):
 
 
 
+# Computes the molecular orbital overlap between two wavefunctions.
+def compute_mo_overlap(ndocc, nbf, bra_basis, bra_wfn, ket_basis, ket_wfn):
+    mints = psi4.core.MintsHelper(bra_basis)
+
+    if bra_basis == ket_basis:
+        ao_overlap = mints.ao_overlap().np
+    elif bra_basis != ket_basis:
+        ao_overlap = mints.ao_overlap(bra_basis, ket_basis).np
+
+    mo_overlap = np.zeros_like(ao_overlap)
+    mo_overlap = mo_overlap.astype('complex128')
+
+    for m in range(0, nbf):
+        for n in range(0, nbf):
+            for mu in range(0, nbf):
+                for nu in range(0, nbf):
+                    mo_overlap[m, n] += np.conjugate(np.transpose(bra_wfn[mu, m])) *  ao_overlap[mu, nu] * ket_wfn[nu, n]
+    return mo_overlap
+
+
+
+# Computes the spin orbital overlap from the molecular orbital overlap.
+def compute_so_overlap(nbf, mo_overlap):
+    """  
+    Compute the spin orbital basis overlap matrix from the MO basis overlap matrix.
+    """
+    # Compute number of spin orbitals.
+    nSO = 2 * nbf
+
+    # Compute the SO Fock matrix.
+    S_SO = np.zeros([nSO, nSO])
+    S_SO = S_SO.astype('complex128')
+    for p in range(0, nSO):
+        if p % 2 == 0:
+            p_spin = 1  
+        elif p % 2 != 0:
+            p_spin = -1 
+        for q in range(0, nSO):
+            if q % 2 == 0:
+                q_spin = 1  
+            elif q % 2 != 0:
+                q_spin = -1 
+
+            # Compute the spin integration.
+            spin_int = p_spin * q_spin
+            if spin_int < 0: 
+                spin_int = 0  
+
+            # Compute spin orbital matrix elements.
+            S_SO[p,q] = mo_overlap[p//2,q//2] * spin_int
+
+    return S_SO
+
+
+
+# Compute MO-level phase correction.
+def compute_phase(ndocc, nbf, unperturbed_basis, unperturbed_wfn, ket_basis, ket_wfn):
+    # Compute MO overlaps.
+    mo_overlap1 = compute_mo_overlap(ndocc, nbf, unperturbed_basis, unperturbed_wfn, ket_basis, ket_wfn)
+    mo_overlap2 = np.conjugate(np.transpose(mo_overlap1))
+
+    new_ket_wfn = np.zeros_like(ket_wfn)
+
+    # Compute the phase corrected coefficients.
+    for m in range(0, nbf):
+        # Compute the normalization.
+        N = np.sqrt(mo_overlap1[m][m] * mo_overlap2[m][m])
+
+        # Compute phase factor.
+        phase_factor = mo_overlap1[m][m] / N
+
+        # Compute phase corrected overlap.
+        for mu in range(0, nbf):
+            new_ket_wfn[mu][m] = ket_wfn[mu][m] * (phase_factor ** -1)
+
+    return new_ket_wfn
+
+
+
 def line_shape(frequency, intensity, fwhm, number_of_points, min_freq, max_freq):
     """
     Fits the VCD rotatory strengths to a line shape function.
