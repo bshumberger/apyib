@@ -16,7 +16,7 @@ class Hamiltonian(object):
         # Set the basis set for the calculation.
         psi4.set_options({'basis': parameters['basis']})
 
-        print(parameters['geom'])
+        #print(parameters['geom'])
  
         # Define the molecule and basis set as properties of the Hamiltonian.
         self.molecule = psi4.geometry(parameters['geom'])
