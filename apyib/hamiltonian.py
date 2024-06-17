@@ -22,6 +22,8 @@ class Hamiltonian(object):
         self.molecule = psi4.geometry(parameters['geom'])
         self.basis_set = psi4.core.BasisSet.build(self.molecule)
 
+        print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(H.basis_set)).np)
+
         # Use the MintsHelper to get the AO integrals.
         mints = psi4.core.MintsHelper(self.basis_set)
 
