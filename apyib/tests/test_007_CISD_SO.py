@@ -4,11 +4,11 @@ import apyib
 import pytest
 from ..data.molecules import *
 
-def test_cisd_h2o_6_31g():
+def test_cid_h2o_6_31g():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["H2O"],
                   'basis': '6-31G',
-                  'method': 'CISD_SO',
+                  'method': 'CISD',
                   'e_convergence': 1e-12,
                   'd_convergence': 1e-12,
                   'DIIS': True,
@@ -42,11 +42,11 @@ def test_cisd_h2o_6_31g():
     assert(abs(apyib_E_tot + apyib_E_CISD - psi4_CISD) < 1e-11)
 
 #@pytest.mark.skip(reason="Too slow.")
-def test_cisd_h2o_cc_pvdz():
+def test_cid_h2o_cc_pvdz():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["H2O"],
                   'basis': 'cc-pVDZ',
-                  'method': 'CISD_SO',
+                  'method': 'CISD',
                   'e_convergence': 1e-12,
                   'd_convergence': 1e-12,
                   'DIIS': True,
