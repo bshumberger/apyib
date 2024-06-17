@@ -1,11 +1,11 @@
 apyib
 ==============================
 [//]: # (Badges)
-[![GitHub Actions Build Status](https://github.com/REPLACE_WITH_OWNER_ACCOUNT/apyib/workflows/CI/badge.svg)](https://github.com/REPLACE_WITH_OWNER_ACCOUNT/apyib/actions?query=workflow%3ACI)
-[![codecov](https://codecov.io/gh/REPLACE_WITH_OWNER_ACCOUNT/apyib/branch/main/graph/badge.svg)](https://codecov.io/gh/REPLACE_WITH_OWNER_ACCOUNT/apyib/branch/main)
+[![GitHub Actions Build Status](https://github.com/bshumberger/apyib/workflows/CI/badge.svg)](https://github.com/bshumberger/apyib/actions?query=workflow%3ACI)
+[![codecov](https://codecov.io/gh/bshumberger/apyib/branch/main/graph/badge.svg)](https://codecov.io/gh/bshumberger/apyib/branch/main)
 
 
-Complex Hartree-Fock code.
+Complex Hartree-Fock, MP2, CID, and CISD codes for computing VCD spectra.
 
 ### Copyright
 
