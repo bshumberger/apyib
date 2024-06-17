@@ -21,8 +21,10 @@ class Hamiltonian(object):
 
         # Define the molecule and basis set as properties of the Hamiltonian.
         self.molecule = psi4.geometry(parameters['geom'])
+
         print("This is the molecule.")
-        print(self.molecule.np)
+        print(self.molecule.geometry().to_array())
+
         self.basis_set = psi4.core.BasisSet.build(self.molecule)
 
         print("This is the geometry.")
