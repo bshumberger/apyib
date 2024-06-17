@@ -5,7 +5,7 @@ apyib
 [![codecov](https://codecov.io/gh/bshumberger/apyib/branch/main/graph/badge.svg)](https://codecov.io/gh/bshumberger/apyib/branch/main)
 
 
-Complex Hartree-Fock, MP2, CID, and CISD codes for computing VCD spectra using finite difference.
+Complex Hartree-Fock, MP2, CID, and CISD codes for computing VCD spectra.
 
 ### Copyright
 
