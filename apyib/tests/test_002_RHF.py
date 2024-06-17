@@ -75,10 +75,6 @@ def test_rhf_energy():
     O  0.000000000000  -0.143225816552   0.000000000000
     H  1.638036840407   1.136548822547  -0.000000000000
     H -1.638036840407   1.136548822547  -0.000000000000
-    symmetry c1
-    no_com
-    no_reorient
-    units bohr
     """
 
     # Set parameters for the calculation.
