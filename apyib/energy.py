@@ -39,6 +39,9 @@ def energy(parameters, print_level=0):
     if parameters['method'] == 'CID':
         wfn_cid = ci_wfn(parameters, E_SCF, E_tot, C)
         E, t2 = wfn_cid.solve_CID()
+    if parameters['method'] == 'CISD':
+        wfn_cisd = ci_wfn(parameters, E_SCF, E_tot, C)
+        E, t1, t2 = wfn_cisd.solve_CISD()
 
     # Perform calculations for the chosen method if not Hartree-Fock. The wavefunction is returned in the spin-orbital basis.
     if parameters['method'] == 'MP2_SO':
