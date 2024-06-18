@@ -20,15 +20,13 @@ class Hamiltonian(object):
         print(parameters['geom'])
 
         # Define the molecule and basis set as properties of the Hamiltonian.
-        self.molecule = psi4.geometry(parameters['geom'])
+        #self.molecule = psi4.geometry(parameters['geom'])
+        self.molecule = psi4.core.Molecule.from_string(parameters['geom'])
 
         print("This is the molecule.")
         print(self.molecule.geometry().to_array())
 
         self.basis_set = psi4.core.BasisSet.build(self.molecule)
-
-        print("This is the geometry.")
-        print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(self.basis_set)).np)
 
         # Use the MintsHelper to get the AO integrals.
         mints = psi4.core.MintsHelper(self.basis_set)
