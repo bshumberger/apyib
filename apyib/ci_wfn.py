@@ -283,7 +283,8 @@ class ci_wfn(object):
             t2_old = t2.copy()
 
             # Solving for the residuals. Note that the equations for the T2 amplitudes must all be permuted to have final indices of i,j,a,b for Tijab.
-            r_T1 = F_SO[0:o,o:nbf].copy()
+            #r_T1 = F_SO[0:o,o:nbf].copy()
+            r_T1 = F_SO.copy().swapaxes(0,1)[0:o,o:nbf]
             r_T1 -= np.einsum('ji,ja->ia', F_SO[0:o,0:o], t1)
             r_T1 += np.einsum('ab,ib->ia', F_SO[o:nbf,o:nbf], t1)
             r_T1 += np.einsum('jabi,jb->ia', ERI_SO[0:o,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o], t1)
@@ -292,7 +293,8 @@ class ci_wfn(object):
             r_T1 -= 0.5 * np.einsum('kjib,kjab->ia', ERI_SO[0:o,0:o,0:o,o:nbf] - ERI_SO.swapaxes(2,3)[0:o,0:o,0:o,o:nbf], t2)
             r_T1 -= E_CISD * t1
 
-            r_T2 = ERI_SO[0:o,0:o,o:nbf,o:nbf].copy() - ERI_SO.swapaxes(2,3)[0:o,0:o,o:nbf,o:nbf].copy()
+            #r_T2 = ERI_SO[0:o,0:o,o:nbf,o:nbf].copy() - ERI_SO.swapaxes(2,3)[0:o,0:o,o:nbf,o:nbf].copy()
+            r_T2 = ERI_SO.copy().swapaxes(0,2).swapaxes(1,3)[0:o,0:o,o:nbf,o:nbf] - ERI_SO.copy().swapaxes(0,2).swapaxes(1,3).swapaxes(2,3)[0:o,0:o,o:nbf,o:nbf]
             r_T2 -= np.einsum('kbij,ka->ijab', ERI_SO[0:o,o:nbf,0:o,0:o] - ERI_SO.swapaxes(2,3)[0:o,o:nbf,0:o,0:o], t1)
             r_T2 -= np.einsum('akij,kb->ijab', ERI_SO[o:nbf,0:o,0:o,0:o] - ERI_SO.swapaxes(2,3)[o:nbf,0:o,0:o,0:o], t1)
             r_T2 += np.einsum('abcj,ic->ijab', ERI_SO[o:nbf,o:nbf,o:nbf,0:o] - ERI_SO.swapaxes(2,3)[o:nbf,o:nbf,o:nbf,0:o], t1)
