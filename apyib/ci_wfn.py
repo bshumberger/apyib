@@ -399,7 +399,7 @@ class ci_wfn(object):
 
             # Solving for the residuals. Note that the equations for the T2 amplitudes must all be permuted to have final indices of i,j,a,b for Tijab.
             r_T1 = F_MO.copy().swapaxes(0,1)[0:o,o:nbf]
-            r_T1 -= np.einsum('ij,ja->ia', F_MO[0:o,0:o], t1)
+            r_T1 -= np.einsum('ji,ja->ia', F_MO[0:o,0:o], t1)
             r_T1 += np.einsum('ab,ib->ia', F_MO[o:nbf,o:nbf], t1)
             r_T1 += np.einsum('jabi,jb->ia', 2.0 * ERI_MO[0:o,o:nbf,o:nbf,0:o] - ERI_MO.swapaxes(2,3)[0:o,o:nbf,o:nbf,0:o], t1)
             r_T1 += np.einsum('jb,ijab->ia', F_MO[0:o,o:nbf], 2.0 * t2 - t2.swapaxes(2,3))

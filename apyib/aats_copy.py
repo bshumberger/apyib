@@ -111,18 +111,18 @@ class AAT(object):
 
 
 
-    # Computes the determinant of the occupied space for some general row and column swap.
-    def compute_det(self, overlap, bra_indices, ket_indices):
-        nocc = self.ndocc
-        S = overlap.copy()
-        for x in range(0, len(bra_indices), 2): 
-            S[[bra_indices[x], bra_indices[x+1]],:] = S[[bra_indices[x+1], bra_indices[x]],:]
-        for y in range(0, len(ket_indices), 2): 
-            S[:,[ket_indices[y], ket_indices[y+1]]] = S[:,[ket_indices[y+1], ket_indices[y]]]
+    ## Computes the determinant of the occupied space for some general row and column swap.
+    #def compute_det(self, overlap, bra_indices, ket_indices):
+    #    nocc = self.ndocc
+    #    S = overlap.copy()
+    #    for x in range(0, len(bra_indices), 2): 
+    #        S[[bra_indices[x], bra_indices[x+1]],:] = S[[bra_indices[x+1], bra_indices[x]],:]
+    #    for y in range(0, len(ket_indices), 2): 
+    #        S[:,[ket_indices[y], ket_indices[y+1]]] = S[:,[ket_indices[y+1], ket_indices[y]]]
 
-        det_S = np.linalg.det(S[0:nocc,0:nocc])
+    #    det_S = np.linalg.det(S[0:nocc,0:nocc])
 
-        return det_S
+    #    return det_S
 
 
     
@@ -141,22 +141,59 @@ class AAT(object):
 
 
 
-    def compute_SO_I_00(self, alpha, beta):
-        # Compute the Hartree-Fock determinant in the spatial orbital basis.
-        det_S_pp = self.compute_det(self.overlap_pp[alpha][beta], [], [])**2
-        det_S_pn = self.compute_det(self.overlap_pn[alpha][beta], [], [])**2
-        det_S_np = self.compute_det(self.overlap_np[alpha][beta], [], [])**2
-        det_S_nn = self.compute_det(self.overlap_nn[alpha][beta], [], [])**2
+    def compute_normalization(self, alpha, beta, normalization):
+        # Compute normalization factors.
+        if self.parameters['method'] == 'RHF' or normalization == 'intermediate':
+            N = 1
+            N_np = 1
+            N_nn = 1
+            N_mp = 1
+            N_mn = 1
+
+        elif normalization == 'full' and self.parameters['method'] == 'CISD_SO':
+            N = 1 / np.sqrt(self.unperturbed_T[0]**2 + np.einsum('ia,ia->', np.conjugate(self.unperturbed_T[1]), self.unperturbed_T[1]) + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.unperturbed_T[2]), self.unperturbed_T[2]))
+            N_np = 1 / np.sqrt(self.nuc_pos_T[alpha][0]**2 + np.einsum('ia,ia->', np.conjugate(self.nuc_pos_T[alpha][1]), self.nuc_pos_T[alpha][1]) + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_pos_T[alpha][2]), self.nuc_pos_T[alpha][2]))
+            N_nn = 1 / np.sqrt(self.nuc_neg_T[alpha][0]**2 + np.einsum('ia,ia->', np.conjugate(self.nuc_neg_T[alpha][1]), self.nuc_neg_T[alpha][1]) + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_neg_T[alpha][2]), self.nuc_neg_T[alpha][2]))
+            N_mp = 1 / np.sqrt(self.mag_pos_T[beta][0]**2 + np.einsum('ia,ia->', np.conjugate(self.mag_pos_T[beta][1]), self.mag_pos_T[beta][1]) + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.mag_pos_T[beta][2]), self.mag_pos_T[beta][2]))
+            N_mn = 1 / np.sqrt(self.mag_neg_T[beta][0]**2 + np.einsum('ia,ia->', np.conjugate(self.mag_neg_T[beta][1]), self.mag_neg_T[beta][1]) + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.mag_neg_T[beta][2]), self.mag_neg_T[beta][2]))
+
+        elif normalization == 'full':
+            N = 1 / np.sqrt(self.unperturbed_T[0]**2 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.unperturbed_T[2]), self.unperturbed_T[2]))
+            N_np = 1 / np.sqrt(self.nuc_pos_T[alpha][0]**2 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_pos_T[alpha][2]), self.nuc_pos_T[alpha][2]))
+            N_nn = 1 / np.sqrt(self.nuc_neg_T[alpha][0]**2 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_neg_T[alpha][2]), self.nuc_neg_T[alpha][2]))
+            N_mp = 1 / np.sqrt(self.mag_pos_T[beta][0]**2 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.mag_pos_T[beta][2]), self.mag_pos_T[beta][2]))
+            N_mn = 1 / np.sqrt(self.mag_neg_T[beta][0]**2 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.mag_neg_T[beta][2]), self.mag_neg_T[beta][2]))
+
+        return N, N_np, N_nn, N_mp, N_mn
+
+
+
+    def compute_SO_I_00(self, alpha, beta, normalization):
+        # Compute the Hartree-Fock determinant in the spin-orbital basis.
+        N, N_np, N_nn, N_mp, N_mn = self.compute_normalization(alpha, beta, normalization)
+
+        if self.parameters['method'] == 'RHF':
+            self.overlap_pp[alpha][beta] = compute_so_overlap(self.nbf, self.overlap_pp[alpha][beta])
+            self.overlap_pn[alpha][beta] = compute_so_overlap(self.nbf, self.overlap_pn[alpha][beta])
+            self.overlap_np[alpha][beta] = compute_so_overlap(self.nbf, self.overlap_np[alpha][beta])
+            self.overlap_nn[alpha][beta] = compute_so_overlap(self.nbf, self.overlap_nn[alpha][beta])
+
+        det_S_pp = self.compute_SO_det(self.overlap_pp[alpha][beta], [], [])
+        det_S_pn = self.compute_SO_det(self.overlap_pn[alpha][beta], [], [])
+        det_S_np = self.compute_SO_det(self.overlap_np[alpha][beta], [], [])
+        det_S_nn = self.compute_SO_det(self.overlap_nn[alpha][beta], [], [])
 
         # Compute the HF AATs.
-        I = det_S_pp - det_S_pn - det_S_np + det_S_nn
+        I = det_S_pp * N_np * N_mp - det_S_pn * N_np * N_mn - det_S_np * N_nn * N_mp + det_S_nn * N_nn * N_mn
 
         return (1 / (4 * self.nuc_pert_strength * self.mag_pert_strength)) * I.imag
 
 
 
-    def compute_SO_I_0D(self, alpha, beta):
+    def compute_SO_I_0D(self, alpha, beta, normalization):
         # Compute the reference/doubles determinants in the spin-orbital basis.
+        N, N_np, N_nn, N_mp, N_mn = self.compute_normalization(alpha, beta, normalization)
+
         nocc = 2 * self.ndocc
         nbf = 2 * self.nbf
         I = 0
@@ -175,20 +212,22 @@ class AAT(object):
                         det_S_nn = self.compute_SO_det(self.overlap_nn[alpha][beta], [], [i,a,j,b])
 
                         # dt_ijab / dH
-                        d_t2 = self.mag_pos_T[beta][2][i][j][a-nocc][b-nocc] - self.mag_neg_T[beta][2][i][j][a-nocc][b-nocc]
+                        t2_dH = self.mag_pos_T[beta][2][i][j][a-nocc][b-nocc] - self.mag_neg_T[beta][2][i][j][a-nocc][b-nocc]
 
                         # t_ijab
                         t2 = self.unperturbed_T[2][i][j][a-nocc][b-nocc]
 
-                        I += 0.25 * d_t2 * (det_S_pu - det_S_nu)
-                        I += 0.25 * t2 * (det_S_pp - det_S_pn - det_S_np + det_S_nn)
+                        I += 0.25 * t2_dH * (det_S_pu * N_np * N - det_S_nu * N_nn * N)
+                        I += 0.25 * t2 * (det_S_pp * N_np * N_mp - det_S_pn * N_np * N_mn - det_S_np * N_nn * N_mp + det_S_nn * N_nn * N_mn)
 
         return (1 / (4 * self.nuc_pert_strength * self.mag_pert_strength)) * I.imag
 
 
 
-    def compute_SO_I_D0(self, alpha, beta):
+    def compute_SO_I_D0(self, alpha, beta, normalization):
         # Compute the reference/doubles determinants in the spin-orbital basis.
+        N, N_np, N_nn, N_mp, N_mn = self.compute_normalization(alpha, beta, normalization)
+
         nocc = 2 * self.ndocc
         nbf = 2 * self.nbf
         I = 0
@@ -196,26 +235,98 @@ class AAT(object):
             for a in range(nocc, nbf):
                 for j in range(0, nocc):
                     for b in range(nocc, nbf):
-                        # < ijab | d0/dR >
+                        # < ijab | d0/dH >
                         det_S_up = self.compute_SO_det(self.overlap_up[beta], [i,a,j,b], [])
                         det_S_un = self.compute_SO_det(self.overlap_un[beta], [i,a,j,b], [])
 
-                        # < dijab/dH | d0/dR >
+                        # < dijab/dR | d0/dH >
                         det_S_pp = self.compute_SO_det(self.overlap_pp[alpha][beta], [i,a,j,b], [])
                         det_S_pn = self.compute_SO_det(self.overlap_pn[alpha][beta], [i,a,j,b], [])
                         det_S_np = self.compute_SO_det(self.overlap_np[alpha][beta], [i,a,j,b], [])
                         det_S_nn = self.compute_SO_det(self.overlap_nn[alpha][beta], [i,a,j,b], [])
 
                         # dt_ijab / dR
-                        d_t2 = np.conjugate(self.nuc_pos_T[alpha][2][i][j][a-nocc][b-nocc] - self.nuc_neg_T[alpha][2][i][j][a-nocc][b-nocc])
+                        t2_dR = np.conjugate(self.nuc_pos_T[alpha][2][i][j][a-nocc][b-nocc] - self.nuc_neg_T[alpha][2][i][j][a-nocc][b-nocc])
 
                         # t_ijab
-                        t2 = np.conjugate(self.unperturbed_T[2][i][j][a-nocc][b-nocc])
+                        t2_conj = np.conjugate(self.unperturbed_T[2][i][j][a-nocc][b-nocc])
 
-                        I += 0.25 * d_t2 * (det_S_up - det_S_un)
-                        I += 0.25 * t2 * (det_S_pp - det_S_pn - det_S_np + det_S_nn)
+                        I += 0.25 * t2_dR * (det_S_up * N * N_mp - det_S_un * N * N_mn)
+                        I += 0.25 * t2_conj * (det_S_pp * N_np * N_mp - det_S_pn * N_np * N_mn - det_S_np * N_nn * N_mp + det_S_nn * N_nn * N_mn)
 
         return (1 / (4 * self.nuc_pert_strength * self.mag_pert_strength)) * I.imag    
+
+
+
+    def compute_SO_I_DD(self, alpha, beta, normalization):
+        # Compute the doubles/doubles determinants in the spin-orbital basis.
+        N, N_np, N_nn, N_mp, N_mn = self.compute_normalization(alpha, beta, normalization)
+
+        nocc = 2 * self.ndocc
+        nbf = 2 * self.nbf
+        I = 0
+        for i in range(0, nocc):
+            for a in range(nocc, nbf):
+                for j in range(0, nocc):
+                    for b in range(nocc, nbf):
+                        for k in range(0, nocc):
+                            for c in range(nocc, nbf):
+                                for l in range(0, nocc):
+                                    for d in range(nocc, nbf):
+                                        # < ijab | klcd >
+                                        det_S_uu = self.compute_SO_det(self.overlap_uu, [i,a,j,b], [k,c,l,d])
+
+                                        # < dijab/dR | klcd >
+                                        det_S_pu = self.compute_SO_det(self.overlap_pu[alpha], [i,a,j,b], [k,c,l,d])
+                                        det_S_nu = self.compute_SO_det(self.overlap_nu[alpha], [i,a,j,b], [k,c,l,d])
+
+                                        # < ijab | dklcd/dH >
+                                        det_S_up = self.compute_SO_det(self.overlap_up[beta], [i,a,j,b], [k,c,l,d])
+                                        det_S_un = self.compute_SO_det(self.overlap_un[beta], [i,a,j,b], [k,c,l,d])
+
+                                        # < dijab/dR | dklcd/dH >
+                                        det_S_pp = self.compute_SO_det(self.overlap_pp[alpha][beta], [i,a,j,b], [k,c,l,d])
+                                        det_S_pn = self.compute_SO_det(self.overlap_pn[alpha][beta], [i,a,j,b], [k,c,l,d])
+                                        det_S_np = self.compute_SO_det(self.overlap_np[alpha][beta], [i,a,j,b], [k,c,l,d])
+                                        det_S_nn = self.compute_SO_det(self.overlap_nn[alpha][beta], [i,a,j,b], [k,c,l,d])
+
+                                        # dt_ijab / dR
+                                        t2_dR = np.conjugate(self.nuc_pos_T[alpha][2][i][j][a-nocc][b-nocc] - self.nuc_neg_T[alpha][2][i][j][a-nocc][b-nocc])
+
+                                        # dt_klcd / dH
+                                        t2_dH = self.mag_pos_T[beta][2][k][l][c-nocc][d-nocc] - self.mag_neg_T[beta][2][k][l][c-nocc][d-nocc]
+
+                                        # t_ijab
+                                        t2_conj = np.conjugate(self.unperturbed_T[2][i][j][a-nocc][b-nocc])
+
+                                        # t_ijab
+                                        t2 = self.unperturbed_T[2][k][l][c-nocc][d-nocc]
+
+                                        I += 0.25**2 * t2_dR * t2_dH * (det_S_uu * N * N)
+                                        I += 0.25**2 * t2_dR * t2 * (det_S_up * N * N_mp - det_S_un * N * N_mn)
+                                        I += 0.25**2 * t2_conj * t2_dH * (det_S_pu * N_np * N - det_S_nu * N_nn * N)
+                                        I += 0.25**2 * t2_conj * t2 * (det_S_pp * N_np * N_mp - det_S_pn * N_np * N_mn - det_S_np * N_nn * N_mp + det_S_nn * N_nn * N_mn)
+
+        return (1 / (4 * self.nuc_pert_strength * self.mag_pert_strength)) * I.imag
+
+
+
+    def compute_SO_aats(self, alpha, beta, normalization='full'):
+        # Compute the HF term of the AATs.
+        I_00 = self.compute_SO_I_00(alpha, beta, normalization)
+        # Compute the MP2 or CID contribution to the AATs.
+        if self.parameters['method'] != 'RHF':
+            I_0D = self.compute_SO_I_0D(alpha, beta, normalization)
+            I_D0 = self.compute_SO_I_D0(alpha, beta, normalization)
+            I_DD = self.compute_SO_I_DD(alpha, beta, normalization)
+        else:
+            I_0D = 0
+            I_D0 = 0
+            I_DD = 0
+
+        I = I_00 + I_0D + I_D0 + I_DD
+
+        return I
 
 
 
