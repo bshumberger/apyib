@@ -7,9 +7,11 @@ import itertools as it
 import time
 from apyib.utils import compute_mo_overlap
 from apyib.utils import compute_so_overlap
-#from apyib.utils import run_psi4
 from apyib.hamiltonian import Hamiltonian
-#from apyib.hf_wfn import hf_wfn
+from apyib.energy import energy
+from apyib.hf_wfn import hf_wfn
+from apyib.fin_diff import finite_difference
+
 
 
 class AAT(object):
@@ -594,6 +596,7 @@ class AAT(object):
             I += 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2, ia_S_kc_nn, ia_S_kc_nn) * N_nn * N_mn
 
         return (1 / (4 * self.nuc_pert_strength * self.mag_pert_strength)) * I.imag
+
 
 
 

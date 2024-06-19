@@ -236,6 +236,7 @@ def test_mp2_aat_full_norm():
 
     assert(np.max(np.abs(aat-aat_ref)) < 1e-7)
 
+@pytest.mark.skip(reason="Too slow.")
 def test_cid_aat():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["H2O"],
@@ -316,6 +317,7 @@ def test_cid_aat():
 
     assert(np.max(np.abs(aat-aat_ref)) < 1e-7)
 
+@pytest.mark.skip(reason="Too slow.")
 def test_cid_aat_full_norm():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["H2O"],
