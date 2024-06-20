@@ -10,7 +10,7 @@ from apyib.hamiltonian import Hamiltonian
 from apyib.energy import energy
 from apyib.hf_wfn import hf_wfn
 from apyib.fin_diff import finite_difference
-from apyib.aats_copy import AAT
+from apyib.aats import AAT
 
 def compute_parallel_aats(parameters, nuc_pert_strength, mag_pert_strength, normalization='full'):
     # Compute energy.
