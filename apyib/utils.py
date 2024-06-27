@@ -31,6 +31,7 @@ def run_psi4(parameters, method='RHF'):
                     'e_convergence': parameters['e_convergence'],
                     'd_convergence': parameters['d_convergence'],
                     'DIIS': parameters['DIIS'],
+                    'freeze_core': parameters['freeze_core'],
                     'mp2_type': 'conv',
                     'PERTURB_H': True,
                     'PERTURB_WITH':'DIPOLE',
@@ -101,38 +102,137 @@ def solve_DIIS(parameters, F, D, S, X, F_iter, e_iter, min_DIIS=1, max_DIIS=7):
 
 
 
-def compute_F_MO(parameters, H, wfn, C):
-    """
+def get_slices(parameters, wfn):
+    # Define the number of occupied and virtual orbitals.
+    nfzc = wfn.H.basis_set.n_frozen_core()
+    nbf = wfn.nbf
+    no = wfn.ndocc
+    nv = wfn.nbf - wfn.ndocc
+
+    # Define the slices for molecular orbital coefficients (to be used in computing of F_MO and ERI_MO).
+    f = slice(0, nfzc)
+    o = slice(nfzc, no)
+    v = slice(no, nbf)
+    t = slice(nfzc, nbf)
+
+    C_list = [f, o, v, t]
+
+    # Define the slices for the molecular orbital basis integrals (to be used in computing E and the t-amplitudes).
+    if parameters['method'] == 'RHF' or parameters['method'] == 'MP2' or parameters['method'] == 'CID' or parameters['method'] == 'CISD':
+        f_ = slice(0, nfzc)
+        o_ = slice(0, no - nfzc)
+        v_ = slice(no - nfzc, nbf - nfzc)
+        t_ = slice(0, nbf - nfzc)
+    elif parameters['method'] == 'MP2_SO' or parameters['method'] == 'CID_SO' or parameters['method'] == 'CISD_SO':
+        f_ = slice(0, 2*nfzc)
+        o_ = slice(0, 2*no - 2*nfzc)
+        v_ = slice(2*no - 2*nfzc, 2*nbf - 2*nfzc)
+        t_ = slice(0, 2*nbf - 2*nfzc)
+
+    I_list = [f_, o_, v_, t_]
+
+    return C_list, I_list
+
+
+
+#def compute_F_MO(parameters, H, wfn, C):
+#    """
+#    Computes the MO basis Fock matrix from the AO basis.
+#    """
+#    # Set up the one-electron AO integrals.
+#    h_AO = H.T + H.V
+#
+#    # Set up the two-electron AO integrals.
+#    ERI_AO = H.ERI.astype('complex128')
+#
+#    # Compute the density.
+#    D = np.einsum('mp,np->mn', C[0:wfn.nbf,0:wfn.ndocc], np.conjugate(C[0:wfn.nbf,0:wfn.ndocc]))
+#
+#    # Compute the Fock matrix elements.
+#    F_AO = h_AO + np.einsum('ls,mnls->mn', D, 2 * ERI_AO - ERI_AO.swapaxes(1,2))
+#
+#    # Compute MO Fock matrix elements.
+#    F_MO = np.einsum('ip,ij,jq->pq', np.conjugate(C), F_AO, C)
+#
+#    return F_MO
+
+
+
+def compute_F_MO(parameters, wfn, C_list): 
+    """ 
     Computes the MO basis Fock matrix from the AO basis.
     """
+    # Set up the slices for frozen core, total, occupied, and virtual orbital subspaces.
+    f = C_list[0]
+    o = C_list[1]
+    v = C_list[2]
+    t = C_list[3]
+
+    # Get wavefunction coefficients.
+    C = wfn.C
+
     # Set up the one-electron AO integrals.
-    h_AO = H.T + H.V
+    h_AO = wfn.H.T + wfn.H.V
 
     # Set up the two-electron AO integrals.
-    ERI_AO = H.ERI.astype('complex128')
+    ERI_AO = wfn.H.ERI.copy().astype('complex128')
+
+    # Compute frozen core energy and append frozen core operator.
+    E_fc = 0
+    if parameters['freeze_core'] == True:
+        C_fc = C[:,f]
+        D_fc = np.einsum('mp,np->mn', C_fc, np.conjugate(C_fc))
+        h_AO_fc = h_AO + np.einsum('ls,mnls->mn', D_fc, 2 * ERI_AO - ERI_AO.swapaxes(1,2))
+        E_fc = np.einsum('nm,mn->', D_fc, h_AO + h_AO_fc)
+        h_AO = h_AO_fc
 
     # Compute the density.
-    D = np.einsum('mp,np->mn', C[0:wfn.nbf,0:wfn.ndocc], np.conjugate(C[0:wfn.nbf,0:wfn.ndocc]))
+    D = np.einsum('mp,np->mn', C[:,o], np.conjugate(C[:,o]))
 
     # Compute the Fock matrix elements.
     F_AO = h_AO + np.einsum('ls,mnls->mn', D, 2 * ERI_AO - ERI_AO.swapaxes(1,2))
 
     # Compute MO Fock matrix elements.
-    F_MO = np.einsum('ip,ij,jq->pq', np.conjugate(C), F_AO, C)
+    F_MO = np.einsum('ip,ij,jq->pq', np.conjugate(C[:,t]), F_AO, C[:,t])
 
-    return F_MO
+    return F_MO, E_fc
 
 
 
-def compute_ERI_MO(parameters, H, wfn, C):
+#def compute_ERI_MO(parameters, H, wfn, C):
+#    """
+#    Computes the MO basis electron repulsion integrals from the AO basis.
+#    """
+#    # Set up the two-electron AO integrals.
+#    ERI_AO = H.ERI.astype('complex128')
+#
+#    # Compute the two-electron MO integrals.
+#    ERI_MO = np.einsum('mnlg,gs->mnls', H.ERI, C)
+#    ERI_MO = np.einsum('mnls,lr->mnrs', ERI_MO, np.conjugate(C))
+#    ERI_MO = np.einsum('nq,mnrs->mqrs', C, ERI_MO)
+#    ERI_MO = np.einsum('mp,mqrs->pqrs', np.conjugate(C), ERI_MO)
+#
+#    return ERI_MO
+
+
+
+def compute_ERI_MO(parameters, wfn, C_list):
     """
     Computes the MO basis electron repulsion integrals from the AO basis.
     """
+    # Set up the slices for frozen core, total, occupied, and virtual orbital subspaces.
+    f = C_list[0]
+    o = C_list[1]
+    v = C_list[2]
+    t = C_list[3]
+
+    C = wfn.C.copy()[:,t]
+
     # Set up the two-electron AO integrals.
-    ERI_AO = H.ERI.astype('complex128')
+    ERI_AO = wfn.H.ERI.copy().astype('complex128')
 
     # Compute the two-electron MO integrals.
-    ERI_MO = np.einsum('mnlg,gs->mnls', H.ERI, C)
+    ERI_MO = np.einsum('mnlg,gs->mnls', ERI_AO, C)
     ERI_MO = np.einsum('mnls,lr->mnrs', ERI_MO, np.conjugate(C))
     ERI_MO = np.einsum('nq,mnrs->mqrs', C, ERI_MO)
     ERI_MO = np.einsum('mp,mqrs->pqrs', np.conjugate(C), ERI_MO)
@@ -146,7 +246,7 @@ def compute_F_SO(wfn, F_MO):
     Compute the spin orbital basis Fock matrix from the MO basis Fock matrix.
     """
     # Compute number of spin orbitals.
-    nSO = 2 * wfn.nbf
+    nSO = 2*F_MO.shape[0]
 
     # Compute the SO Fock matrix.
     F_SO = np.zeros([nSO, nSO])

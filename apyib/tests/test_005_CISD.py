@@ -12,6 +12,7 @@ def test_cisd_h2o_6_31g():
                   'e_convergence': 1e-12,
                   'd_convergence': 1e-12,
                   'DIIS': True,
+                  'freeze_core': False,
                   'F_el': [0.0, 0.0, 0.0],
                   'F_mag': [0.0, 0.0, 0.0],
                   'max_iterations': 120}
@@ -26,20 +27,20 @@ def test_cisd_h2o_6_31g():
     # Run apyib.
     H = apyib.hamiltonian.Hamiltonian(parameters) 
     wfn = apyib.hf_wfn.hf_wfn(H)
-    apyib_E, apyib_E_tot, apyib_wfn = wfn.solve_SCF(parameters)
+    apyib_E, apyib_wfn = wfn.solve_SCF(parameters)
     
     # Compute the MP2 energy and wavefunction.
-    wfn_CI = apyib.ci_wfn.ci_wfn(parameters, apyib_E, apyib_E_tot, apyib_wfn)
+    wfn_CI = apyib.ci_wfn.ci_wfn(parameters, wfn)
     apyib_E_CISD, t1, t2 = wfn_CI.solve_CISD()
     
     # Print energies and energy difference between apyib code and Psi4.
     print("Electronic Hartree-Fock Energy: ", apyib_E)
     print("Electronic CISD Energy: ", apyib_E_CISD)
-    print("Total Energy: ", apyib_E_tot + apyib_E_CISD)
-    print("Energy Difference between Homemade CISD Code and Reference: ", apyib_E_tot + apyib_E_CISD - p4_E_tot)
+    print("Total Energy: ", apyib_E + H.E_nuc + apyib_E_CISD)
+    print("Energy Difference between Homemade CISD Code and Reference: ", apyib_E + H.E_nuc + apyib_E_CISD - p4_E_tot)
 
-    assert(abs(apyib_E_tot + apyib_E_CISD - p4_E_tot) < 1e-11)
-    assert(abs(apyib_E_tot + apyib_E_CISD - psi4_CISD) < 1e-11)
+    assert(abs(apyib_E + H.E_nuc + apyib_E_CISD - p4_E_tot) < 1e-11)
+    assert(abs(apyib_E + H.E_nuc + apyib_E_CISD - psi4_CISD) < 1e-11)
 
 def test_cisd_h2o_cc_pvdz():
     # Set parameters for the calculation.
@@ -49,6 +50,7 @@ def test_cisd_h2o_cc_pvdz():
                   'e_convergence': 1e-12,
                   'd_convergence': 1e-12,
                   'DIIS': True,
+                  'freeze_core': False,
                   'F_el': [0.0, 0.0, 0.0],
                   'F_mag': [0.0, 0.0, 0.0],
                   'max_iterations': 120}
@@ -63,20 +65,20 @@ def test_cisd_h2o_cc_pvdz():
     # Run apyib.
     H = apyib.hamiltonian.Hamiltonian(parameters)
     wfn = apyib.hf_wfn.hf_wfn(H)
-    apyib_E, apyib_E_tot, apyib_wfn = wfn.solve_SCF(parameters)
+    apyib_E, apyib_wfn = wfn.solve_SCF(parameters)
 
     # Compute the MP2 energy and wavefunction.
-    wfn_CI = apyib.ci_wfn.ci_wfn(parameters, apyib_E, apyib_E_tot, apyib_wfn)
+    wfn_CI = apyib.ci_wfn.ci_wfn(parameters, wfn)
     apyib_E_CISD, t1, t2 = wfn_CI.solve_CISD()
 
     # Print energies and energy difference between apyib code and Psi4.
     print("Electronic Hartree-Fock Energy: ", apyib_E)
     print("Electronic CISD Energy: ", apyib_E_CISD)
-    print("Total Energy: ", apyib_E_tot + apyib_E_CISD)
-    print("Energy Difference between Homemade CISD Code and Reference: ", apyib_E_tot + apyib_E_CISD - p4_E_tot)
+    print("Total Energy: ", apyib_E + H.E_nuc + apyib_E_CISD)
+    print("Energy Difference between Homemade CISD Code and Reference: ", apyib_E + H.E_nuc + apyib_E_CISD - p4_E_tot)
 
-    assert(abs(apyib_E_tot + apyib_E_CISD - p4_E_tot) < 1e-11)
-    assert(abs(apyib_E_tot + apyib_E_CISD - psi4_CISD) < 1e-11)
+    assert(abs(apyib_E + H.E_nuc + apyib_E_CISD - p4_E_tot) < 1e-11)
+    assert(abs(apyib_E + H.E_nuc + apyib_E_CISD - psi4_CISD) < 1e-11)
 
 def test_cisd_energy():
     # Set parameters for the calculation.
@@ -86,6 +88,7 @@ def test_cisd_energy():
                   'e_convergence': 1e-12,
                   'd_convergence': 1e-12,
                   'DIIS': True,
+                  'freeze_core': False,
                   'F_el': [0.0, 0.0, 0.0],
                   'F_mag': [0.0, 0.0, 0.0],
                   'max_iterations': 120}

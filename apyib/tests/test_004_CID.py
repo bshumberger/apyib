@@ -12,6 +12,7 @@ def test_cid_h2o_sto_3g():
                   'e_convergence': 1e-12,
                   'd_convergence': 1e-12,
                   'DIIS': True,
+                  'freeze_core': False,
                   'F_el': [0.0, 0.0, 0.0],
                   'F_mag': [0.0, 0.0, 0.0],
                   'max_iterations': 120}
@@ -26,19 +27,19 @@ def test_cid_h2o_sto_3g():
     # Run apyib.
     H = apyib.hamiltonian.Hamiltonian(parameters) 
     wfn = apyib.hf_wfn.hf_wfn(H)
-    apyib_E, apyib_E_tot, apyib_wfn = wfn.solve_SCF(parameters)
+    apyib_E, apyib_wfn = wfn.solve_SCF(parameters)
     
     # Compute the MP2 energy and wavefunction.
-    wfn_CI = apyib.ci_wfn.ci_wfn(parameters, apyib_E, apyib_E_tot, apyib_wfn)
+    wfn_CI = apyib.ci_wfn.ci_wfn(parameters, wfn)
     apyib_E_CID, t2 = wfn_CI.solve_CID()
     
     # Print energies and energy difference between apyib code and Psi4.
     print("Electronic Hartree-Fock Energy: ", apyib_E)
     print("Electronic CID Energy: ", apyib_E_CID)
-    print("Total Energy: ", apyib_E_tot + apyib_E_CID)
-    print("Energy Difference between Homemade CID Code and Reference: ", apyib_E_tot + apyib_E_CID - g09_CID)
+    print("Total Energy: ", apyib_E + apyib_E_CID + H.E_nuc)
+    print("Energy Difference between Homemade CID Code and Reference: ", apyib_E + apyib_E_CID + H.E_nuc - g09_CID)
 
-    assert(abs(apyib_E_tot + apyib_E_CID - g09_CID) < 1e-11)
+    assert(abs(apyib_E + apyib_E_CID + H.E_nuc - g09_CID) < 1e-11)
 
 def test_cid_h2o_cc_pvdz():
     # Set parameters for the calculation.
@@ -48,6 +49,7 @@ def test_cid_h2o_cc_pvdz():
                   'e_convergence': 1e-12,
                   'd_convergence': 1e-12,
                   'DIIS': True,
+                  'freeze_core': False,
                   'F_el': [0.0, 0.0, 0.0],
                   'F_mag': [0.0, 0.0, 0.0],
                   'max_iterations': 120}
@@ -65,19 +67,19 @@ def test_cid_h2o_cc_pvdz():
     # Run apyib.
     H = apyib.hamiltonian.Hamiltonian(parameters) 
     wfn = apyib.hf_wfn.hf_wfn(H)
-    apyib_E, apyib_E_tot, apyib_wfn = wfn.solve_SCF(parameters)
+    apyib_E, apyib_wfn = wfn.solve_SCF(parameters)
         
     # Compute the MP2 energy and wavefunction.
-    wfn_CI = apyib.ci_wfn.ci_wfn(parameters, apyib_E, apyib_E_tot, apyib_wfn)
+    wfn_CI = apyib.ci_wfn.ci_wfn(parameters, wfn)
     apyib_E_CID, t2 = wfn_CI.solve_CID()
         
     # Print energies and energy difference between apyib code and Psi4.
     print("Electronic Hartree-Fock Energy: ", apyib_E)
     print("Electronic CID Energy: ", apyib_E_CID)
-    print("Total Energy: ", apyib_E_tot + apyib_E_CID)
-    print("Energy Difference between Homemade CID Code and Reference: ", apyib_E_tot + apyib_E_CID - c4_CID)
+    print("Total Energy: ", apyib_E + apyib_E_CID + H.E_nuc)
+    print("Energy Difference between Homemade CID Code and Reference: ", apyib_E + apyib_E_CID + H.E_nuc - c4_CID)
 
-    assert(abs(apyib_E_tot + apyib_E_CID - c4_CID) < 1e-11)
+    assert(abs(apyib_E + apyib_E_CID + H.E_nuc - c4_CID) < 1e-11)
 
 def test_cid_energy():
     # Set parameters for the calculation.
@@ -87,6 +89,7 @@ def test_cid_energy():
                   'e_convergence': 1e-12,
                   'd_convergence': 1e-12,
                   'DIIS': True,
+                  'freeze_core': False,
                   'F_el': [0.0, 0.0, 0.0],
                   'F_mag': [0.0, 0.0, 0.0],
                   'max_iterations': 120}

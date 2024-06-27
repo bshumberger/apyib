@@ -12,6 +12,7 @@ def test_rhf_h2o_sto_3g():
                   'e_convergence': 1e-12,
                   'd_convergence': 1e-12,
                   'DIIS': True,
+                  'freeze_core': False,
                   'F_el': [0.0, 0.0, 0.0],
                   'F_mag': [0.0, 0.0, 0.0],
                   'max_iterations': 120}
@@ -26,16 +27,16 @@ def test_rhf_h2o_sto_3g():
     # Run apyib.
     H = apyib.hamiltonian.Hamiltonian(parameters) 
     wfn = apyib.hf_wfn.hf_wfn(H)
-    apyib_E, apyib_E_tot, apyib_wfn = wfn.solve_SCF(parameters)
+    apyib_E, apyib_wfn = wfn.solve_SCF(parameters)
     
     # Print energies and energy difference between apyib code and Psi4.
     print("apyib Electronic Hartree-Fock Energy: ", apyib_E)
-    print("apyib Total Energy: ", apyib_E_tot)
+    print("apyib Total Energy: ", apyib_E + H.E_nuc)
     print("Psi4 Total Energy: ", p4_E_tot)
-    print("Energy Difference between Homemade RHF Code and Psi4: ", apyib_E_tot - p4_E_tot)
+    print("Energy Difference between Homemade RHF Code and Psi4: ", apyib_E + H.E_nuc - p4_E_tot)
 
-    assert(abs(apyib_E_tot - p4_E_tot) < 1e-11)
-    assert(abs(apyib_E_tot - psi4_RHF) < 1e-11)
+    assert(abs(apyib_E + H.E_nuc - p4_E_tot) < 1e-11)
+    assert(abs(apyib_E + H.E_nuc - psi4_RHF) < 1e-11)
 
 def test_rhf_h2o_6_31gd():
     # Set parameters for the calculation.
@@ -44,6 +45,7 @@ def test_rhf_h2o_6_31gd():
                   'method': 'RHF',
                   'e_convergence': 1e-12,
                   'd_convergence': 1e-12,
+                  'freeze_core': False,
                   'DIIS': True,
                   'F_el': [0.0, 0.0, 0.0],
                   'F_mag': [0.0, 0.0, 0.0],
@@ -59,16 +61,16 @@ def test_rhf_h2o_6_31gd():
     # Run apyib.
     H = apyib.hamiltonian.Hamiltonian(parameters) 
     wfn = apyib.hf_wfn.hf_wfn(H)
-    apyib_E, apyib_E_tot, apyib_wfn = wfn.solve_SCF(parameters)
+    apyib_E, apyib_wfn = wfn.solve_SCF(parameters)
     
     # Print energies and energy difference between apyib code and Psi4.
     print("apyib Electronic Hartree-Fock Energy: ", apyib_E)
-    print("apyib Total Energy: ", apyib_E_tot)
+    print("apyib Total Energy: ", apyib_E + H.E_nuc)
     print("Psi4 Total Energy: ", p4_E_tot)
-    print("Energy Difference between Homemade RHF Code and Psi4: ", apyib_E_tot - p4_E_tot)
+    print("Energy Difference between Homemade RHF Code and Psi4: ", apyib_E + H.E_nuc - p4_E_tot)
 
-    assert(abs(apyib_E_tot - p4_E_tot) < 1e-11)
-    assert(abs(apyib_E_tot - psi4_RHF) < 1e-11)
+    assert(abs(apyib_E + H.E_nuc- p4_E_tot) < 1e-11)
+    assert(abs(apyib_E + H.E_nuc- psi4_RHF) < 1e-11)
 
 def test_rhf_energy():
     # Set parameters for the calculation.
@@ -78,6 +80,7 @@ def test_rhf_energy():
                   'e_convergence': 1e-12,
                   'd_convergence': 1e-12,
                   'DIIS': True,
+                  'freeze_core': False,
                   'F_el': [0.0, 0.0, 0.0],
                   'F_mag': [0.0, 0.0, 0.0],
                   'max_iterations': 120}

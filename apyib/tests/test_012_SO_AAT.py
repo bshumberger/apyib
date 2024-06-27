@@ -13,6 +13,7 @@ def test_rhf_SO_aat():
                   'e_convergence': 1e-12,
                   'd_convergence': 1e-12,
                   'DIIS': True,
+                  'freeze_core': False,
                   'F_el': [0.0, 0.0, 0.0],
                   'F_mag': [0.0, 0.0, 0.0],
                   'max_iterations': 120}
@@ -61,6 +62,7 @@ def test_mp2_SO_aat():
                   'e_convergence': 1e-12,
                   'd_convergence': 1e-12,
                   'DIIS': True,
+                  'freeze_core': False,
                   'F_el': [0.0, 0.0, 0.0],
                   'F_mag': [0.0, 0.0, 0.0],
                   'max_iterations': 120}
@@ -154,6 +156,7 @@ def test_mp2_SO_aat_full_norm():
                   'e_convergence': 1e-12,
                   'd_convergence': 1e-12,
                   'DIIS': True,
+                  'freeze_core': False,
                   'F_el': [0.0, 0.0, 0.0],
                   'F_mag': [0.0, 0.0, 0.0],
                   'max_iterations': 120}
@@ -259,6 +262,7 @@ def test_cid_SO_aat():
                   'e_convergence': 1e-12,
                   'd_convergence': 1e-12,
                   'DIIS': True,
+                  'freeze_core': False,
                   'F_el': [0.0, 0.0, 0.0],
                   'F_mag': [0.0, 0.0, 0.0],
                   'max_iterations': 120}
@@ -340,6 +344,7 @@ def test_cid_SO_aat_full_norm():
                   'e_convergence': 1e-12,
                   'd_convergence': 1e-12,
                   'DIIS': True,
+                  'freeze_core': False,
                   'F_el': [0.0, 0.0, 0.0],
                   'F_mag': [0.0, 0.0, 0.0],
                   'max_iterations': 120}

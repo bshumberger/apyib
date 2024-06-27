@@ -6,6 +6,7 @@ import scipy.linalg as la
 from apyib.hamiltonian import Hamiltonian
 from apyib.hf_wfn import hf_wfn
 from apyib.utils import solve_DIIS
+from apyib.utils import get_slices
 from apyib.utils import compute_F_MO
 from apyib.utils import compute_ERI_MO
 from apyib.utils import compute_F_SO
@@ -16,47 +17,43 @@ class mp2_wfn(object):
     Wavefunction object.
     """
     # Define the specific properties of the MP2 wavefunction.
-    def __init__(self, parameters, E_SCF, E_tot, C):
+    def __init__(self, parameters, wfn):
 
         # Define the Hamiltonian and the Hartree-Fock reference energy and wavefunction.
         self.parameters = parameters
         self.H = Hamiltonian(parameters)
-        self.wfn = hf_wfn(self.H)
-        #self.e, self.E_SCF, self.E_tot, self.C = self.wfn.solve_SCF(parameters)
-        self.E_SCF = E_SCF
-        self.E_tot = E_tot
-        self.C = C
+        self.wfn = wfn
+        self.C = wfn.C
 
-        # Define the number of occupied and virtual orbitals.
-        self.nbf = self.wfn.nbf
-        self.no = self.wfn.ndocc
-        self.nv = self.nbf - self.no
- 
+        # Get slice lists for frozen core, occupied, virtual, and total orbital subspaces.
+        self.C_list, self.I_list = get_slices(self.parameters, self.wfn)
+
+        # Setting up slice options for energy denominators.
+        o = self.C_list[1]
+        v = self.C_list[2]
+
+        # Build energy denominators.
+        self.eps_o = wfn.eps[o]
+        self.eps_v = wfn.eps[v]
+        self.D_ijab = self.eps_o.reshape(-1,1,1,1) + self.eps_o.reshape(-1,1,1) - self.eps_v.reshape(-1,1) - self.eps_v
+
     # Compute the MP2 wavefunction and energy.
     def solve_MP2(self):
-        # Compute MO Fock matrix.
-        F_MO = compute_F_MO(self.parameters, self.H, self.wfn, self.C)
+        # Setting up slice options for the MO integrals.
+        o_ = self.I_list[1]
+        v_ = self.I_list[2]
 
         # Compute MO electron repulsion integrals.
-        ERI_MO = compute_ERI_MO(self.parameters, self.H, self.wfn, self.C)
+        ERI_MO = compute_ERI_MO(self.parameters, self.wfn, self.C_list)
 
         # Swap axes for Dirac notation.
         ERI_MO = ERI_MO.swapaxes(1,2)                 # (pr|qs) -> <pq|rs>
 
-        # Set up the denominators for the T2 guess amplitudes. Note that this is an equivalent formulation as above.
-        Dijab = np.ones_like(ERI_MO)
-        for i in range(0,self.no):
-            for j in range(0,self.no):
-                for a in range(self.no,self.nbf):
-                    for b in range(self.no,self.nbf):
-                        Dijab[i][j][a][b] *= F_MO[i][i] + F_MO[j][j] - F_MO[a][a] - F_MO[b][b]
-        Dijab = Dijab[0:self.no,0:self.no,self.no:self.nbf,self.no:self.nbf]
-
         # Initial T2 guess amplitude.
-        t2 = ERI_MO.copy().swapaxes(0,2).swapaxes(1,3)[0:self.no,0:self.no,self.no:self.nbf,self.no:self.nbf] / Dijab
+        t2 = ERI_MO.copy().swapaxes(0,2).swapaxes(1,3)[o_,o_,v_,v_] / self.D_ijab
 
         # Compute the MP2 energy.
-        E_MP2 = np.einsum('ijab,ijab->', 2 * ERI_MO[0:self.no,0:self.no,self.no:self.nbf,self.no:self.nbf] - ERI_MO.swapaxes(2,3)[0:self.no,0:self.no,self.no:self.nbf,self.no:self.nbf], t2)
+        E_MP2 = np.einsum('ijab,ijab->', 2 * ERI_MO[o_,o_,v_,v_] - ERI_MO.swapaxes(2,3)[o_,o_,v_,v_], t2)
 
         return E_MP2, t2
 
@@ -64,31 +61,27 @@ class mp2_wfn(object):
 
     # Compute the MP2 wavefunction and energy from spin-orbital expressions.
     def solve_MP2_SO(self):
-        # Compute Fock matrix in spin-orbital basis.
-        F_MO = compute_F_MO(self.parameters, self.H, self.wfn, self.C)
-        F_SO = compute_F_SO(self.wfn, F_MO)
+        # Build energy denominators in the spin orbital basis.
+        eps_o = np.repeat(self.eps_o, 2)
+        eps_v = np.repeat(self.eps_v, 2)
+        D_ijab = eps_o.reshape(-1,1,1,1) + eps_o.reshape(-1,1,1) - eps_v.reshape(-1,1) - eps_v
+
+        # Setting up slice options for the MO integrals.
+        o_ = self.I_list[1]
+        v_ = self.I_list[2]
 
         # Compute ERI in spin-orbital basis.
-        ERI_MO = compute_ERI_MO(self.parameters, self.H, self.wfn, self.C)
+        ERI_MO = compute_ERI_MO(self.parameters, self.wfn, self.C_list)
         ERI_SO = compute_ERI_SO(self.wfn, ERI_MO)
 
         # Swap axes for Dirac notation.
         ERI_SO = ERI_SO.swapaxes(1,2)                 # (pr|qs) -> <pq|rs>
 
-        # Set up the denominators for the T2 guess amplitudes. Note that this is an equivalent formulation as above.
-        Dijab = np.ones_like(ERI_SO)
-        for i in range(0,2*self.no):
-            for j in range(0,2*self.no):
-                for a in range(2*self.no,2*self.nbf):
-                    for b in range(2*self.no,2*self.nbf):
-                        Dijab[i][j][a][b] *= (F_SO[i][i] + F_SO[j][j] - F_SO[a][a] - F_SO[b][b])
-        Dijab = Dijab[0:2*self.no,0:2*self.no,2*self.no:2*self.nbf,2*self.no:2*self.nbf]
-
         # Initial T2 guess amplitude.
-        t2 = (ERI_SO.copy().swapaxes(0,2).swapaxes(1,3)[0:2*self.no,0:2*self.no,2*self.no:2*self.nbf,2*self.no:2*self.nbf] - ERI_SO.copy().swapaxes(2,3).swapaxes(0,2).swapaxes(1,3)[0:2*self.no,0:2*self.no,2*self.no:2*self.nbf,2*self.no:2*self.nbf]) / Dijab
+        t2 = (ERI_SO.copy().swapaxes(0,2).swapaxes(1,3)[o_,o_,v_,v_] - ERI_SO.copy().swapaxes(2,3).swapaxes(0,2).swapaxes(1,3)[o_,o_,v_,v_]) / D_ijab
 
         # Compute the MP2 energy.
-        E_MP2 = 0.25 * np.einsum('ijab,ijab->', ERI_SO[0:2*self.no,0:2*self.no,2*self.no:2*self.nbf,2*self.no:2*self.nbf] - ERI_SO.swapaxes(2,3)[0:2*self.no,0:2*self.no,2*self.no:2*self.nbf,2*self.no:2*self.nbf], t2) 
+        E_MP2 = 0.25 * np.einsum('ijab,ijab->', ERI_SO[o_,o_,v_,v_] - ERI_SO.swapaxes(2,3)[o_,o_,v_,v_], t2) 
 
         return E_MP2, t2
 

@@ -16,7 +16,12 @@ class hf_wfn(object):
         self.H = H
         self.nelec = self.nelectron(charge)
         self.ndocc = self.nelec // 2
-        self.nbf = H.S.shape[0]
+        self.nbf = H.basis_set.nbf()
+
+        # Defining orbital coefficients and orbital energies as properties of the wavefunction. Updated after "solve_SCF".
+        self.C = np.zeros((self.nbf,self.nbf))
+        self.eps = np.zeros((self.nbf))
+        self.E_SCF = 0
 
     # Computes the number of electrons.
     def nelectron(self, charge):
@@ -49,12 +54,6 @@ class hf_wfn(object):
         C = X @ C_p
 
         # Compute the inital density matrix.
-        #D = np.zeros_like(C)
-        #for mu in range(self.nbf):
-        #    for nu in range(self.nbf):
-        #        for m in range(self.ndocc):
-        #            D[mu, nu] += C[mu, m] * np.conjugate(np.transpose(C[nu, m]))
-
         D = np.einsum('mp,np->mn', C[0:self.nbf,0:self.ndocc], np.conjugate(C[0:self.nbf,0:self.ndocc]))
 
         # Compute the inital Hartree-Fock Energy
@@ -68,43 +67,31 @@ class hf_wfn(object):
             print("\n Iter      E_elec(real)       E_elec(imaginary)        E(tot)           Delta_E(real)       Delta_E(imaginary)      RMS_D(real)      RMS_D(imaginary)")
             print(" %02d %20.12f %20.12f %20.12f" % (0, E_SCF.real, E_SCF.imag, E_tot))
 
-        # Starting the SCF procedure.
         # Setting up DIIS arrays for the error matrices and Fock matrices.
         if parameters['DIIS']:
             e_iter = []
             F_iter = []
 
+        # Starting the SCF procedure.
         i = 1
         while i <= parameters['max_iterations']:
             E_old = E_SCF
             D_old = D
-            #F = np.zeros_like(F_p)
-            #for mu in range(self.nbf):
-            #    for nu in range(self.nbf):
-            #        F[mu, nu] += H_core[mu, nu]
-            #        for lambd in range(self.nbf):
-            #            for sigma in range(self.nbf):
-            #                F[mu, nu] += D[lambd, sigma] * ( 2 * H.ERI[mu, nu, lambd, sigma] - H.ERI[mu, lambd, nu, sigma] )
 
+            # Solve for the Fock matrix.
             F = H_core + np.einsum('ls,mnls->mn', D, 2 * H.ERI - H.ERI.swapaxes(1,2))
 
             # Solve DIIS equations.
             if parameters['DIIS']:
                 F = solve_DIIS(parameters, F, D, H.S, X, F_iter, e_iter) 
 
+            # Compute the molecular orbital coefficients.
             if i >= 1:
-                # Compute molecular orbital coefficients.
                 F_p = X @ F @ X
-                e, C_p = np.linalg.eigh(F_p)
-                C = X @ C_p
+                self.eps, C_p = np.linalg.eigh(F_p)
+                C = self.C = X @ C_p
 
             # Compute the new density.
-            #D = np.zeros_like(D)
-            #for mu in range(self.nbf):
-            #    for nu in range(self.nbf):
-            #        for m in range(self.ndocc):
-            #            D[mu, nu] += C[mu, m] * np.conjugate(np.transpose(C[nu, m]))
-
             D = np.einsum('mp,np->mn', C[0:self.nbf,0:self.ndocc], np.conjugate(C[0:self.nbf,0:self.ndocc]))
 
             # Compute the new energy.
@@ -138,6 +125,8 @@ class hf_wfn(object):
     
             i += 1
 
+        self.E_SCF = E_SCF
+
         #################################################
         ## Compute the AO to MO transformed SCF energy.
         #H_core_MO = np.einsum('ip,ij,jq->pq', np.conjugate(C), H.T + H.V, C)
@@ -169,6 +158,6 @@ class hf_wfn(object):
         #################################################
 
 
-        return E_SCF, E_tot, C
+        return E_SCF, self.C
 
 
