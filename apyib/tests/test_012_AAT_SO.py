@@ -43,7 +43,7 @@ def test_rhf_SO_aat():
     nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T = finite_difference.compute_AAT(0.0001, 0.0001)
 
     # Compute finite difference AATs.
-    AATs = apyib.aats_copy.AAT(parameters, wfn.nbf, wfn.ndocc, C, basis, T_list, nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T, 0.0001, 0.0001)
+    AATs = apyib.aats.AAT(parameters, wfn, C, basis, T_list, nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T, 0.0001, 0.0001)
     aat = np.zeros((3 * H.molecule.natom(), 3), dtype=np.cdouble)
     for lambd_alpha in range(3 * H.molecule.natom()):
         for beta in range(3):
@@ -139,7 +139,7 @@ def test_mp2_SO_aat():
     nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T = finite_difference.compute_AAT(0.0001, 0.0001)
 
     # Compute finite difference AATs.
-    AATs = apyib.aats_copy.AAT(parameters, wfn.nbf, wfn.ndocc, C, basis, T_list, nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T, 0.0001, 0.0001)
+    AATs = apyib.aats.AAT(parameters, wfn, C, basis, T_list, nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T, 0.0001, 0.0001)
     aat = np.zeros((3 * H.molecule.natom(), 3), dtype=np.cdouble)
     for lambd_alpha in range(3 * H.molecule.natom()):
         for beta in range(3):
@@ -233,7 +233,7 @@ def test_mp2_SO_aat_full_norm():
     nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T = finite_difference.compute_AAT(0.0001, 0.0001)
 
     # Compute finite difference AATs.
-    AATs = apyib.aats_copy.AAT(parameters, wfn.nbf, wfn.ndocc, C, basis, T_list, nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T, 0.0001, 0.0001)
+    AATs = apyib.aats.AAT(parameters, wfn, C, basis, T_list, nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T, 0.0001, 0.0001)
     aat = np.zeros((3 * H.molecule.natom(), 3), dtype=np.cdouble)
     #I_00 = np.zeros((3 * H.molecule.natom(), 3), dtype=np.cdouble)
     #I_0D = np.zeros((3 * H.molecule.natom(), 3), dtype=np.cdouble)
@@ -327,7 +327,7 @@ def test_cid_SO_aat():
     nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T = finite_difference.compute_AAT(0.0001, 0.0001)
 
     # Compute finite difference AATs.
-    AATs = apyib.aats_copy.AAT(parameters, wfn.nbf, wfn.ndocc, C, basis, T_list, nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T, 0.0001, 0.0001)
+    AATs = apyib.aats.AAT(parameters, wfn, C, basis, T_list, nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T, 0.0001, 0.0001)
     aat = np.zeros((3 * H.molecule.natom(), 3), dtype=np.cdouble)
     for lambd_alpha in range(3 * H.molecule.natom()):
         for beta in range(3):
@@ -409,7 +409,7 @@ def test_cid_SO_aat_full_norm():
     nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T = finite_difference.compute_AAT(0.0001, 0.0001)
 
     # Compute finite difference AATs.
-    AATs = apyib.aats_copy.AAT(parameters, wfn.nbf, wfn.ndocc, C, basis, T_list, nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T, 0.0001, 0.0001)
+    AATs = apyib.aats.AAT(parameters, wfn, C, basis, T_list, nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T, 0.0001, 0.0001)
     aat = np.zeros((3 * H.molecule.natom(), 3), dtype=np.cdouble)
     for lambd_alpha in range(3 * H.molecule.natom()):
         for beta in range(3):

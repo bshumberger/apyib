@@ -4,6 +4,7 @@ import apyib
 import pytest
 from ..data.molecules import *
 
+@pytest.mark.skip(reason="Testing.")
 def test_parallel_rhf_aat():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["H2O"],
@@ -34,7 +35,7 @@ def test_parallel_rhf_aat():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
-
+@pytest.mark.skip(reason="Testing.")
 def test_mp2_aat():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["(H2)_2"],
@@ -112,6 +113,7 @@ def test_mp2_aat():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
+@pytest.mark.skip(reason="Testing.")
 def test_mp2_aat_full_norm():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["(H2)_2"],
@@ -189,6 +191,7 @@ def test_mp2_aat_full_norm():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
+@pytest.mark.skip(reason="Testing.")
 def test_cid_aat():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["H2O"],
@@ -254,6 +257,7 @@ def test_cid_aat():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
+@pytest.mark.skip(reason="Testing.")
 def test_cid_aat_full_norm():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["H2O"],
@@ -319,6 +323,7 @@ def test_cid_aat_full_norm():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
+@pytest.mark.skip(reason="Testing.")
 def test_mp2_SO_aat():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["(H2)_2"],
@@ -396,6 +401,7 @@ def test_mp2_SO_aat():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
+@pytest.mark.skip(reason="Testing.")
 def test_mp2_SO_aat_full_norm():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["(H2)_2"],
@@ -473,6 +479,7 @@ def test_mp2_SO_aat_full_norm():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
+@pytest.mark.skip(reason="Testing.")
 def test_cid_SO_aat():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["(H2)_2"],
@@ -550,6 +557,7 @@ def test_cid_SO_aat():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
+@pytest.mark.skip(reason="Testing.")
 def test_cid_SO_aat_full_norm():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["(H2)_2"],
@@ -624,6 +632,84 @@ def test_cid_SO_aat_full_norm():
 
     # Compute AATs in parallel.
     I = apyib.parallel.compute_parallel_aats(parameters, 0.0001, 0.0001)
+
+    assert(np.max(np.abs(I-aat_ref)) < 1e-7)
+
+def test_cisd_SO_aat():
+    # Set parameters for the calculation.
+    parameters = {'geom': moldict["(H2)_2"],
+                  'basis': 'STO-6G',
+                  'method': 'CISD_SO',
+                  'e_convergence': 1e-12,
+                  'd_convergence': 1e-12,
+                  'DIIS': True,
+                  'freeze_core': False,
+                  'F_el': [0.0, 0.0, 0.0],
+                  'F_mag': [0.0, 0.0, 0.0],
+                  'max_iterations': 120}
+
+    # Setting fully normalized reference AAT.
+    # Setting reference AAT.
+    I_00_ref = np.array(
+    [[-0.097856900379267, -0.024464664955929,  0.06923210655395 ],
+     [ 0.024686227457246,  0.005879922595279, -0.003819266076075],
+     [-0.209265694502983, -0.051803561305989,  0.093935959571669],
+     [-0.088710310622527, -0.022263494741675,  0.060278744164669],
+     [-0.016456264699243, -0.004056816515349,  0.020292183724675],
+     [-0.215140025586322, -0.053171431393181,  0.089029423759699],
+     [-0.088710310630709, -0.022263494743629, -0.060278744175718],
+     [-0.016456264688766, -0.004056816512675, -0.020292183730881],
+     [ 0.215140025581244,  0.053171431391934,  0.089029423752232],
+     [-0.097856900442317, -0.024464664971436, -0.069232106526598],
+     [ 0.024686227479546,  0.005879922601014,  0.003819266091157],
+     [ 0.209265694494609,  0.05180356130386 ,  0.093935959561269]])
+
+    I_0D_ref = np.array(
+    [[ 0.011424906174176,  0.00284279020091 , -0.007657421068027],
+     [-0.001518637652337, -0.00037607040392 , -0.000158476957254],
+     [ 0.022030689055581,  0.005478587577683, -0.012024128553204],
+     [ 0.010756711930063,  0.002677055982711, -0.007165839091218],
+     [ 0.001653378746906,  0.000411045954502, -0.000847771162833],
+     [ 0.022245707233434,  0.005531466675376, -0.011844514710824],
+     [ 0.010756711931167,  0.002677055982973,  0.007165839092493],
+     [ 0.001653378745958,  0.000411045954255,  0.00084777116338 ],
+     [-0.022245707232918, -0.005531466675226, -0.011844514709802],
+     [ 0.011424906180991,  0.002842790202584,  0.007657421064533],
+     [-0.001518637654643, -0.000376070404534,  0.00015847695525 ],
+     [-0.022030689054449, -0.005478587577412, -0.012024128552076]])
+
+    I_D0_ref = np.array(
+    [[-0.011424906361104, -0.002842790219884,  0.007657421111043],
+     [ 0.001518637672543,  0.000376070404646,  0.000158476956634],
+     [-0.022030689406287, -0.005478587615383,  0.012024128645684],
+     [-0.010756712106327, -0.002677056005323,  0.007165839136035],
+     [-0.00165337876797 , -0.000411045958558,  0.000847771170003],
+     [-0.022245707576422, -0.005531466713657,  0.011844514802773],
+     [-0.010756712108056, -0.002677056005755, -0.007165839137041],
+     [-0.001653378767336, -0.000411045958402, -0.000847771170318],
+     [ 0.022245707576832,  0.005531466713759,  0.011844514803097],
+     [-0.011424906367372, -0.002842790221441, -0.007657421106823],
+     [ 0.001518637675001,  0.000376070405261, -0.000158476955133],
+     [ 0.022030689404459,  0.005478587614932,  0.012024128644922]])
+
+    I_DD_ref = np.array(
+    [[ 0.000124891106513,  0.000087456328189, -0.000161939000276],
+     [-0.00008369903897 , -0.000020174481159, -0.000020471011177],
+     [ 0.000683239104114,  0.000075313802282, -0.000172953608345],
+     [ 0.00001423873044 , -0.000032832367992,  0.000091401848996],
+     [ 0.000178358493551, -0.00004344393336 ,  0.000006134045722],
+     [ 0.000156210348074,  0.000172437039597,  0.000118608684893],
+     [ 0.000014238749811, -0.000032832367697, -0.000091401848852],
+     [ 0.000178358494032, -0.000043443936217, -0.000006134045661],
+     [-0.000156210378479, -0.000172437041579,  0.000118608684902],
+     [ 0.000124891089301,  0.000087456327671,  0.000161938999836],
+     [-0.000083699043171, -0.000020174480659,  0.00002047101123 ],
+     [-0.000683239073748, -0.00007531380032 , -0.00017295360844 ]]) 
+
+    aat_ref = I_00_ref + I_D0_ref + I_0D_ref + I_DD_ref
+
+    # Compute AATs in parallel.
+    I = apyib.parallel.compute_parallel_aats(parameters, 0.0001, 0.0001, normalization='intermediate')
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 

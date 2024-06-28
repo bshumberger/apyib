@@ -26,7 +26,7 @@ def compute_parallel_aats(parameters, nuc_pert_strength, mag_pert_strength, norm
     nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T = aat_finite_difference.compute_AAT(nuc_pert_strength, mag_pert_strength)
 
     # Compute finite difference AATs.
-    AATs = AAT(parameters, wfn.nbf, wfn.ndocc, C, basis, T_list, nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T, nuc_pert_strength, mag_pert_strength)
+    AATs = AAT(parameters, wfn, C, basis, T_list, nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T, nuc_pert_strength, mag_pert_strength)
     aat = np.zeros((3 * H.molecule.natom(), 3), dtype=np.cdouble)
     pool = mp.Pool()
     lambd_alpha = np.array(range(3 * H.molecule.natom()))

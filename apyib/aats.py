@@ -1,4 +1,4 @@
-"""Contains the class and functions associated with computing the rotational strength for VCD calculations by finite difference at the Hartree-Fock level of theory."""
+"""Contains the class and functions associated with computing the rotational strength for VCD calculations by finite difference at the Hartree-Fock, MP2, CID, and CISD levels of theory."""
 
 import psi4
 import numpy as np
@@ -18,7 +18,7 @@ class AAT(object):
     """
     The atomic axial tensor object computed by finite difference.
     """
-    def __init__(self, parameters, nbf, ndocc, unperturbed_wfn, unperturbed_basis, unperturbed_T, nuc_pos_wfn, nuc_neg_wfn, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_wfn, mag_neg_wfn, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T, nuc_pert_strength, mag_pert_strength):
+    def __init__(self, parameters, wfn, unperturbed_wfn, unperturbed_basis, unperturbed_T, nuc_pos_wfn, nuc_neg_wfn, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_wfn, mag_neg_wfn, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T, nuc_pert_strength, mag_pert_strength):
 
         # Basis sets and wavefunctions from calculations with respect to nuclear displacements.
         self.nuc_pos_wfn = nuc_pos_wfn
@@ -43,8 +43,9 @@ class AAT(object):
         # Components required for permutations.
         H = Hamiltonian(parameters)
         natom = H.molecule.natom()
-        self.nbf = nbf
-        self.ndocc = ndocc
+        self.nbf = wfn.nbf
+        self.ndocc = wfn.ndocc
+        self.nfzc = wfn.H.basis_set.n_frozen_core()
         self.parameters = parameters
 
         # Compute MO overlaps.
@@ -113,21 +114,6 @@ class AAT(object):
 
 
 
-    ## Computes the determinant of the occupied space for some general row and column swap.
-    #def compute_det(self, overlap, bra_indices, ket_indices):
-    #    nocc = self.ndocc
-    #    S = overlap.copy()
-    #    for x in range(0, len(bra_indices), 2): 
-    #        S[[bra_indices[x], bra_indices[x+1]],:] = S[[bra_indices[x+1], bra_indices[x]],:]
-    #    for y in range(0, len(ket_indices), 2): 
-    #        S[:,[ket_indices[y], ket_indices[y+1]]] = S[:,[ket_indices[y+1], ket_indices[y]]]
-
-    #    det_S = np.linalg.det(S[0:nocc,0:nocc])
-
-    #    return det_S
-
-
-    
     # Computes the determinant of the occupied space for some general row and column swap.
     def compute_SO_det(self, overlap, bra_indices, ket_indices):
         nocc = 2 * self.ndocc
@@ -333,64 +319,68 @@ class AAT(object):
 
 
     def compute_all_dets(self, overlap):
+        # Setting up occupied and virtual spaces.
+        nf = self.nfzc
+        no = self.ndocc
+        nv = self.nbf - self.ndocc
+
         # Computes all the determinants required from the row and column swappings.
         S = np.copy(overlap)
 
         # Initialize nested lists for storing substituted overlap matrices.
-        ia_S = [[np.copy(S) for _ in range(self.nbf-self.ndocc)] for _ in range(self.ndocc)]
-        S_kc = [[np.copy(S) for _ in range(self.nbf-self.ndocc)] for _ in range(self.ndocc)]
-        iajb_S = [[[[np.zeros_like(S) for _ in range(self.nbf-self.ndocc)] for _ in range(self.ndocc)] for _ in range(self.nbf-self.ndocc)] for _ in range(self.ndocc)]
-        S_kcld = [[[[np.zeros_like(S) for _ in range(self.nbf-self.ndocc)] for _ in range(self.ndocc)] for _ in range(self.nbf-self.ndocc)] for _ in range(self.ndocc)]
-        ia_S_kc = [[[[np.zeros_like(S) for _ in range(self.nbf-self.ndocc)] for _ in range(self.ndocc)] for _ in range(self.nbf-self.ndocc)] for _ in range(self.ndocc)]
-        iajb_S_kc = [[[[[[np.zeros_like(S) for _ in range(self.nbf-self.ndocc)] for _ in range(self.ndocc)] for _ in range(self.nbf-self.ndocc)] for _ in range(self.ndocc)] for _ in range(self.nbf-self.ndocc)] for _ in range(self.ndocc)]
-        ia_S_kcld = [[[[[[np.zeros_like(S) for _ in range(self.nbf-self.ndocc)] for _ in range(self.ndocc)] for _ in range(self.nbf-self.ndocc)] for _ in range(self.ndocc)] for _ in range(self.nbf-self.ndocc)] for _ in range(self.ndocc)]
-        #iajb_S_kcld = [[[[[[[[np.zeros_like(S) for _ in range(self.nbf-self.ndocc)] for _ in range(self.ndocc)] for _ in range(self.nbf-self.ndocc)] for _ in range(self.ndocc)] for _ in range(self.nbf-self.ndocc)] for _ in range(self.ndocc)] for _ in range(self.nbf-self.ndocc)] for _ in range(self.ndocc)]
+        ia_S = [[np.copy(S) for _ in range(nv)] for _ in range(nf, no)]
+        S_kc = [[np.copy(S) for _ in range(nv)] for _ in range(nf, no)]
+        iajb_S = [[[[np.zeros_like(S) for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)]
+        S_kcld = [[[[np.zeros_like(S) for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)]
+        ia_S_kc = [[[[np.zeros_like(S) for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)]
+        iajb_S_kc = [[[[[[np.zeros_like(S) for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)]
+        ia_S_kcld = [[[[[[np.zeros_like(S) for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)]
 
         # Initialize determinant matrices.
-        det_ia_S = np.zeros((self.ndocc, self.nbf-self.ndocc), dtype='cdouble')
-        det_S_kc = np.zeros((self.ndocc, self.nbf-self.ndocc), dtype='cdouble')
-        det_iajb_S = np.zeros((self.ndocc, self.nbf-self.ndocc, self.ndocc, self.nbf-self.ndocc), dtype='cdouble')
-        det_S_kcld = np.zeros((self.ndocc, self.nbf-self.ndocc, self.ndocc, self.nbf-self.ndocc), dtype='cdouble')
-        det_ia_S_kc = np.zeros((self.ndocc, self.nbf-self.ndocc, self.ndocc, self.nbf-self.ndocc), dtype='cdouble')
-        det_iajb_S_kc = np.zeros((self.ndocc, self.nbf-self.ndocc, self.ndocc, self.nbf-self.ndocc, self.ndocc, self.nbf-self.ndocc), dtype='cdouble')
-        det_ia_S_kcld = np.zeros((self.ndocc, self.nbf-self.ndocc, self.ndocc, self.nbf-self.ndocc, self.ndocc, self.nbf-self.ndocc), dtype='cdouble')
-        det_iajb_S_kcld = np.zeros((self.ndocc, self.nbf-self.ndocc, self.ndocc, self.nbf-self.ndocc, self.ndocc, self.nbf-self.ndocc, self.ndocc, self.nbf-self.ndocc), dtype='cdouble')
+        det_ia_S = np.zeros((no-nf, nv), dtype='cdouble')
+        det_S_kc = np.zeros((no-nf, nv), dtype='cdouble')
+        det_iajb_S = np.zeros((no-nf, nv, no-nf, nv), dtype='cdouble')
+        det_S_kcld = np.zeros((no-nf, nv, no-nf, nv), dtype='cdouble')
+        det_ia_S_kc = np.zeros((no-nf, nv, no-nf, nv), dtype='cdouble')
+        det_iajb_S_kc = np.zeros((no-nf, nv, no-nf, nv, no-nf, nv), dtype='cdouble')
+        det_ia_S_kcld = np.zeros((no-nf, nv, no-nf, nv, no-nf, nv), dtype='cdouble')
+        det_iajb_S_kcld = np.zeros((no-nf, nv, no-nf, nv, no-nf, nv, no-nf, nv), dtype='cdouble')
 
         # Determinant of the initial overlap.
-        det_S = np.linalg.det(S[0:self.ndocc, 0:self.ndocc])
+        det_S = np.linalg.det(S[0:no, 0:no])
 
         # Swap indices and compute determinants.
-        for i in range(0, self.ndocc):
-            for a in range(0, self.nbf-self.ndocc):
-                ia_S[i][a][[i, a + self.ndocc],:] = ia_S[i][a][[a + self.ndocc, i],:]
-                S_kc[i][a][:,[i, a + self.ndocc]] = S_kc[i][a][:,[a + self.ndocc, i]]
-                det_ia_S[i][a] = np.linalg.det(ia_S[i][a][0:self.ndocc, 0:self.ndocc])
-                det_S_kc[i][a] = np.linalg.det(S_kc[i][a][0:self.ndocc, 0:self.ndocc])
+        for i in range(nf, no):
+            for a in range(0, nv):
+                ia_S[i-nf][a][[i, a + no],:] = ia_S[i-nf][a][[a + no, i],:]
+                S_kc[i-nf][a][:,[i, a + no]] = S_kc[i-nf][a][:,[a + no, i]]
+                det_ia_S[i-nf][a] = np.linalg.det(ia_S[i-nf][a][0:no, 0:no])
+                det_S_kc[i-nf][a] = np.linalg.det(S_kc[i-nf][a][0:no, 0:no])
 
-                for j in range(i+1, self.ndocc):
-                    for b in range(a+1, self.nbf-self.ndocc):
+                for j in range(i+1, no):
+                    for b in range(a+1, nv):
                         #if j == i:
                         #    continue
                         #if b == a:
                         #    continue
-                        iajb_S[i][a][j][b] = np.copy(ia_S[i][a])
-                        iajb_S[i][a][j][b][[j, b + self.ndocc],:] = iajb_S[i][a][j][b][[b + self.ndocc, j],:]
-                        S_kcld[i][a][j][b] = np.copy(S_kc[i][a])
-                        S_kcld[i][a][j][b][:,[j, b + self.ndocc]] = S_kcld[i][a][j][b][:,[b + self.ndocc, j]]
-                        det_iajb_S[i][a][j][b] = np.linalg.det(iajb_S[i][a][j][b][0:self.ndocc, 0:self.ndocc])
-                        det_S_kcld[i][a][j][b] = np.linalg.det(S_kcld[i][a][j][b][0:self.ndocc, 0:self.ndocc])
+                        iajb_S[i-nf][a][j-nf][b] = np.copy(ia_S[i-nf][a])
+                        iajb_S[i-nf][a][j-nf][b][[j, b + no],:] = iajb_S[i-nf][a][j-nf][b][[b + no, j],:]
+                        S_kcld[i-nf][a][j-nf][b] = np.copy(S_kc[i-nf][a])
+                        S_kcld[i-nf][a][j-nf][b][:,[j, b + no]] = S_kcld[i-nf][a][j-nf][b][:,[b + no, j]]
+                        det_iajb_S[i-nf][a][j-nf][b] = np.linalg.det(iajb_S[i-nf][a][j-nf][b][0:no, 0:no])
+                        det_S_kcld[i-nf][a][j-nf][b] = np.linalg.det(S_kcld[i-nf][a][j-nf][b][0:no, 0:no])
 
-                        for k in range(0, self.ndocc):
-                            for c in range(0, self.nbf-self.ndocc):
-                                iajb_S_kc[i][a][j][b][k][c] = np.copy(iajb_S[i][a][j][b])
-                                iajb_S_kc[i][a][j][b][k][c][:,[k, c + self.ndocc]] = iajb_S_kc[i][a][j][b][k][c][:,[c + self.ndocc, k]]
-                                ia_S_kcld[i][a][j][b][k][c] = np.copy(S_kcld[i][a][j][b])
-                                ia_S_kcld[i][a][j][b][k][c][[k, c + self.ndocc],:] = ia_S_kcld[i][a][j][b][k][c][[c + self.ndocc, k],:]
-                                det_iajb_S_kc[i][a][j][b][k][c] = np.linalg.det(iajb_S_kc[i][a][j][b][k][c][0:self.ndocc, 0:self.ndocc])
-                                det_ia_S_kcld[i][a][j][b][k][c] = np.linalg.det(ia_S_kcld[i][a][j][b][k][c][0:self.ndocc, 0:self.ndocc])
+                        for k in range(nf, no):
+                            for c in range(0, nv):
+                                iajb_S_kc[i-nf][a][j-nf][b][k-nf][c] = np.copy(iajb_S[i-nf][a][j-nf][b])
+                                iajb_S_kc[i-nf][a][j-nf][b][k-nf][c][:,[k, c + no]] = iajb_S_kc[i-nf][a][j-nf][b][k-nf][c][:,[c + no, k]]
+                                ia_S_kcld[i-nf][a][j-nf][b][k-nf][c] = np.copy(S_kcld[i-nf][a][j-nf][b])
+                                ia_S_kcld[i-nf][a][j-nf][b][k-nf][c][[k, c + no],:] = ia_S_kcld[i-nf][a][j-nf][b][k-nf][c][[c + no, k],:]
+                                det_iajb_S_kc[i-nf][a][j-nf][b][k-nf][c] = np.linalg.det(iajb_S_kc[i-nf][a][j-nf][b][k-nf][c][0:no, 0:no])
+                                det_ia_S_kcld[i-nf][a][j-nf][b][k-nf][c] = np.linalg.det(ia_S_kcld[i-nf][a][j-nf][b][k-nf][c][0:no, 0:no])
 
-                                for l in range(k+1, self.ndocc):
-                                    for d in range(c+1, self.nbf-self.ndocc):
+                                for l in range(k+1, no):
+                                    for d in range(c+1, nv):
                                         #if l == k:
                                         #    continue
                                         #if d == c:
@@ -398,16 +388,16 @@ class AAT(object):
                                         #iajb_S_kcld[i][a][j][b][k][c][l][d] = np.copy(iajb_S_kc[i][a][j][b][k][c])
                                         #iajb_S_kcld[i][a][j][b][k][c][l][d][:,[l, d + self.ndocc]] = iajb_S_kcld[i][a][j][b][k][c][l][d][:,[d + self.ndocc, l]]
                                         #det_iajb_S_kcld[i][a][j][b][k][c][l][d] = np.linalg.det(iajb_S_kcld[i][a][j][b][k][c][l][d][0:self.ndocc, 0:self.ndocc])
-                                        iajb_S_kcld = np.copy(iajb_S_kc[i][a][j][b][k][c])
-                                        iajb_S_kcld[:,[l, d + self.ndocc]] = iajb_S_kcld[:,[d + self.ndocc, l]]
-                                        det_iajb_S_kcld[i][a][j][b][k][c][l][d] = np.linalg.det(iajb_S_kcld[0:self.ndocc, 0:self.ndocc])
+                                        iajb_S_kcld = np.copy(iajb_S_kc[i-nf][a][j-nf][b][k-nf][c])
+                                        iajb_S_kcld[:,[l, d + no]] = iajb_S_kcld[:,[d + no, l]]
+                                        det_iajb_S_kcld[i-nf][a][j-nf][b][k-nf][c][l-nf][d] = np.linalg.det(iajb_S_kcld[0:no, 0:no])
 
 
-                for k in range(0, self.ndocc):
-                    for c in range(0, self.nbf-self.ndocc):
-                        ia_S_kc[i][a][k][c] = np.copy(ia_S[i][a])
-                        ia_S_kc[i][a][k][c][:,[k, c + self.ndocc]] = ia_S_kc[i][a][k][c][:,[c + self.ndocc, k]]
-                        det_ia_S_kc[i][a][k][c] = np.linalg.det(ia_S_kc[i][a][k][c][0:self.ndocc, 0:self.ndocc])
+                for k in range(nf, no):
+                    for c in range(0, nv):
+                        ia_S_kc[i-nf][a][k-nf][c] = np.copy(ia_S[i-nf][a])
+                        ia_S_kc[i-nf][a][k-nf][c][:,[k, c + no]] = ia_S_kc[i-nf][a][k-nf][c][:,[c + no, k]]
+                        det_ia_S_kc[i-nf][a][k-nf][c] = np.linalg.det(ia_S_kc[i-nf][a][k-nf][c][0:no, 0:no])
 
         det_iajb_S = det_iajb_S - np.swapaxes(det_iajb_S,0,2) - np.swapaxes(det_iajb_S,1,3) + np.swapaxes(np.swapaxes(det_iajb_S,0,2),1,3)
         det_S_kcld = det_S_kcld - np.swapaxes(det_S_kcld,0,2) - np.swapaxes(det_S_kcld,1,3) + np.swapaxes(np.swapaxes(det_S_kcld,0,2),1,3)

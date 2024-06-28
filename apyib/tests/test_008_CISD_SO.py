@@ -42,7 +42,6 @@ def test_cisd_h2o_6_31g():
     assert(abs(apyib_E + H.E_nuc + apyib_E_CISD - p4_E_tot) < 1e-11)
     assert(abs(apyib_E + H.E_nuc + apyib_E_CISD - psi4_CISD) < 1e-11)
 
-#@pytest.mark.skip(reason="Too slow.")
 def test_cisd_h2o_cc_pvdz():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["H2O"],
@@ -96,6 +95,31 @@ def test_cisd_SO_energy():
 
     # Setting CID reference value.
     psi4_CISD = -76.09503651362023
+
+    # Compute energy.
+    E_list, T_list, C, basis = apyib.energy.energy(parameters)
+    apyib_E_tot = E_list[0] + E_list[1] + E_list[2]
+
+    # Print energies and energy difference between apyib code and Psi4.
+    print("Energy Difference between Homemade CISD Code and Reference: ", apyib_E_tot - psi4_CISD)
+
+    assert(abs(apyib_E_tot - psi4_CISD) < 1e-11)
+
+def test_cisd_SO_STO_3G_energy():
+    # Set parameters for the calculation.
+    parameters = {'geom': moldict["(H2)_2"],
+                  'basis': 'STO-3G',
+                  'method': 'CISD_SO',
+                  'e_convergence': 1e-12,
+                  'd_convergence': 1e-12,
+                  'DIIS': True,
+                  'freeze_core': False,
+                  'F_el': [0.0, 0.0, 0.0],
+                  'F_mag': [0.0, 0.0, 0.0],
+                  'max_iterations': 120}
+
+    # Setting CID reference value.
+    psi4_CISD = -2.2165136315314133
 
     # Compute energy.
     E_list, T_list, C, basis = apyib.energy.energy(parameters)
