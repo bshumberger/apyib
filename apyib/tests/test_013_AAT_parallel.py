@@ -4,7 +4,6 @@ import apyib
 import pytest
 from ..data.molecules import *
 
-@pytest.mark.skip(reason="Testing.")
 def test_parallel_rhf_aat():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["H2O"],
@@ -35,7 +34,6 @@ def test_parallel_rhf_aat():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
-@pytest.mark.skip(reason="Testing.")
 def test_mp2_aat():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["(H2)_2"],
@@ -113,7 +111,6 @@ def test_mp2_aat():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
-@pytest.mark.skip(reason="Testing.")
 def test_mp2_aat_full_norm():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["(H2)_2"],
@@ -191,7 +188,6 @@ def test_mp2_aat_full_norm():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
-@pytest.mark.skip(reason="Testing.")
 def test_cid_aat():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["H2O"],
@@ -257,7 +253,6 @@ def test_cid_aat():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
-@pytest.mark.skip(reason="Testing.")
 def test_cid_aat_full_norm():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["H2O"],
@@ -323,7 +318,6 @@ def test_cid_aat_full_norm():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
-@pytest.mark.skip(reason="Testing.")
 def test_mp2_SO_aat():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["(H2)_2"],
@@ -401,7 +395,6 @@ def test_mp2_SO_aat():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
-@pytest.mark.skip(reason="Testing.")
 def test_mp2_SO_aat_full_norm():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["(H2)_2"],
@@ -479,7 +472,6 @@ def test_mp2_SO_aat_full_norm():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
-@pytest.mark.skip(reason="Testing.")
 def test_cid_SO_aat():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["(H2)_2"],
@@ -557,7 +549,6 @@ def test_cid_SO_aat():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
-@pytest.mark.skip(reason="Testing.")
 def test_cid_SO_aat_full_norm():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["(H2)_2"],
@@ -635,6 +626,7 @@ def test_cid_SO_aat_full_norm():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
+@pytest.mark.skip(reason="Not ready yet.")
 def test_cisd_SO_aat():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["(H2)_2"],
