@@ -710,6 +710,7 @@ def test_cisd_SO_aat():
 
     # Compute AATs in parallel.
     I = apyib.parallel.compute_parallel_aats(parameters, 0.0001, 0.0001, normalization='intermediate')
+    print(aat_ref)
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
