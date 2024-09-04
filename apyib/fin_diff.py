@@ -372,6 +372,165 @@ class finite_difference(object):
 
 
 
+    def compute_Nuclear_Gradient(self, nuc_pert_strength):
+        # Set properties of the nuclear finite difference procedure.
+        nuc_pos_E = []
+        nuc_neg_E = []
+        nuc_pos_C = []
+        nuc_neg_C = []
+        nuc_pos_basis = []
+        nuc_neg_basis = []
+        nuc_pos_T = []
+        nuc_neg_T = []        
+
+        # Computing energies and wavefunctions with positive displacements.
+        for alpha in range(3*self.natom):
+            pert_geom = np.copy(self.geom)
+
+            # Perturb the geometry.
+            pert_geom[alpha // 3][alpha % 3] += nuc_pert_strength
+            pert_geom = psi4.core.Matrix.from_array(pert_geom)
+            self.molecule.set_geometry(pert_geom)
+            self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+
+            # Compute energy.
+            E_list, T_list, C, basis = phase_corrected_energy(self.parameters, self.unperturbed_basis, self.unperturbed_C)
+            nuc_pos_E_tot = E_list[0] + E_list[1] + E_list[2]
+            #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(basis)).np)
+            #print(E_tot)
+
+            # Append new wavefunction coefficients, amplitudes, and basis set. 
+            nuc_pos_C.append(C)
+            nuc_pos_T.append(T_list)
+            nuc_pos_basis.append(basis)
+            nuc_pos_E.append(nuc_pos_E_tot)
+
+            # Reset the geometry.
+            self.molecule.set_geometry(psi4.core.Matrix.from_array(self.geom))
+            self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+
+        # Computing energies and wavefunctions with negative displacements.
+        for alpha in range(3*self.natom):
+            pert_geom = np.copy(self.geom)
+
+            # Perturb the geometry.
+            pert_geom[alpha // 3][alpha % 3] -= nuc_pert_strength
+            pert_geom = psi4.core.Matrix.from_array(pert_geom)
+            self.molecule.set_geometry(pert_geom)
+            self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+
+            # Compute energy.
+            E_list, T_list, C, basis = phase_corrected_energy(self.parameters, self.unperturbed_basis, self.unperturbed_C)
+            nuc_neg_E_tot = E_list[0] + E_list[1] + E_list[2]
+            #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(basis)).np)
+            #print(E_tot)
+
+            # Append new wavefunction coefficients, amplitudes, and basis set. 
+            nuc_neg_C.append(C)
+            nuc_neg_T.append(T_list)
+            nuc_neg_basis.append(basis)
+            nuc_neg_E.append(nuc_neg_E_tot)
+
+            # Reset the geometry.
+            self.molecule.set_geometry(psi4.core.Matrix.from_array(self.geom))
+            self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+
+        # Compute gradient.
+        gradient = np.zeros((3 * self.natom))
+        for ab in range(3 * self.natom):
+            gradient[ab] = (nuc_pos_E[ab] - nuc_neg_E[ab]) / (2 * nuc_pert_strength)
+
+        gradient = gradient.reshape(self.natom, 3)
+        print(gradient)
+
+        return gradient, nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T
+
+
+
+    def compute_Magnetic_Field_Gradient(self, mag_pert_strength):
+        # Set properties of the magnetic field finite difference procedure.
+        mag_pos_E = []
+        mag_neg_E = []
+        mag_pos_C = []
+        mag_neg_C = []
+        mag_pos_basis = []
+        mag_neg_basis = []
+        mag_pos_T = []
+        mag_neg_T = []
+
+        # Perturb the magnetic field in the positive direction.
+        for beta in range(3):
+            self.parameters['F_mag'][beta] += mag_pert_strength
+
+            # Compute energy.
+            E_list, T_list, C, basis = phase_corrected_energy(self.parameters, self.unperturbed_basis, self.unperturbed_C)
+            mag_pos_E_tot = E_list[0] + E_list[1] + E_list[2]
+            #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(basis)).np)
+            #print(self.parameters['F_mag'])
+            #print(E_tot)
+
+            # Append new wavefunction coefficients, amplitudes, and basis set. 
+            mag_pos_C.append(C)
+            mag_pos_T.append(T_list)
+            mag_pos_basis.append(basis)
+            mag_pos_E.append(mag_pos_E_tot)
+
+            # Reset the field.
+            self.parameters['F_mag'][beta] -= mag_pert_strength
+
+        # Perturb the magnetic field in the negative direction.
+        for beta in range(3):
+            self.parameters['F_mag'][beta] -= mag_pert_strength
+
+            # Compute energy.
+            E_list, T_list, C, basis = phase_corrected_energy(self.parameters, self.unperturbed_basis, self.unperturbed_C)
+            mag_neg_E_tot = E_list[0] + E_list[1] + E_list[2]
+            #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(basis)).np)
+            #print(self.parameters['F_mag'])
+            #print(E_tot)
+
+            # Append new wavefunction coefficients, amplitudes, and basis set. 
+            mag_neg_C.append(C)
+            mag_neg_T.append(T_list)
+            mag_neg_basis.append(basis)
+            mag_neg_E.append(mag_neg_E_tot)
+
+            # Reset the field.
+            self.parameters['F_mag'][beta] += mag_pert_strength
+
+        # Compute gradient.
+        gradient = np.zeros((3), dtype='complex128')
+        print(np.shape(gradient))
+        for beta in range(3):
+            gradient[beta] = (mag_pos_E[beta] - mag_neg_E[beta]) / (2 * mag_pert_strength)
+
+        print(gradient)
+
+        return gradient, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

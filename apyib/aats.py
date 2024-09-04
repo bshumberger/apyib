@@ -757,6 +757,16 @@ class AAT(object):
             I += 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_dR, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_uu, ia_S_kcld_uu) * N * N
             I += 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_dR, t2_dH, ia_S_kc_uu, ia_S_kc_uu) * N * N
 
+
+            ### TESTING ###
+            #I += np.einsum('ijab,ijab->', (2 * t2_dR) - t2_dR.swapaxes(2,3), t2_dH)
+            #print("I:", (1 / (4 * self.nuc_pert_strength * self.mag_pert_strength)) * I.imag)
+            #print("t2_dR:", t2_dR/(2 * self.nuc_pert_strength))
+            #print("Norm:", np.linalg.norm(t2_dR/(2 * self.nuc_pert_strength)))
+            #print("t2_dH:", t2_dH/(2 * self.mag_pert_strength))
+            ### END TESTING ###
+
+
             # < ijab | dklcd/dH >
             I += 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_up) * S_up * N * N_mp
             I -= 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_un) * S_un * N * N_mn

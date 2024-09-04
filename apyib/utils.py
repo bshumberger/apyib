@@ -408,8 +408,21 @@ def line_shape(frequency, intensity, fwhm, number_of_points, min_freq, max_freq)
     """
     Fits the VCD rotatory strengths to a line shape function.
     """
+    # Set up physical constants.
+    _c = psi4.qcel.constants.get("speed of light in vacuum") # m/s
+    _na = psi4.qcel.constants.get("Avogadro constant") # 1/mol
+    _h = psi4.qcel.constants.get("Planck constant") # J s
+
+    # Convert to cgs units.
+    _c = _c * 10**2 # cm / s
+    _h = _h * 10**7 # g cm^2 / s
+
     # Sorts the frequencies and intensities for a given test in ascending order of frequencies.
     freq, ints = zip(*sorted(zip(frequency, intensity)))
+
+    # Multiplying by rotatory strengths by 10^44 to since it was pulled out previously for reporting when converting to cgs units.
+    ints = np.array(ints)
+    ints *= (1 / 10**(44))
 
     # Define the interval at which points will be plotted for the x-coordinate.
     delta = float((max_freq - min_freq)/number_of_points)
@@ -423,7 +436,8 @@ def line_shape(frequency, intensity, fwhm, number_of_points, min_freq, max_freq)
     # Compute the intensity associated with the given frequency.
     for a in range(len(freq_axis)):
         for b in range(len(freq)):
-            ints_axis[a] += ints[b]*((0.5 * fwhm)**2/(4*(freq_axis[a]-freq[b])**2+(0.5 * fwhm)**2))
+            #ints_axis[a] += ints[b]*((0.5 * fwhm)**2/(4*(freq_axis[a]-freq[b])**2+(0.5 * fwhm)**2))
+            ints_axis[a] += 10**3 * (32*np.pi**3*_na*freq_axis[a])/(3000*_h*_c*np.log(10)) * ints[b]*(((0.5*fwhm)/np.pi)/((freq[b]-freq_axis[a])**2+(0.5 * fwhm)**2))
 
     return freq_axis, ints_axis
 
