@@ -613,7 +613,7 @@ class analytic_derivative(object):
 
 
 
-    def compute_MP2_Gradient_Canonical(self):
+    def compute_MP2_AATs_Canonical(self):
         # Compute T2 amplitudes and MP2 energy.
         wfn_MP2 = mp2_wfn(self.parameters, self.wfn)
         E_MP2, t2 = wfn_MP2.solve_MP2()
@@ -661,7 +661,18 @@ class analytic_derivative(object):
         # Set up the Hessian.
         Hessian = np.zeros((natom * 3, natom * 3)) 
 
-        # Compute the perturbation-independent A matrix for the CPHF coefficients.
+        # Set up the atomic axial tensor.
+        AAT = np.zeros((natom * 3, 3), dtype='complex128')
+
+        # Set up derivative t-amplitude matrices.
+        dT2_dR = []
+        dT2_dH = []
+
+        # Set up U-coefficient matrices for AAT calculations.
+        U_R = []
+        U_H = []
+
+        # Compute the perturbation-independent A matrix for the CPHF coefficients with real wavefunctions.
         A = (2 * ERI - ERI.swapaxes(2,3)) + (2 * ERI - ERI.swapaxes(2,3)).swapaxes(1,3)
         A = A.swapaxes(1,2)
         G = np.einsum('ab,ij,aibj->aibj', np.eye(nv), np.eye(no), F[v,v].reshape(nv,1,nv,1) - F[o,o].reshape(1,no,1,no)) + A[v,o,v,o]
@@ -673,6 +684,7 @@ class analytic_derivative(object):
         F_a = []
         ERI_a = []
         U_a = []
+        half_S = []
 
         # Compute and store first derivative integrals.
         for N1 in atoms:
@@ -684,6 +696,9 @@ class analytic_derivative(object):
             # Compute the skeleton (core) two-electron first derivative integrals in the MO basis.
             ERI_d1 = mints.mo_tei_deriv1(N1, C_p4, C_p4, C_p4, C_p4)
 
+            # Compute the half derivative overlap for AAT calculation.
+            half_S_d1 = mints.mo_overlap_half_deriv1('LEFT', N1, C_p4, C_p4)
+
             for a in range(3):
                 # Convert the Psi4 matrices to numpy matrices.
                 T_d1[a] = T_d1[a].np
@@ -691,6 +706,7 @@ class analytic_derivative(object):
                 S_d1[a] = S_d1[a].np
                 ERI_d1[a] = ERI_d1[a].np
                 ERI_d1[a] = ERI_d1[a].swapaxes(1,2)
+                half_S_d1[a] = half_S_d1[a].np
 
                 # Computing skeleton (core) first derivative integrals.
                 h_d1 = T_d1[a] + V_d1[a]
@@ -724,6 +740,7 @@ class analytic_derivative(object):
                 h_a.append(h_d1)
                 F_a.append(F_d1)
                 U_a.append(U_d1)
+                half_S.append(half_S_d1[a])
 
                 # Computing the gradient of the Fock matrix.
                 occ_eps = self.wfn.eps[o].reshape(-1,1) - self.wfn.eps[o]
@@ -792,6 +809,8 @@ class analytic_derivative(object):
                 t2_grad += np.einsum('ijac,cb->ijab', t2, f_grad[v,v])
                 t2_grad /= (wfn_MP2.D_ijab)
                 #print("t2 grad", t2_grad, "\n")
+                dT2_dR.append(t2_grad)
+                U_R.append(U_d1)
 
                 # Computing energy gradient with derivative t-amplitudes.
                 E_grad = np.einsum('ijab,ijab->', t2_grad, (2*ERI[o,o,v,v]-ERI.swapaxes(2,3)[o,o,v,v])).astype('complex128')
@@ -802,14 +821,14 @@ class analytic_derivative(object):
 
         Nuc_Gradient = self.H.molecule.nuclear_repulsion_energy_deriv1().np
         Gradient_RHF += Nuc_Gradient
-        print("RHF Gradient:")
-        print(Gradient_RHF)
+        #print("RHF Gradient:")
+        #print(Gradient_RHF)
 
         Gradient += Gradient_RHF
-        print("MP2 Gradient:")
-        print(Gradient)
+        #print("MP2 Gradient:")
+        #print(Gradient)
 
-        # Compute the perturbation-independent A matrix for the CPHF coefficients.
+        # Compute the perturbation-independent A matrix for the CPHF coefficients with complex wavefunctions.
         A_mag = -(2 * ERI - ERI.swapaxes(2,3)) + (2 * ERI - ERI.swapaxes(2,3)).swapaxes(1,3)
         A_mag = A_mag.swapaxes(1,2)
         G_mag = np.einsum('ab,ij,aibj->aibj', np.eye(nv), np.eye(no), F[v,v].reshape(nv,1,nv,1) - F[o,o].reshape(1,no,1,no)) + A_mag[v,o,v,o]
@@ -865,8 +884,8 @@ class analytic_derivative(object):
                 b += no
                 f_grad[b,b] = h_d1[b,b] + np.einsum('em,em->', U_d1[v,o], A_mag.swapaxes(1,2)[b,v,b,o])
 
-            print("Fock Matrix Derivative:")
-            print(f_grad, "\n")
+            #print("Fock Matrix Derivative:")
+            #print(f_grad, "\n")
 
             # Computing the gradient of the ERIs with respect to a magnetic field.
             ERI_grad = np.einsum('pi,pjab->ijab', np.conjugate(U_d1[:,o]), ERI[:,o,v,v])
@@ -882,10 +901,60 @@ class analytic_derivative(object):
             t2_grad += np.einsum('ijcb,ac->ijab', t2, f_grad[v,v])
             t2_grad += np.einsum('ijac,cb->ijab', t2, f_grad[v,v])
             t2_grad /= (wfn_MP2.D_ijab)
-            print(a)
-            print("t2 grad", t2_grad, "\n")
+            #print(a)
+            #print("t2 grad", t2_grad, "\n")
+            dT2_dH.append(t2_grad)
+            U_H.append(U_d1)
 
-        return Gradient
+        # Setting up difference components of the AATs.
+        AAT_HF = np.zeros((natom * 3, 3), dtype='complex128')
+        AAT_1 = np.zeros((natom * 3, 3), dtype='complex128')
+        AAT_2 = np.zeros((natom * 3, 3), dtype='complex128')
+        AAT_3 = np.zeros((natom * 3, 3), dtype='complex128')
+        AAT_4 = np.zeros((natom * 3, 3), dtype='complex128')
+
+        for lambda_alpha in range(3 * natom):
+            for beta in range(3):
+                # Computing the Hartree-Fock term of the AAT.
+                AAT_HF[lambda_alpha][beta] += 2 * np.einsum('em,em', U_H[beta][v, o], U_R[lambda_alpha][v, o])
+                AAT_HF[lambda_alpha][beta] += 2 * np.einsum('em,me', U_H[beta][v, o], half_S[lambda_alpha][o, v])
+
+                # Computing first terms of the AATs.
+                AAT_1[lambda_alpha][beta] += np.einsum("ijab,ijab", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), dT2_dH[beta])
+
+                # Computing the second term of the AATs.
+                AAT_2[lambda_alpha][beta] += 1.0 * np.einsum("ijab,ijab,kk", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][o, o]) 
+                AAT_2[lambda_alpha][beta] -= 1.0 * np.einsum("ijab,kjab,ki", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][o, o]) 
+                AAT_2[lambda_alpha][beta] -= 1.0 * np.einsum("ijab,ikab,kj", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][o, o]) 
+                AAT_2[lambda_alpha][beta] += 1.0 * np.einsum("ijab,ijcb,ac", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][v, v]) 
+                AAT_2[lambda_alpha][beta] += 1.0 * np.einsum("ijab,ijac,bc", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][v, v]) 
+
+                # Computing the third term of the AATs.
+                AAT_3[lambda_alpha][beta] += 1.0 * np.einsum("klcd,klcd,mm", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[lambda_alpha][o, o], optimize=True)
+                AAT_3[lambda_alpha][beta] -= 1.0 * np.einsum("klcd,mlcd,mk", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[lambda_alpha][o, o], optimize=True)
+                AAT_3[lambda_alpha][beta] -= 1.0 * np.einsum("klcd,kmcd,ml", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[lambda_alpha][o, o], optimize=True)
+                AAT_3[lambda_alpha][beta] += 1.0 * np.einsum("klcd,kled,ce", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[lambda_alpha][v, v], optimize=True)
+                AAT_3[lambda_alpha][beta] += 1.0 * np.einsum("klcd,klce,de", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[lambda_alpha][v, v], optimize=True)
+
+                AAT_3[lambda_alpha][beta] -= 1.0 * np.einsum("klcd,mlcd,km", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, half_S[lambda_alpha][o, o], optimize=True)
+                AAT_3[lambda_alpha][beta] -= 1.0 * np.einsum("klcd,kmcd,lm", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, half_S[lambda_alpha][o, o], optimize=True)
+                #AAT_3[lambda_alpha][beta] += 1.0 * np.einsum("klcd,klcd,lk", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, half_S[lambda_alpha][o, o], optimize=True)
+                #AAT_3[lambda_alpha][beta] += 1.0 * np.einsum("klcd,klcd,kl", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, half_S[lambda_alpha][o, o], optimize=True)
+                AAT_3[lambda_alpha][beta] += 1.0 * np.einsum("klcd,kled,ec", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, half_S[lambda_alpha][v, v], optimize=True)
+                AAT_3[lambda_alpha][beta] += 1.0 * np.einsum("klcd,klce,ed", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, half_S[lambda_alpha][v, v], optimize=True)
+
+        print("Hartree-Fock AAT:")
+        print(AAT_HF)
+        print("AAT Term 1:")
+        print(AAT_1)
+        print("AAT Term 2:")
+        print(AAT_2)
+        print("AAT Term 3:")
+        print(AAT_3)
+
+        AAT = AAT_1 + AAT_2 + AAT_3
+
+        return AAT
 
 
 
