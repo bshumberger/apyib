@@ -704,6 +704,7 @@ class analytic_derivative(object):
                 T_d1[a] = T_d1[a].np
                 V_d1[a] = V_d1[a].np
                 S_d1[a] = S_d1[a].np
+
                 ERI_d1[a] = ERI_d1[a].np
                 ERI_d1[a] = ERI_d1[a].swapaxes(1,2)
                 half_S_d1[a] = half_S_d1[a].np
@@ -731,8 +732,11 @@ class analytic_derivative(object):
 
                 for j in range(no):
                     U_d1[j,j] = -0.5 * S_d1[a][j,j]
-                for b in range(nv,nbf):
+                for b in range(no,nbf):
                     U_d1[b,b] = -0.5 * S_d1[a][b,b]
+
+                #print("CPHF Coefficients for Nuclear Perturbations:")
+                #print(U_d1, "\n")
 
                 # Appending to lists.
                 S_a.append(S_d1[a])
@@ -841,27 +845,30 @@ class analytic_derivative(object):
             # Computing skeleton (core) first derivative integrals.
             h_d1 = mu_mag
 
-            # Compute the perturbation-dependent B matrix for the CPHF coefficients with respect to a magnetic field.
-            B = -h_d1[v,o]
+            # Compute the perturbation-dependent B matrix for the CPHF coefficients with respect to a magnetic field. Using negative sign to cancel that in Hamiltonian.
+            B = h_d1[v,o]
 
             # Solve for the independent-pairs of the CPHF U-coefficient matrix with respect to a magnetic field.
             U_d1 = np.zeros((nbf,nbf), dtype='cdouble')
             U_d1[v,o] += (G_mag @ B.reshape((nv*no))).reshape(nv,no)
-            U_d1[o,v] -= np.conjugate(U_d1[v,o].T)
+            U_d1[o,v] += U_d1[v,o].T
 
             # Solve for the dependent-pairs of the CPHF U-coefficient matrix with respect to a magnetic field.
             D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
-            B = h_d1[o,o].copy().astype('complex128') + np.einsum('em,iejm->ij', U_d1[v,o], A_mag.swapaxes(1,2)[o,v,o,o])
+            B = - h_d1[o,o].copy().astype('complex128') + np.einsum('em,iejm->ij', U_d1[v,o], A_mag.swapaxes(1,2)[o,v,o,o])
             U_d1[o,o] += B/D
 
             D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
-            B = h_d1[v,v].copy().astype('complex128') + np.einsum('em,aebm->ab', U_d1[v,o], A_mag.swapaxes(1,2)[v,v,v,o])
+            B = - h_d1[v,v].copy().astype('complex128') + np.einsum('em,aebm->ab', U_d1[v,o], A_mag.swapaxes(1,2)[v,v,v,o])
             U_d1[v,v] += B/D 
 
-            for j in range(no):
-                U_d1[j,j] = 0
-            for b in range(nv,nbf):
-                U_d1[b,b] = 0
+            #print("CPHF Coefficients for Magnetic Field Perturbations:")
+            #print(U_d1,"\n")
+
+            #for j in range(no):
+            #    U_d1[j,j] = 0
+            #for b in range(no,nbf):
+            #    U_d1[b,b] = 0
 
             # Computing the gradient of the Fock matrix with respect to a magnetic field.
             occ_eps = self.wfn.eps[o].reshape(-1,1) - self.wfn.eps[o]
@@ -869,33 +876,33 @@ class analytic_derivative(object):
 
             f_grad = np.zeros((nbf,nbf), dtype='complex128')
 
-            f_grad[o,o] += h_d1[o,o].copy().astype('complex128')
+            f_grad[o,o] -= h_d1[o,o].copy().astype('complex128')  # Sign change
             f_grad[o,o] += U_d1[o,o] * occ_eps
             f_grad[o,o] += np.einsum('em,iejm->ij', U_d1[v,o], A_mag.swapaxes(1,2)[o,v,o,o])
 
             for i in range(no):
-                f_grad[i,i] = h_d1[i,i] + np.einsum('em,em->', U_d1[v,o], A_mag.swapaxes(1,2)[i,v,i,o])
+                f_grad[i,i] = - h_d1[i,i] + np.einsum('em,em->', U_d1[v,o], A_mag.swapaxes(1,2)[i,v,i,o])  # Sign change
 
-            f_grad[v,v] += h_d1[v,v].copy().astype('complex128')
+            f_grad[v,v] -= h_d1[v,v].copy().astype('complex128')  # Sign change
             f_grad[v,v] += U_d1[v,v] * vir_eps
             f_grad[v,v] += np.einsum('em,aebm->ab', U_d1[v,o], A_mag.swapaxes(1,2)[v,v,v,o])
 
             for b in range(nv):
                 b += no
-                f_grad[b,b] = h_d1[b,b] + np.einsum('em,em->', U_d1[v,o], A_mag.swapaxes(1,2)[b,v,b,o])
+                f_grad[b,b] = - h_d1[b,b] + np.einsum('em,em->', U_d1[v,o], A_mag.swapaxes(1,2)[b,v,b,o])  # Sign change
 
             #print("Fock Matrix Derivative:")
             #print(f_grad, "\n")
 
-            # Computing the gradient of the ERIs with respect to a magnetic field.
-            ERI_grad = np.einsum('pi,pjab->ijab', np.conjugate(U_d1[:,o]), ERI[:,o,v,v])
-            ERI_grad += np.einsum('pj,ipab->ijab', np.conjugate(U_d1[:,o]), ERI[o,:,v,v])
-            ERI_grad += np.einsum('pa,ijpb->ijab', U_d1[:,v], ERI[o,o,:,v])
-            ERI_grad += np.einsum('pb,ijap->ijab', U_d1[:,v], ERI[o,o,v,:])
+            # Computing the gradient of the ERIs with respect to a magnetic field. # Swapaxes on these elements
+            ERI_grad = np.einsum('pi,abpj->abij', U_d1[:,o], ERI[v,v,:,o])
+            ERI_grad += np.einsum('pj,abip->abij', U_d1[:,o], ERI[v,v,o,:])
+            ERI_grad += np.einsum('pa,pbij->abij', np.conjugate(U_d1[:,v]), ERI[:,v,o,o])
+            ERI_grad += np.einsum('pb,apij->abij', np.conjugate(U_d1[:,v]), ERI[v,:,o,o])
             #print("ERI_a", ERI_grad, "\n")
 
             # Computing t-amplitude derivatives with respect to a magnetic field.
-            t2_grad = ERI_grad.copy()
+            t2_grad = ERI_grad.copy().swapaxes(0,2).swapaxes(1,3)
             t2_grad -= np.einsum('kjab,ik->ijab', t2, f_grad[o,o])
             t2_grad -= np.einsum('ikab,kj->ijab', t2, f_grad[o,o])
             t2_grad += np.einsum('ijcb,ac->ijab', t2, f_grad[v,v])
@@ -906,7 +913,7 @@ class analytic_derivative(object):
             dT2_dH.append(t2_grad)
             U_H.append(U_d1)
 
-        # Setting up difference components of the AATs.
+        # Setting up different components of the AATs.
         AAT_HF = np.zeros((natom * 3, 3), dtype='complex128')
         AAT_1 = np.zeros((natom * 3, 3), dtype='complex128')
         AAT_2 = np.zeros((natom * 3, 3), dtype='complex128')
@@ -916,43 +923,41 @@ class analytic_derivative(object):
         for lambda_alpha in range(3 * natom):
             for beta in range(3):
                 # Computing the Hartree-Fock term of the AAT.
-                AAT_HF[lambda_alpha][beta] += 2 * np.einsum('em,em', U_H[beta][v, o], U_R[lambda_alpha][v, o])
-                AAT_HF[lambda_alpha][beta] += 2 * np.einsum('em,me', U_H[beta][v, o], half_S[lambda_alpha][o, v])
+                AAT_HF[lambda_alpha][beta] += 2 * np.einsum('em,em', U_H[beta][v, o], U_R[lambda_alpha][v, o] + half_S[lambda_alpha][o, v].T)
 
                 # Computing first terms of the AATs.
                 AAT_1[lambda_alpha][beta] += np.einsum("ijab,ijab", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), dT2_dH[beta])
 
                 # Computing the second term of the AATs.
                 AAT_2[lambda_alpha][beta] += 1.0 * np.einsum("ijab,ijab,kk", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][o, o]) 
-                AAT_2[lambda_alpha][beta] -= 1.0 * np.einsum("ijab,kjab,ki", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][o, o]) 
-                AAT_2[lambda_alpha][beta] -= 1.0 * np.einsum("ijab,ikab,kj", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][o, o]) 
-                AAT_2[lambda_alpha][beta] += 1.0 * np.einsum("ijab,ijcb,ac", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][v, v]) 
-                AAT_2[lambda_alpha][beta] += 1.0 * np.einsum("ijab,ijac,bc", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][v, v]) 
+                AAT_2[lambda_alpha][beta] -= 2.0 * np.einsum("ijab,kjab,ki", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][o, o]) 
+                AAT_2[lambda_alpha][beta] += 2.0 * np.einsum("ijab,ijcb,ac", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][v, v]) 
 
                 # Computing the third term of the AATs.
-                AAT_3[lambda_alpha][beta] += 1.0 * np.einsum("klcd,klcd,mm", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[lambda_alpha][o, o], optimize=True)
-                AAT_3[lambda_alpha][beta] -= 1.0 * np.einsum("klcd,mlcd,mk", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[lambda_alpha][o, o], optimize=True)
-                AAT_3[lambda_alpha][beta] -= 1.0 * np.einsum("klcd,kmcd,ml", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[lambda_alpha][o, o], optimize=True)
-                AAT_3[lambda_alpha][beta] += 1.0 * np.einsum("klcd,kled,ce", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[lambda_alpha][v, v], optimize=True)
-                AAT_3[lambda_alpha][beta] += 1.0 * np.einsum("klcd,klce,de", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[lambda_alpha][v, v], optimize=True)
+                AAT_3[lambda_alpha][beta] -= 2.0 * np.einsum("klcd,mlcd,mk", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[lambda_alpha][o, o] + half_S[lambda_alpha][o, o].T)
+                AAT_3[lambda_alpha][beta] += 2.0 * np.einsum("klcd,kled,ce", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[lambda_alpha][v, v] + half_S[lambda_alpha][v, v].T)
 
-                AAT_3[lambda_alpha][beta] -= 1.0 * np.einsum("klcd,mlcd,km", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, half_S[lambda_alpha][o, o], optimize=True)
-                AAT_3[lambda_alpha][beta] -= 1.0 * np.einsum("klcd,kmcd,lm", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, half_S[lambda_alpha][o, o], optimize=True)
-                #AAT_3[lambda_alpha][beta] += 1.0 * np.einsum("klcd,klcd,lk", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, half_S[lambda_alpha][o, o], optimize=True)
-                #AAT_3[lambda_alpha][beta] += 1.0 * np.einsum("klcd,klcd,kl", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, half_S[lambda_alpha][o, o], optimize=True)
-                AAT_3[lambda_alpha][beta] += 1.0 * np.einsum("klcd,kled,ec", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, half_S[lambda_alpha][v, v], optimize=True)
-                AAT_3[lambda_alpha][beta] += 1.0 * np.einsum("klcd,klce,ed", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, half_S[lambda_alpha][v, v], optimize=True)
+                # Computing the fourth term of the AATs.
+                AAT_4[lambda_alpha][beta] += 2.0 * np.einsum("ijab,kjab,km,im", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][o, o], U_R[lambda_alpha][o, o] + half_S[lambda_alpha][o, o].T)
+                AAT_4[lambda_alpha][beta] += 2.0 * np.einsum("ijab,ijcb,ec,ea", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v, v], U_R[lambda_alpha][v, v] + half_S[lambda_alpha][v, v].T)
+
+                AAT_4[lambda_alpha][beta] += 2*1.0 * np.einsum("ijab,ijab,em,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v, o], U_R[lambda_alpha][v, o] + half_S[lambda_alpha][o, v].T)
+                AAT_4[lambda_alpha][beta] -= 2.0 * np.einsum("ijab,imab,ej,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v, o], U_R[lambda_alpha][v, o] + half_S[lambda_alpha][o, v].T)
+                AAT_4[lambda_alpha][beta] -= 2.0 * np.einsum("ijab,ijae,bm,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v, o], U_R[lambda_alpha][v, o] + half_S[lambda_alpha][o, v].T)
+
 
         print("Hartree-Fock AAT:")
-        print(AAT_HF)
+        print(AAT_HF, "\n")
         print("AAT Term 1:")
-        print(AAT_1)
+        print(AAT_1, "\n")
         print("AAT Term 2:")
-        print(AAT_2)
+        print(AAT_2, "\n")
         print("AAT Term 3:")
-        print(AAT_3)
+        print(AAT_3, "\n")
+        print("AAT Term 4:")
+        print(AAT_4, "\n")
 
-        AAT = AAT_1 + AAT_2 + AAT_3
+        AAT = AAT_HF + AAT_1 + AAT_2 + AAT_3 + AAT_4
 
         return AAT
 
