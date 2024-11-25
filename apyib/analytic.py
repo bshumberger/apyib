@@ -613,7 +613,7 @@ class analytic_derivative(object):
 
 
 
-    def compute_MP2_AATs_Canonical(self):
+    def compute_MP2_AATs_Canonical(self, normalization='full'):
         # Compute T2 amplitudes and MP2 energy.
         wfn_MP2 = mp2_wfn(self.parameters, self.wfn)
         E_MP2, t2 = wfn_MP2.solve_MP2()
@@ -920,30 +920,35 @@ class analytic_derivative(object):
         AAT_3 = np.zeros((natom * 3, 3), dtype='complex128')
         AAT_4 = np.zeros((natom * 3, 3), dtype='complex128')
 
+        if normalization == 'intermediate':
+            N = 1
+        elif normalization == 'full':
+            N = 1 / np.sqrt(1 + np.einsum('ijab,ijab', t2, 2*t2 - t2.swapaxes(2,3)))
+
         for lambda_alpha in range(3 * natom):
             for beta in range(3):
                 # Computing the Hartree-Fock term of the AAT.
-                AAT_HF[lambda_alpha][beta] += 2 * np.einsum('em,em', U_H[beta][v, o], U_R[lambda_alpha][v, o] + half_S[lambda_alpha][o, v].T)
+                AAT_HF[lambda_alpha][beta] += N**2 * 2 * np.einsum('em,em', U_H[beta][v, o], U_R[lambda_alpha][v, o] + half_S[lambda_alpha][o, v].T)
 
                 # Computing first terms of the AATs.
-                AAT_1[lambda_alpha][beta] += np.einsum("ijab,ijab", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), dT2_dH[beta])
+                AAT_1[lambda_alpha][beta] += N**2 * np.einsum("ijab,ijab", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), dT2_dH[beta])
 
                 # Computing the second term of the AATs.
-                AAT_2[lambda_alpha][beta] += 1.0 * np.einsum("ijab,ijab,kk", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][o, o]) 
-                AAT_2[lambda_alpha][beta] -= 2.0 * np.einsum("ijab,kjab,ki", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][o, o]) 
-                AAT_2[lambda_alpha][beta] += 2.0 * np.einsum("ijab,ijcb,ac", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][v, v]) 
+                AAT_2[lambda_alpha][beta] += N**2 * 1.0 * np.einsum("ijab,ijab,kk", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][o, o]) 
+                AAT_2[lambda_alpha][beta] -= N**2 * 2.0 * np.einsum("ijab,kjab,ki", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][o, o]) 
+                AAT_2[lambda_alpha][beta] += N**2 * 2.0 * np.einsum("ijab,ijcb,ac", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][v, v]) 
 
                 # Computing the third term of the AATs.
-                AAT_3[lambda_alpha][beta] -= 2.0 * np.einsum("klcd,mlcd,mk", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[lambda_alpha][o, o] + half_S[lambda_alpha][o, o].T)
-                AAT_3[lambda_alpha][beta] += 2.0 * np.einsum("klcd,kled,ce", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[lambda_alpha][v, v] + half_S[lambda_alpha][v, v].T)
+                AAT_3[lambda_alpha][beta] -= N**2 * 2.0 * np.einsum("klcd,mlcd,mk", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[lambda_alpha][o, o] + half_S[lambda_alpha][o, o].T)
+                AAT_3[lambda_alpha][beta] += N**2 * 2.0 * np.einsum("klcd,kled,ce", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[lambda_alpha][v, v] + half_S[lambda_alpha][v, v].T)
 
                 # Computing the fourth term of the AATs.
-                AAT_4[lambda_alpha][beta] += 2.0 * np.einsum("ijab,kjab,km,im", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][o, o], U_R[lambda_alpha][o, o] + half_S[lambda_alpha][o, o].T)
-                AAT_4[lambda_alpha][beta] += 2.0 * np.einsum("ijab,ijcb,ec,ea", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v, v], U_R[lambda_alpha][v, v] + half_S[lambda_alpha][v, v].T)
+                AAT_4[lambda_alpha][beta] += N**2 * 2.0 * np.einsum("ijab,kjab,km,im", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][o, o], U_R[lambda_alpha][o, o] + half_S[lambda_alpha][o, o].T)
+                AAT_4[lambda_alpha][beta] += N**2 * 2.0 * np.einsum("ijab,ijcb,ec,ea", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v, v], U_R[lambda_alpha][v, v] + half_S[lambda_alpha][v, v].T)
 
-                AAT_4[lambda_alpha][beta] += 2*1.0 * np.einsum("ijab,ijab,em,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v, o], U_R[lambda_alpha][v, o] + half_S[lambda_alpha][o, v].T)
-                AAT_4[lambda_alpha][beta] -= 2.0 * np.einsum("ijab,imab,ej,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v, o], U_R[lambda_alpha][v, o] + half_S[lambda_alpha][o, v].T)
-                AAT_4[lambda_alpha][beta] -= 2.0 * np.einsum("ijab,ijae,bm,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v, o], U_R[lambda_alpha][v, o] + half_S[lambda_alpha][o, v].T)
+                AAT_4[lambda_alpha][beta] += N**2 * 2*1.0 * np.einsum("ijab,ijab,em,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v, o], U_R[lambda_alpha][v, o] + half_S[lambda_alpha][o, v].T)
+                AAT_4[lambda_alpha][beta] -= N**2 * 2.0 * np.einsum("ijab,imab,ej,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v, o], U_R[lambda_alpha][v, o] + half_S[lambda_alpha][o, v].T)
+                AAT_4[lambda_alpha][beta] -= N**2 * 2.0 * np.einsum("ijab,ijae,bm,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v, o], U_R[lambda_alpha][v, o] + half_S[lambda_alpha][o, v].T)
 
 
         print("Hartree-Fock AAT:")
