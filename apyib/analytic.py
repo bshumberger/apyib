@@ -672,6 +672,10 @@ class analytic_derivative(object):
         U_R = []
         U_H = []
 
+        # Set up derivative of normalization factors.
+        N_R = []
+        #N_H = [] # Magnetic field normalization factors are zero mathematically.
+
         # Compute the perturbation-independent A matrix for the CPHF coefficients with real wavefunctions.
         A = (2 * ERI - ERI.swapaxes(2,3)) + (2 * ERI - ERI.swapaxes(2,3)).swapaxes(1,3)
         A = A.swapaxes(1,2)
@@ -812,6 +816,14 @@ class analytic_derivative(object):
                 t2_grad += np.einsum('ijcb,ac->ijab', t2, f_grad[v,v])
                 t2_grad += np.einsum('ijac,cb->ijab', t2, f_grad[v,v])
                 t2_grad /= (wfn_MP2.D_ijab)
+
+                # Compute derivative of the normalization factor.
+                #N_a = - (1 / np.sqrt((1 + np.einsum('ijab,ijab', t2, 2*t2 - t2.swapaxes(2,3)))**3))
+                #N_a *= np.einsum('ijab,ijab', t2_grad, 2*t2 - t2.swapaxes(2,3))
+                N_a = - (1 / np.sqrt((1 + np.einsum('ijab,ijab', np.conjugate(t2), 2*t2 - t2.swapaxes(2,3)))**3))
+                N_a *= 0.5 * (np.einsum('ijab,ijab', np.conjugate(t2_grad), 2*t2 - t2.swapaxes(2,3)) + np.einsum('ijab,ijab', t2_grad, np.conjugate(2*t2 - t2.swapaxes(2,3))))
+                N_R.append(N_a)
+
                 #print("t2 grad", t2_grad, "\n")
                 dT2_dR.append(t2_grad)
                 U_R.append(U_d1)
@@ -908,7 +920,12 @@ class analytic_derivative(object):
             t2_grad += np.einsum('ijcb,ac->ijab', t2, f_grad[v,v])
             t2_grad += np.einsum('ijac,cb->ijab', t2, f_grad[v,v])
             t2_grad /= (wfn_MP2.D_ijab)
-            #print(a)
+
+            # Compute derivative of the normalization factor. For a magnetic field, these are zero.
+            #N_a = - (1 / np.sqrt((1 + np.einsum('ijab,ijab', np.conjugate(t2), 2*t2 - t2.swapaxes(2,3)))**3))
+            #N_a *= 0.5 * (np.einsum('ijab,ijab', np.conjugate(t2_grad), 2*t2 - t2.swapaxes(2,3)) + np.einsum('ijab,ijab', t2_grad, np.conjugate(2*t2 - t2.swapaxes(2,3))))
+            #N_H.append(N_a)
+
             #print("t2 grad", t2_grad, "\n")
             dT2_dH.append(t2_grad)
             U_H.append(U_d1)
@@ -919,6 +936,7 @@ class analytic_derivative(object):
         AAT_2 = np.zeros((natom * 3, 3), dtype='complex128')
         AAT_3 = np.zeros((natom * 3, 3), dtype='complex128')
         AAT_4 = np.zeros((natom * 3, 3), dtype='complex128')
+        AAT_Norm = np.zeros((natom * 3, 3), dtype='complex128')
 
         if normalization == 'intermediate':
             N = 1
@@ -928,7 +946,7 @@ class analytic_derivative(object):
         for lambda_alpha in range(3 * natom):
             for beta in range(3):
                 # Computing the Hartree-Fock term of the AAT.
-                AAT_HF[lambda_alpha][beta] += N**2 * 2 * np.einsum('em,em', U_H[beta][v, o], U_R[lambda_alpha][v, o] + half_S[lambda_alpha][o, v].T)
+                AAT_HF[lambda_alpha][beta] += N**2 * 2 * np.einsum("em,em", U_H[beta][v, o], U_R[lambda_alpha][v, o] + half_S[lambda_alpha][o, v].T)
 
                 # Computing first terms of the AATs.
                 AAT_1[lambda_alpha][beta] += N**2 * np.einsum("ijab,ijab", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), dT2_dH[beta])
@@ -946,25 +964,33 @@ class analytic_derivative(object):
                 AAT_4[lambda_alpha][beta] += N**2 * 2.0 * np.einsum("ijab,kjab,km,im", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][o, o], U_R[lambda_alpha][o, o] + half_S[lambda_alpha][o, o].T)
                 AAT_4[lambda_alpha][beta] += N**2 * 2.0 * np.einsum("ijab,ijcb,ec,ea", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v, v], U_R[lambda_alpha][v, v] + half_S[lambda_alpha][v, v].T)
 
-                AAT_4[lambda_alpha][beta] += N**2 * 2*1.0 * np.einsum("ijab,ijab,em,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v, o], U_R[lambda_alpha][v, o] + half_S[lambda_alpha][o, v].T)
+                AAT_4[lambda_alpha][beta] += N**2 * 2.0 * np.einsum("ijab,ijab,em,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v, o], U_R[lambda_alpha][v, o] + half_S[lambda_alpha][o, v].T)
                 AAT_4[lambda_alpha][beta] -= N**2 * 2.0 * np.einsum("ijab,imab,ej,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v, o], U_R[lambda_alpha][v, o] + half_S[lambda_alpha][o, v].T)
                 AAT_4[lambda_alpha][beta] -= N**2 * 2.0 * np.einsum("ijab,ijae,bm,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v, o], U_R[lambda_alpha][v, o] + half_S[lambda_alpha][o, v].T)
 
+                # Adding terms for full normalization.
+                if normalization == 'full':
+                    AAT_HF[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2.0 * np.einsum("nn",U_H[beta][o, o])
+                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 1.0 * np.einsum("ijab,ijab,kk", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][o, o])  
+                    AAT_Norm[lambda_alpha][beta] -= N * N_R[lambda_alpha] * 2.0 * np.einsum("ijab,kjab,ki", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][o, o])  
+                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2.0 * np.einsum("ijab,ijcb,ac", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][v, v])
+                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 1.0 * np.einsum("ijab,ijab", 2*t2 - t2.swapaxes(2,3), dT2_dH[beta])
+
 
         print("Hartree-Fock AAT:")
-        print(AAT_HF, "\n")
+        print(AAT_HF.imag, "\n")
         print("AAT Term 1:")
-        print(AAT_1, "\n")
+        print(AAT_1.imag, "\n")
         print("AAT Term 2:")
-        print(AAT_2, "\n")
+        print(AAT_2.imag, "\n")
         print("AAT Term 3:")
-        print(AAT_3, "\n")
+        print(AAT_3.imag, "\n")
         print("AAT Term 4:")
-        print(AAT_4, "\n")
+        print(AAT_4.imag, "\n")
 
-        AAT = AAT_HF + AAT_1 + AAT_2 + AAT_3 + AAT_4
+        AAT = AAT_HF + AAT_1 + AAT_2 + AAT_3 + AAT_4 + AAT_Norm
 
-        return AAT
+        return AAT.imag
 
 
 
