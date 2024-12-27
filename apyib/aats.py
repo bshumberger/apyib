@@ -663,6 +663,8 @@ class AAT(object):
         del iajb_S_kc
         del ia_S_kcld
 
+        gd.collect()
+
         return det_S, det_ia_S, det_S_kc, det_iajb_S, det_S_kcld, det_ia_S_kc, det_iajb_S_kc, det_ia_S_kcld, det_iajb_S_kcld
 
 
