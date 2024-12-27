@@ -5,6 +5,7 @@ import numpy as np
 import math
 import itertools as it
 import time
+import gc
 from apyib.utils import compute_mo_overlap
 from apyib.utils import compute_so_overlap
 from apyib.hamiltonian import Hamiltonian
@@ -712,14 +713,14 @@ class AAT(object):
             # dt_ijab / dR
             t2_dR = np.conjugate(self.nuc_pos_T[alpha][2] - self.nuc_neg_T[alpha][2])
 
-            # < ijab | d0/dH >
+            # dt_ijab/dR < ijab | d0/dH >
             I += 0.5 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_up) * S_up * N * N_mp
             I -= 0.5 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_un) * S_un * N * N_mn
 
             I += 0.5 * 2.0 * np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_dR, ia_S_up), ia_S_up) * N * N_mp
             I -= 0.5 * 2.0 * np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_dR, ia_S_un), ia_S_un) * N * N_mn
 
-            # < dijab/dR | d0/dH >
+            # t_ijab < dijab/dR | d0/dH >
             I += 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pp) * S_pp * N_np * N_mp
             I -= 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pn) * S_pn * N_np * N_mn
             I -= 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_np) * S_np * N_nn * N_mp
@@ -730,14 +731,14 @@ class AAT(object):
             I -= 0.5 * 2.0 * np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_conj, ia_S_np), ia_S_np) * N_nn * N_mp
             I += 0.5 * 2.0 * np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_conj, ia_S_nn), ia_S_nn) * N_nn * N_mn
 
-            # < d0/dR | ijab >
+            # dt_ijab/dH < d0/dR | ijab >
             I += 0.5 * np.einsum('ijab,iajb->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_pu) * S_pu * N_np * N
             I -= 0.5 * np.einsum('ijab,iajb->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_nu) * S_nu * N_nn * N
 
             I += 0.5 * 2.0 * np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_dR, ia_S_pu), ia_S_pu) * N_np * N
             I -= 0.5 * 2.0 * np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_dR, ia_S_nu), ia_S_nu) * N_nn * N
 
-            # < d0/dR | dijab/dH >
+            # t_ijab < d0/dR | dijab/dH >
             I += 0.5 * np.einsum('ijab,iajb->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pp) * S_pp * N_np * N_mp
             I -= 0.5 * np.einsum('ijab,iajb->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pn) * S_pn * N_np * N_mn
             I -= 0.5 * np.einsum('ijab,iajb->', t2 - np.swapaxes(t2, 2, 3), S_kcld_np) * S_np * N_nn * N_mp
@@ -748,7 +749,7 @@ class AAT(object):
             I -= 0.5 * 2.0 * np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2, S_kc_np), S_kc_np) * N_nn * N_mp
             I += 0.5 * 2.0 * np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2, S_kc_nn), S_kc_nn) * N_nn * N_mn
 
-            # < ijab | klcd >
+            # dt_ijab/dR dt_klcd/dH < ijab | klcd >
             I += 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2_dH - np.swapaxes(t2_dH, 2, 3), iajb_S_kcld_uu) * S_uu  * N * N
             I += 0.125 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_uu) * np.einsum('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_uu) * N * N
             I += 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2_dH, iajb_S_kc_uu, S_kc_uu) * N * N
@@ -757,7 +758,7 @@ class AAT(object):
             I += 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_dR, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_uu, ia_S_kcld_uu) * N * N
             I += 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_dR, t2_dH, ia_S_kc_uu, ia_S_kc_uu) * N * N
 
-            # < ijab | dklcd/dH >
+            # dt_ijab/dR t_klcd < ijab | dklcd/dH >
             I += 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_up) * S_up * N * N_mp
             I -= 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_un) * S_un * N * N_mn
             I += 0.125 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_up) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_up) * N * N_mp
@@ -772,7 +773,7 @@ class AAT(object):
             I += 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_dR, t2, ia_S_kc_up, ia_S_kc_up) * N * N_mp
             I -= 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_dR, t2, ia_S_kc_un, ia_S_kc_un) * N * N_mn
 
-            # < dijab/dR | klcd >
+            # t_ijab dt_klcd/dH < dijab/dR | klcd >
             I += 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2_dH - np.swapaxes(t2_dH, 2, 3), iajb_S_kcld_pu) * S_pu * N_np * N
             I -= 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2_dH - np.swapaxes(t2_dH, 2, 3), iajb_S_kcld_nu) * S_nu * N_nn * N
             I += 0.125 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pu) * np.einsum('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_pu) * N_np * N
@@ -787,7 +788,7 @@ class AAT(object):
             I += 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2_dH, ia_S_kc_pu, ia_S_kc_pu) * N_np * N
             I -= 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2_dH, ia_S_kc_nu, ia_S_kc_nu) * N_nn * N
 
-            # < dijab/dR | dklcd/dH >
+            # t_ijab t_klcd < dijab/dR | dklcd/dH >
             I += 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_pp) * S_pp * N_np * N_mp
             I -= 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_pn) * S_pn * N_np * N_mn
             I -= 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_np) * S_np * N_nn * N_mp
@@ -817,6 +818,22 @@ class AAT(object):
             I -= 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2, ia_S_kc_pn, ia_S_kc_pn) * N_np * N_mn
             I -= 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2, ia_S_kc_np, ia_S_kc_np) * N_nn * N_mp
             I += 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2, ia_S_kc_nn, ia_S_kc_nn) * N_nn * N_mn
+
+        # Delete uncessarry data.
+        del S_uu; del ia_S_uu; del S_kc_uu; del iajb_S_uu; del S_kcld_uu; del ia_S_kc_uu; del iajb_S_kc_uu; del ia_S_kcld_uu; del iajb_S_kcld_uu
+
+        del S_pu; del ia_S_pu; del S_kc_pu; del iajb_S_pu; del S_kcld_pu; del ia_S_kc_pu; del iajb_S_kc_pu; del ia_S_kcld_pu; del iajb_S_kcld_pu
+        del S_nu; del ia_S_nu; del S_kc_nu; del iajb_S_nu; del S_kcld_nu; del ia_S_kc_nu; del iajb_S_kc_nu; del ia_S_kcld_nu; del iajb_S_kcld_nu
+
+        del S_up; del ia_S_up; del S_kc_up; del iajb_S_up; del S_kcld_up; del ia_S_kc_up; del iajb_S_kc_up; del ia_S_kcld_up; del iajb_S_kcld_up
+        del S_un; del ia_S_un; del S_kc_un; del iajb_S_un; del S_kcld_un; del ia_S_kc_un; del iajb_S_kc_un; del ia_S_kcld_un; del iajb_S_kcld_un
+
+        del S_pp; del ia_S_pp; del S_kc_pp; del iajb_S_pp; del S_kcld_pp; del ia_S_kc_pp; del iajb_S_kc_pp; del ia_S_kcld_pp; del iajb_S_kcld_pp
+        del S_pn; del ia_S_pn; del S_kc_pn; del iajb_S_pn; del S_kcld_pn; del ia_S_kc_pn; del iajb_S_kc_pn; del ia_S_kcld_pn; del iajb_S_kcld_pn
+        del S_np; del ia_S_np; del S_kc_np; del iajb_S_np; del S_kcld_np; del ia_S_kc_np; del iajb_S_kc_np; del ia_S_kcld_np; del iajb_S_kcld_np
+        del S_nn; del ia_S_nn; del S_kc_nn; del iajb_S_nn; del S_kcld_nn; del ia_S_kc_nn; del iajb_S_kc_nn; del ia_S_kcld_nn; del iajb_S_kcld_nn
+
+        gc.collect()
 
         return (1 / (4 * self.nuc_pert_strength * self.mag_pert_strength)) * I.imag
 
