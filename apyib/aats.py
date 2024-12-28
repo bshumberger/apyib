@@ -562,13 +562,13 @@ class AAT(object):
         S = np.copy(overlap)
 
         # Initialize nested lists for storing substituted overlap matrices.
-        ia_S = [[np.copy(S) for _ in range(nv)] for _ in range(nf, no)]
-        S_kc = [[np.copy(S) for _ in range(nv)] for _ in range(nf, no)]
-        iajb_S = [[[[np.zeros_like(S) for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)]
-        S_kcld = [[[[np.zeros_like(S) for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)]
-        ia_S_kc = [[[[np.zeros_like(S) for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)]
-        iajb_S_kc = [[[[[[np.zeros_like(S) for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)]
-        ia_S_kcld = [[[[[[np.zeros_like(S) for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)]
+        #ia_S = [[np.copy(S) for _ in range(nv)] for _ in range(nf, no)]
+        #S_kc = [[np.copy(S) for _ in range(nv)] for _ in range(nf, no)]
+        #iajb_S = [[[[np.zeros_like(S) for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)]
+        #S_kcld = [[[[np.zeros_like(S) for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)]
+        #ia_S_kc = [[[[np.zeros_like(S) for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)]
+        #iajb_S_kc = [[[[[[np.zeros_like(S) for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)]
+        #ia_S_kcld = [[[[[[np.zeros_like(S) for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)]
 
         # Initialize determinant matrices.
         det_ia_S = np.zeros((no-nf, nv), dtype='cdouble')
@@ -586,32 +586,46 @@ class AAT(object):
         # Swap indices and compute determinants.
         for i in range(nf, no):
             for a in range(0, nv):
-                ia_S[i-nf][a][[i, a + no],:] = ia_S[i-nf][a][[a + no, i],:]
-                S_kc[i-nf][a][:,[i, a + no]] = S_kc[i-nf][a][:,[a + no, i]]
-                det_ia_S[i-nf][a] = np.linalg.det(ia_S[i-nf][a][0:no, 0:no])
-                det_S_kc[i-nf][a] = np.linalg.det(S_kc[i-nf][a][0:no, 0:no])
+                ia_S = np.copy(S)
+                ia_S[[i, a + no],:] = ia_S[[a + no, i],:]
+                det_ia_S[i-nf][a] = np.linalg.det(ia_S[0:no, 0:no])
+                S_kc = np.copy(S)
+                S_kc[:,[i, a + no]] = S_kc[:,[a + no, i]]
+                det_S_kc[i-nf][a] = np.linalg.det(S_kc[0:no, 0:no])
+                #ia_S[i-nf][a][[i, a + no],:] = ia_S[i-nf][a][[a + no, i],:]
+                #S_kc[i-nf][a][:,[i, a + no]] = S_kc[i-nf][a][:,[a + no, i]]
+                #det_ia_S[i-nf][a] = np.linalg.det(ia_S[i-nf][a][0:no, 0:no])
+                #det_S_kc[i-nf][a] = np.linalg.det(S_kc[i-nf][a][0:no, 0:no])
 
                 for j in range(i+1, no):
                     for b in range(a+1, nv):
-                        #if j == i:
-                        #    continue
-                        #if b == a:
-                        #    continue
-                        iajb_S[i-nf][a][j-nf][b] = np.copy(ia_S[i-nf][a])
-                        iajb_S[i-nf][a][j-nf][b][[j, b + no],:] = iajb_S[i-nf][a][j-nf][b][[b + no, j],:]
-                        S_kcld[i-nf][a][j-nf][b] = np.copy(S_kc[i-nf][a])
-                        S_kcld[i-nf][a][j-nf][b][:,[j, b + no]] = S_kcld[i-nf][a][j-nf][b][:,[b + no, j]]
-                        det_iajb_S[i-nf][a][j-nf][b] = np.linalg.det(iajb_S[i-nf][a][j-nf][b][0:no, 0:no])
-                        det_S_kcld[i-nf][a][j-nf][b] = np.linalg.det(S_kcld[i-nf][a][j-nf][b][0:no, 0:no])
+                        iajb_S = np.copy(ia_S)
+                        iajb_S[[j, b + no],:] = iajb_S[[b + no, j],:]
+                        det_iajb_S[i-nf][a][j-nf][b] = np.linalg.det(iajb_S[0:no, 0:no])
+                        S_kcld = np.copy(S_kc)
+                        S_kcld[:,[j, b + no]] = S_kcld[:,[b + no, j]]
+                        det_S_kcld[i-nf][a][j-nf][b] = np.linalg.det(S_kcld[0:no, 0:no])
+                        #iajb_S[i-nf][a][j-nf][b] = np.copy(ia_S[i-nf][a])
+                        #iajb_S[i-nf][a][j-nf][b][[j, b + no],:] = iajb_S[i-nf][a][j-nf][b][[b + no, j],:]
+                        #S_kcld[i-nf][a][j-nf][b] = np.copy(S_kc[i-nf][a])
+                        #S_kcld[i-nf][a][j-nf][b][:,[j, b + no]] = S_kcld[i-nf][a][j-nf][b][:,[b + no, j]]
+                        #det_iajb_S[i-nf][a][j-nf][b] = np.linalg.det(iajb_S[i-nf][a][j-nf][b][0:no, 0:no])
+                        #det_S_kcld[i-nf][a][j-nf][b] = np.linalg.det(S_kcld[i-nf][a][j-nf][b][0:no, 0:no])
 
                         for k in range(nf, no):
                             for c in range(0, nv):
-                                iajb_S_kc[i-nf][a][j-nf][b][k-nf][c] = np.copy(iajb_S[i-nf][a][j-nf][b])
-                                iajb_S_kc[i-nf][a][j-nf][b][k-nf][c][:,[k, c + no]] = iajb_S_kc[i-nf][a][j-nf][b][k-nf][c][:,[c + no, k]]
-                                ia_S_kcld[i-nf][a][j-nf][b][k-nf][c] = np.copy(S_kcld[i-nf][a][j-nf][b])
-                                ia_S_kcld[i-nf][a][j-nf][b][k-nf][c][[k, c + no],:] = ia_S_kcld[i-nf][a][j-nf][b][k-nf][c][[c + no, k],:]
-                                det_iajb_S_kc[i-nf][a][j-nf][b][k-nf][c] = np.linalg.det(iajb_S_kc[i-nf][a][j-nf][b][k-nf][c][0:no, 0:no])
-                                det_ia_S_kcld[i-nf][a][j-nf][b][k-nf][c] = np.linalg.det(ia_S_kcld[i-nf][a][j-nf][b][k-nf][c][0:no, 0:no])
+                                iajb_S_kc = np.copy(iajb_S)
+                                iajb_S_kc[:,[k, c + no]] = iajb_S_kc[:,[c + no, k]]
+                                det_iajb_S_kc[i-nf][a][j-nf][b][k-nf][c] = np.linalg.det(iajb_S_kc[0:no, 0:no])
+                                ia_S_kcld = np.copy(S_kcld)
+                                ia_S_kcld[[k, c + no],:] = ia_S_kcld[[c + no, k],:]
+                                det_ia_S_kcld[i-nf][a][j-nf][b][k-nf][c] = np.linalg.det(ia_S_kcld[0:no, 0:no])
+                                #iajb_S_kc[i-nf][a][j-nf][b][k-nf][c] = np.copy(iajb_S[i-nf][a][j-nf][b])
+                                #iajb_S_kc[i-nf][a][j-nf][b][k-nf][c][:,[k, c + no]] = iajb_S_kc[i-nf][a][j-nf][b][k-nf][c][:,[c + no, k]]
+                                #ia_S_kcld[i-nf][a][j-nf][b][k-nf][c] = np.copy(S_kcld[i-nf][a][j-nf][b])
+                                #ia_S_kcld[i-nf][a][j-nf][b][k-nf][c][[k, c + no],:] = ia_S_kcld[i-nf][a][j-nf][b][k-nf][c][[c + no, k],:]
+                                #det_iajb_S_kc[i-nf][a][j-nf][b][k-nf][c] = np.linalg.det(iajb_S_kc[i-nf][a][j-nf][b][k-nf][c][0:no, 0:no])
+                                #det_ia_S_kcld[i-nf][a][j-nf][b][k-nf][c] = np.linalg.det(ia_S_kcld[i-nf][a][j-nf][b][k-nf][c][0:no, 0:no])
 
                                 for l in range(k+1, no):
                                     for d in range(c+1, nv):
@@ -622,16 +636,22 @@ class AAT(object):
                                         #iajb_S_kcld[i][a][j][b][k][c][l][d] = np.copy(iajb_S_kc[i][a][j][b][k][c])
                                         #iajb_S_kcld[i][a][j][b][k][c][l][d][:,[l, d + self.ndocc]] = iajb_S_kcld[i][a][j][b][k][c][l][d][:,[d + self.ndocc, l]]
                                         #det_iajb_S_kcld[i][a][j][b][k][c][l][d] = np.linalg.det(iajb_S_kcld[i][a][j][b][k][c][l][d][0:self.ndocc, 0:self.ndocc])
-                                        iajb_S_kcld = np.copy(iajb_S_kc[i-nf][a][j-nf][b][k-nf][c])
+                                        iajb_S_kcld = np.copy(iajb_S_kc)
                                         iajb_S_kcld[:,[l, d + no]] = iajb_S_kcld[:,[d + no, l]]
                                         det_iajb_S_kcld[i-nf][a][j-nf][b][k-nf][c][l-nf][d] = np.linalg.det(iajb_S_kcld[0:no, 0:no])
+                                        #iajb_S_kcld = np.copy(iajb_S_kc[i-nf][a][j-nf][b][k-nf][c])
+                                        #iajb_S_kcld[:,[l, d + no]] = iajb_S_kcld[:,[d + no, l]]
+                                        #det_iajb_S_kcld[i-nf][a][j-nf][b][k-nf][c][l-nf][d] = np.linalg.det(iajb_S_kcld[0:no, 0:no])
 
 
                 for k in range(nf, no):
                     for c in range(0, nv):
-                        ia_S_kc[i-nf][a][k-nf][c] = np.copy(ia_S[i-nf][a])
-                        ia_S_kc[i-nf][a][k-nf][c][:,[k, c + no]] = ia_S_kc[i-nf][a][k-nf][c][:,[c + no, k]]
-                        det_ia_S_kc[i-nf][a][k-nf][c] = np.linalg.det(ia_S_kc[i-nf][a][k-nf][c][0:no, 0:no])
+                        ia_S_kc = np.copy(ia_S)
+                        ia_S_kc[:,[k, c + no]] = ia_S_kc[:,[c + no, k]]
+                        det_ia_S_kc[i-nf][a][k-nf][c] = np.linalg.det(ia_S_kc[0:no, 0:no])
+                        #ia_S_kc[i-nf][a][k-nf][c] = np.copy(ia_S[i-nf][a])
+                        #ia_S_kc[i-nf][a][k-nf][c][:,[k, c + no]] = ia_S_kc[i-nf][a][k-nf][c][:,[c + no, k]]
+                        #det_ia_S_kc[i-nf][a][k-nf][c] = np.linalg.det(ia_S_kc[i-nf][a][k-nf][c][0:no, 0:no])
 
         det_iajb_S = det_iajb_S - np.swapaxes(det_iajb_S,0,2) - np.swapaxes(det_iajb_S,1,3) + np.swapaxes(np.swapaxes(det_iajb_S,0,2),1,3)
         det_S_kcld = det_S_kcld - np.swapaxes(det_S_kcld,0,2) - np.swapaxes(det_S_kcld,1,3) + np.swapaxes(np.swapaxes(det_S_kcld,0,2),1,3)
@@ -654,16 +674,6 @@ class AAT(object):
         #print("det_iajbkc: ", det_iajb_S_kc)
         #print("det_iakcld: ", det_ia_S_kcld)
         #print("det_iajbkcld: ", det_iajb_S_kcld)
-
-        del ia_S
-        del S_kc
-        del iajb_S
-        del S_kcld
-        del ia_S_kc
-        del iajb_S_kc
-        del ia_S_kcld
-
-        gd.collect()
 
         return det_S, det_ia_S, det_S_kc, det_iajb_S, det_S_kcld, det_ia_S_kc, det_iajb_S_kc, det_ia_S_kcld, det_iajb_S_kcld
 
