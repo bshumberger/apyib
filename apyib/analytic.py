@@ -824,6 +824,7 @@ class analytic_derivative(object):
                 N_a *= 0.5 * (np.einsum('ijab,ijab', np.conjugate(t2_grad), 2*t2 - t2.swapaxes(2,3)) + np.einsum('ijab,ijab', t2_grad, np.conjugate(2*t2 - t2.swapaxes(2,3))))
                 N_R.append(N_a)
 
+                #print("Nuclear Displacement Derivative t-amplitudes:")
                 #print("t2 grad", t2_grad, "\n")
                 dT2_dR.append(t2_grad)
                 U_R.append(U_d1)
@@ -926,6 +927,7 @@ class analytic_derivative(object):
             #N_a *= 0.5 * (np.einsum('ijab,ijab', np.conjugate(t2_grad), 2*t2 - t2.swapaxes(2,3)) + np.einsum('ijab,ijab', t2_grad, np.conjugate(2*t2 - t2.swapaxes(2,3))))
             #N_H.append(N_a)
 
+            #print("Magnetic Field Derivative t-amplitudes:")
             #print("t2 grad", t2_grad, "\n")
             dT2_dH.append(t2_grad)
             U_H.append(U_d1)

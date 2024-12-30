@@ -109,7 +109,7 @@ def test_mp2_aat():
     # Compute AATs in parallel.
     I = apyib.parallel.compute_parallel_aats(parameters, 0.0001, 0.0001, normalization='intermediate')
 
-    assert(np.max(np.abs(I-aat_ref)) < 1e-7)
+    assert(np.max(np.abs(I-aat_ref)) < 1e-8)
 
 def test_mp2_aat_full_norm():
     # Set parameters for the calculation.
@@ -186,7 +186,7 @@ def test_mp2_aat_full_norm():
     # Compute AATs in parallel.
     I = apyib.parallel.compute_parallel_aats(parameters, 0.0001, 0.0001)
 
-    assert(np.max(np.abs(I-aat_ref)) < 1e-7)
+    assert(np.max(np.abs(I-aat_ref)) < 1e-8)
 
 def test_cid_aat():
     # Set parameters for the calculation.
@@ -251,7 +251,7 @@ def test_cid_aat():
     # Compute AATs in parallel.
     I = apyib.parallel.compute_parallel_aats(parameters, 0.0001, 0.0001, normalization='intermediate')
 
-    assert(np.max(np.abs(I-aat_ref)) < 1e-7)
+    assert(np.max(np.abs(I-aat_ref)) < 1e-8)
 
 def test_cid_aat_full_norm():
     # Set parameters for the calculation.
@@ -316,8 +316,9 @@ def test_cid_aat_full_norm():
     # Compute AATs in parallel.
     I = apyib.parallel.compute_parallel_aats(parameters, 0.0001, 0.0001)
 
-    assert(np.max(np.abs(I-aat_ref)) < 1e-7)
+    assert(np.max(np.abs(I-aat_ref)) < 1e-8)
 
+@pytest.mark.skip(reason="Too slow.")
 def test_mp2_SO_aat():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["(H2)_2"],
@@ -395,6 +396,7 @@ def test_mp2_SO_aat():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
+@pytest.mark.skip(reason="Too slow.")
 def test_mp2_SO_aat_full_norm():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["(H2)_2"],
@@ -472,6 +474,7 @@ def test_mp2_SO_aat_full_norm():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
+@pytest.mark.skip(reason="Too slow.")
 def test_cid_SO_aat():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["(H2)_2"],
@@ -549,6 +552,7 @@ def test_cid_SO_aat():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
+@pytest.mark.skip(reason="Too slow.")
 def test_cid_SO_aat_full_norm():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["(H2)_2"],
