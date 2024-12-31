@@ -683,6 +683,7 @@ class AAT(object):
         """
         Compute the atomic axial tensors from the spatial orbital basis.
         """
+        t0 = time.time()
         # Compute normalization factors.
         if self.parameters['method'] == 'RHF' or normalization == 'intermediate':
             N = 1 
@@ -864,6 +865,9 @@ class AAT(object):
             I += 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2, ia_S_kc_nn, ia_S_kc_nn)
             del S_nn; del ia_S_nn; del S_kc_nn; del iajb_S_nn; del S_kcld_nn; del ia_S_kc_nn; del iajb_S_kc_nn; del ia_S_kcld_nn; del iajb_S_kcld_nn
             gc.collect()
+
+            t1 = time.time()
+            print(f"AAT element computed in {t1-t0} seconds.")
 
         return (1 / (4 * self.nuc_pert_strength * self.mag_pert_strength)) * I.imag
 

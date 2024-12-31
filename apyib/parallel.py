@@ -12,7 +12,7 @@ from apyib.hf_wfn import hf_wfn
 from apyib.fin_diff import finite_difference
 from apyib.aats import AAT
 
-def compute_parallel_aats(parameters, nuc_pert_strength, mag_pert_strength, normalization='full'):
+def compute_parallel_aats(parameters, nuc_pert_strength, mag_pert_strength, normalization='full', num_processes=4):
     # Compute energy.
     E_list, T_list, C, basis = energy(parameters)
     E_tot = E_list[0] + E_list[1] + E_list[2]
@@ -28,7 +28,7 @@ def compute_parallel_aats(parameters, nuc_pert_strength, mag_pert_strength, norm
     # Compute finite difference AATs.
     AATs = AAT(parameters, wfn, C, basis, T_list, nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T, nuc_pert_strength, mag_pert_strength)
     aat = np.zeros((3 * H.molecule.natom(), 3), dtype=np.cdouble)
-    pool = mp.Pool()
+    pool = mp.Pool(processes=num_processes)
     lambd_alpha = np.array(range(3 * H.molecule.natom()))
     beta = np.array(range(3))
     lab = []
