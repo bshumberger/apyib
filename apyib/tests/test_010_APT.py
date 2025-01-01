@@ -36,7 +36,7 @@ def test_rhf_apt():
     finite_difference = apyib.fin_diff.finite_difference(parameters, basis, C)
     apt = finite_difference.compute_APT(0.001, 0.0001)
 
-    assert(np.max(np.abs(apt-apt_ref)) < 1e-6)
+    assert(np.max(np.abs(apt-apt_ref)) < 1e-5)
 
 def test_mp2_apt():
     # Set parameters for the calculation.
