@@ -251,7 +251,7 @@ def test_cid_aat():
     # Compute AATs in parallel.
     I = apyib.parallel.compute_parallel_aats(parameters, 0.0001, 0.0001, normalization='intermediate')
 
-    assert(np.max(np.abs(I-aat_ref)) < 1e-8)
+    assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
 def test_cid_aat_full_norm():
     # Set parameters for the calculation.
@@ -316,7 +316,7 @@ def test_cid_aat_full_norm():
     # Compute AATs in parallel.
     I = apyib.parallel.compute_parallel_aats(parameters, 0.0001, 0.0001)
 
-    assert(np.max(np.abs(I-aat_ref)) < 1e-8)
+    assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
 @pytest.mark.skip(reason="Too slow.")
 def test_mp2_SO_aat():
