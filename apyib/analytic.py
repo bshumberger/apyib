@@ -662,7 +662,7 @@ class analytic_derivative(object):
         Hessian = np.zeros((natom * 3, natom * 3)) 
 
         # Set up the atomic axial tensor.
-        AAT = np.zeros((natom * 3, 3), dtype='complex128')
+        AAT = np.zeros((natom * 3, 3))
 
         # Set up derivative t-amplitude matrices.
         dT2_dR = []
@@ -674,7 +674,6 @@ class analytic_derivative(object):
 
         # Set up derivative of normalization factors.
         N_R = []
-        #N_H = [] # Magnetic field normalization factors are zero mathematically.
 
         # Compute the perturbation-independent A matrix for the CPHF coefficients with real wavefunctions.
         A = (2 * ERI - ERI.swapaxes(2,3)) + (2 * ERI - ERI.swapaxes(2,3)).swapaxes(1,3)
@@ -721,17 +720,17 @@ class analytic_derivative(object):
                 B = -F_d1[v,o] + np.einsum('ai,ii->ai', S_d1[a][v,o], F[o,o]) + 0.5 * np.einsum('mn,amin->ai', S_d1[a][o,o], A.swapaxes(1,2)[v,o,o,o])
 
                 # Solve for the independent-pairs of the CPHF U-coefficient matrix.
-                U_d1 = np.zeros((nbf,nbf), dtype='cdouble')
+                U_d1 = np.zeros((nbf,nbf))
                 U_d1[v,o] += (G @ B.reshape((nv*no))).reshape(nv,no)
                 U_d1[o,v] -= U_d1[v,o].T + S_d1[a][o,v]
 
                 # Solve for the dependent-pairs of the CPHF U-coefficient matrix.
                 D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
-                B = F_d1[o,o].copy().astype('complex128') - np.einsum('ij,jj->ij', S_d1[a][o,o], F[o,o]) + np.einsum('em,iejm->ij', U_d1[v,o], A.swapaxes(1,2)[o,v,o,o]) - 0.5 * np.einsum('mn,imjn->ij', S_d1[a][o,o], A.swapaxes(1,2)[o,o,o,o])
+                B = F_d1[o,o].copy() - np.einsum('ij,jj->ij', S_d1[a][o,o], F[o,o]) + np.einsum('em,iejm->ij', U_d1[v,o], A.swapaxes(1,2)[o,v,o,o]) - 0.5 * np.einsum('mn,imjn->ij', S_d1[a][o,o], A.swapaxes(1,2)[o,o,o,o])
                 U_d1[o,o] += B/D
 
                 D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
-                B = F_d1[v,v].copy().astype('complex128') - np.einsum('ab,bb->ab', S_d1[a][v,v], F[v,v]) + np.einsum('em,aebm->ab', U_d1[v,o], A.swapaxes(1,2)[v,v,v,o]) - 0.5 * np.einsum('mn,ambn->ab', S_d1[a][o,o], A.swapaxes(1,2)[v,o,v,o])
+                B = F_d1[v,v].copy() - np.einsum('ab,bb->ab', S_d1[a][v,v], F[v,v]) + np.einsum('em,aebm->ab', U_d1[v,o], A.swapaxes(1,2)[v,v,v,o]) - 0.5 * np.einsum('mn,ambn->ab', S_d1[a][o,o], A.swapaxes(1,2)[v,o,v,o])
                 U_d1[v,v] += B/D
 
                 for j in range(no):
@@ -754,9 +753,9 @@ class analytic_derivative(object):
                 occ_eps = self.wfn.eps[o].reshape(-1,1) - self.wfn.eps[o]
                 vir_eps = self.wfn.eps[v].reshape(-1,1) - self.wfn.eps[v]
 
-                f_grad = np.zeros((nbf,nbf), dtype='complex128')
+                f_grad = np.zeros((nbf,nbf))
 
-                f_grad[o,o] += F_d1[o,o].copy().astype('complex128')
+                f_grad[o,o] += F_d1[o,o].copy()
                 f_grad[o,o] += U_d1[o,o] * occ_eps
                 f_grad[o,o] -= np.einsum('ij,jj->ij', S_d1[a][o,o], F[o,o])
                 f_grad[o,o] += np.einsum('em,iejm->ij', U_d1[v,o], A.swapaxes(1,2)[o,v,o,o])
@@ -770,7 +769,7 @@ class analytic_derivative(object):
                     f_grad[i,i] -= 0.5 * np.einsum('mn,mn->', S_d1[a][o,o], 2*ERI[i,o,i,o] - ERI.swapaxes(2,3)[i,o,i,o])
                     f_grad[i,i] -= 0.5 * np.einsum('mn,nm->', S_d1[a][o,o], 2*ERI[i,o,i,o] - ERI.swapaxes(2,3)[i,o,i,o])
 
-                f_grad[v,v] += F_d1[v,v].copy().astype('complex128')
+                f_grad[v,v] += F_d1[v,v].copy()
                 f_grad[v,v] += U_d1[v,v] * vir_eps
                 f_grad[v,v] -= np.einsum('ab,bb->ab', S_d1[a][v,v], F[v,v])
                 f_grad[v,v] += np.einsum('em,aebm->ab', U_d1[v,o], A.swapaxes(1,2)[v,v,v,o])
@@ -794,7 +793,7 @@ class analytic_derivative(object):
                 Gradient_RHF[N1][a] -= 2 * np.einsum('ii,ii->', S_d1[a][o,o], F[o,o])
 
                 # Computing the gradient of the ERIs.
-                ERI_grad = ERI_d1[a][o,o,v,v].astype('complex128')
+                ERI_grad = ERI_d1[a][o,o,v,v]
                 ERI_grad += np.einsum('pi,pjab->ijab', U_d1[:,o], ERI[:,o,v,v])
                 ERI_grad += np.einsum('pj,ipab->ijab', U_d1[:,o], ERI[o,:,v,v])
                 ERI_grad += np.einsum('pa,ijpb->ijab', U_d1[:,v], ERI[o,o,:,v])
@@ -802,7 +801,7 @@ class analytic_derivative(object):
                 #print("ERI_a", ERI_grad, "\n")
 
                 # Computing energy gradient without derivative t-amplitudes.
-                #E_grad = np.einsum('ijab,ijab->', 2*(2*t2-t2.swapaxes(2,3)), ERI_grad).astype('complex128')
+                #E_grad = np.einsum('ijab,ijab->', 2*(2*t2-t2.swapaxes(2,3)), ERI_grad)
                 #E_grad -= np.einsum('ijab,kjab,ik->', t2, (2*t2-t2.swapaxes(2,3)), f_grad[o,o])
                 #E_grad -= np.einsum('ijab,ikab,jk->', t2, (2*t2-t2.swapaxes(2,3)), f_grad[o,o])
                 #E_grad += np.einsum('ijab,ijcb,ac->', t2, (2*t2-t2.swapaxes(2,3)), f_grad[v,v])
@@ -830,7 +829,7 @@ class analytic_derivative(object):
                 U_R.append(U_d1)
 
                 # Computing energy gradient with derivative t-amplitudes.
-                E_grad = np.einsum('ijab,ijab->', t2_grad, (2*ERI[o,o,v,v]-ERI.swapaxes(2,3)[o,o,v,v])).astype('complex128')
+                E_grad = np.einsum('ijab,ijab->', t2_grad, (2*ERI[o,o,v,v]-ERI.swapaxes(2,3)[o,o,v,v]))
                 E_grad += np.einsum('ijab,ijab->', t2, (2*ERI_grad-ERI_grad.swapaxes(2,3)))
                 #print("Energy Gradient:", E_grad1 + rhf_gradient[N1][a], "\n")
 
@@ -852,28 +851,30 @@ class analytic_derivative(object):
         G_mag = np.linalg.inv(G_mag.reshape((nv*no,nv*no)))
 
         # Get the magnetic dipole AO integrals and transform into the MO basis.
+        mu_mag_AO = mints.ao_angular_momentum()
         for a in range(3):
-            mu_mag = np.einsum('mp,mn,nq->pq', np.conjugate(C), self.H.mu_mag[a], C)
+            mu_mag_AO[a] = -0.5 * mu_mag_AO[a].np
+            mu_mag = np.einsum('mp,mn,nq->pq', np.conjugate(C), mu_mag_AO[a], C)
 
             # Computing skeleton (core) first derivative integrals.
             h_d1 = mu_mag
 
-            # Compute the perturbation-dependent B matrix for the CPHF coefficients with respect to a magnetic field. Using negative sign to cancel that in Hamiltonian.
+            # Compute the perturbation-dependent B matrix for the CPHF coefficients with respect to a magnetic field.
             B = h_d1[v,o]
 
             # Solve for the independent-pairs of the CPHF U-coefficient matrix with respect to a magnetic field.
-            U_d1 = np.zeros((nbf,nbf), dtype='cdouble')
+            U_d1 = np.zeros((nbf,nbf))
             U_d1[v,o] += (G_mag @ B.reshape((nv*no))).reshape(nv,no)
             U_d1[o,v] += U_d1[v,o].T
 
             # Solve for the dependent-pairs of the CPHF U-coefficient matrix with respect to a magnetic field.
             D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
-            B = - h_d1[o,o].copy().astype('complex128') + np.einsum('em,iejm->ij', U_d1[v,o], A_mag.swapaxes(1,2)[o,v,o,o])
+            B = - h_d1[o,o].copy() + np.einsum('em,iejm->ij', U_d1[v,o], A_mag.swapaxes(1,2)[o,v,o,o])
             U_d1[o,o] += B/D
 
             D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
-            B = - h_d1[v,v].copy().astype('complex128') + np.einsum('em,aebm->ab', U_d1[v,o], A_mag.swapaxes(1,2)[v,v,v,o])
-            U_d1[v,v] += B/D 
+            B = - h_d1[v,v].copy() + np.einsum('em,aebm->ab', U_d1[v,o], A_mag.swapaxes(1,2)[v,v,v,o])
+            U_d1[v,v] += B/D
 
             #print("CPHF Coefficients for Magnetic Field Perturbations:")
             #print(U_d1,"\n")
@@ -887,22 +888,22 @@ class analytic_derivative(object):
             occ_eps = self.wfn.eps[o].reshape(-1,1) - self.wfn.eps[o]
             vir_eps = self.wfn.eps[v].reshape(-1,1) - self.wfn.eps[v]
 
-            f_grad = np.zeros((nbf,nbf), dtype='complex128')
+            f_grad = np.zeros((nbf,nbf))
 
-            f_grad[o,o] -= h_d1[o,o].copy().astype('complex128')  # Sign change
+            f_grad[o,o] -= h_d1[o,o].copy()
             f_grad[o,o] += U_d1[o,o] * occ_eps
             f_grad[o,o] += np.einsum('em,iejm->ij', U_d1[v,o], A_mag.swapaxes(1,2)[o,v,o,o])
 
             for i in range(no):
-                f_grad[i,i] = - h_d1[i,i] + np.einsum('em,em->', U_d1[v,o], A_mag.swapaxes(1,2)[i,v,i,o])  # Sign change
+                f_grad[i,i] = - h_d1[i,i] + np.einsum('em,em->', U_d1[v,o], A_mag.swapaxes(1,2)[i,v,i,o])
 
-            f_grad[v,v] -= h_d1[v,v].copy().astype('complex128')  # Sign change
+            f_grad[v,v] -= h_d1[v,v].copy()
             f_grad[v,v] += U_d1[v,v] * vir_eps
             f_grad[v,v] += np.einsum('em,aebm->ab', U_d1[v,o], A_mag.swapaxes(1,2)[v,v,v,o])
 
             for b in range(nv):
                 b += no
-                f_grad[b,b] = - h_d1[b,b] + np.einsum('em,em->', U_d1[v,o], A_mag.swapaxes(1,2)[b,v,b,o])  # Sign change
+                f_grad[b,b] = - h_d1[b,b] + np.einsum('em,em->', U_d1[v,o], A_mag.swapaxes(1,2)[b,v,b,o])
 
             #print("Fock Matrix Derivative:")
             #print(f_grad, "\n")
@@ -910,8 +911,8 @@ class analytic_derivative(object):
             # Computing the gradient of the ERIs with respect to a magnetic field. # Swapaxes on these elements
             ERI_grad = np.einsum('pi,abpj->abij', U_d1[:,o], ERI[v,v,:,o])
             ERI_grad += np.einsum('pj,abip->abij', U_d1[:,o], ERI[v,v,o,:])
-            ERI_grad += np.einsum('pa,pbij->abij', np.conjugate(U_d1[:,v]), ERI[:,v,o,o])
-            ERI_grad += np.einsum('pb,apij->abij', np.conjugate(U_d1[:,v]), ERI[v,:,o,o])
+            ERI_grad -= np.einsum('pa,pbij->abij', U_d1[:,v], ERI[:,v,o,o])
+            ERI_grad -= np.einsum('pb,apij->abij', U_d1[:,v], ERI[v,:,o,o])
             #print("ERI_a", ERI_grad, "\n")
 
             # Computing t-amplitude derivatives with respect to a magnetic field.
@@ -933,12 +934,12 @@ class analytic_derivative(object):
             U_H.append(U_d1)
 
         # Setting up different components of the AATs.
-        AAT_HF = np.zeros((natom * 3, 3), dtype='complex128')
-        AAT_1 = np.zeros((natom * 3, 3), dtype='complex128')
-        AAT_2 = np.zeros((natom * 3, 3), dtype='complex128')
-        AAT_3 = np.zeros((natom * 3, 3), dtype='complex128')
-        AAT_4 = np.zeros((natom * 3, 3), dtype='complex128')
-        AAT_Norm = np.zeros((natom * 3, 3), dtype='complex128')
+        AAT_HF = np.zeros((natom * 3, 3))
+        AAT_1 = np.zeros((natom * 3, 3))
+        AAT_2 = np.zeros((natom * 3, 3))
+        AAT_3 = np.zeros((natom * 3, 3))
+        AAT_4 = np.zeros((natom * 3, 3))
+        AAT_Norm = np.zeros((natom * 3, 3))
 
         if normalization == 'intermediate':
             N = 1
@@ -978,21 +979,20 @@ class analytic_derivative(object):
                     AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2.0 * np.einsum("ijab,ijcb,ac", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][v, v])
                     AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 1.0 * np.einsum("ijab,ijab", 2*t2 - t2.swapaxes(2,3), dT2_dH[beta])
 
-
         print("Hartree-Fock AAT:")
-        print(AAT_HF.imag, "\n")
+        print(AAT_HF, "\n")
         print("AAT Term 1:")
-        print(AAT_1.imag, "\n")
+        print(AAT_1, "\n")
         print("AAT Term 2:")
-        print(AAT_2.imag, "\n")
+        print(AAT_2, "\n")
         print("AAT Term 3:")
-        print(AAT_3.imag, "\n")
+        print(AAT_3, "\n")
         print("AAT Term 4:")
-        print(AAT_4.imag, "\n")
+        print(AAT_4, "\n")
 
         AAT = AAT_HF + AAT_1 + AAT_2 + AAT_3 + AAT_4 + AAT_Norm
 
-        return AAT.imag
+        return AAT
 
 
 

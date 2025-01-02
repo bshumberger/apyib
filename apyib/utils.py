@@ -76,18 +76,16 @@ def solve_DIIS(parameters, F, D, S, X, F_iter, e_iter, min_DIIS=1, max_DIIS=7):
     B[-1,:] = -1
     B[:,-1] = -1
     B[-1,-1] = 0 
-    B = B.astype('complex128')
     for m in range(len(e_iter)):
         for n in range(len(e_iter)):
             #B[m,n] = np.einsum('mn, mn->',e_iter[m], e_iter[n], optimize=True)
             for o in range(len(e_diis[0])):
                 for p in range(len(e_diis[0])):
-                    B[m,n] += e_iter[m][o][p] * e_iter[n][o][p]
+                    B[m,n] = B[m,n] + e_iter[m][o][p] * e_iter[n][o][p]
     
     # Build the "A" matrix for the system of linear equations.
     A = np.zeros(len(e_iter)+1)
     A[-1] = -1
-    A = A.astype('complex128')
     
     # Solve the system of linear equations.
     #C_diis = np.linalg.inv(B) @ A
@@ -96,7 +94,7 @@ def solve_DIIS(parameters, F, D, S, X, F_iter, e_iter, min_DIIS=1, max_DIIS=7):
     # Solve for new Fock matrix.
     F = np.zeros_like(F)
     for j in range(len(C_diis) - 1): 
-        F += C_diis[j] * F_iter[j]
+        F = F + C_diis[j] * F_iter[j]
 
     return F
 
@@ -135,29 +133,6 @@ def get_slices(parameters, wfn):
 
 
 
-#def compute_F_MO(parameters, H, wfn, C):
-#    """
-#    Computes the MO basis Fock matrix from the AO basis.
-#    """
-#    # Set up the one-electron AO integrals.
-#    h_AO = H.T + H.V
-#
-#    # Set up the two-electron AO integrals.
-#    ERI_AO = H.ERI.astype('complex128')
-#
-#    # Compute the density.
-#    D = np.einsum('mp,np->mn', C[0:wfn.nbf,0:wfn.ndocc], np.conjugate(C[0:wfn.nbf,0:wfn.ndocc]))
-#
-#    # Compute the Fock matrix elements.
-#    F_AO = h_AO + np.einsum('ls,mnls->mn', D, 2 * ERI_AO - ERI_AO.swapaxes(1,2))
-#
-#    # Compute MO Fock matrix elements.
-#    F_MO = np.einsum('ip,ij,jq->pq', np.conjugate(C), F_AO, C)
-#
-#    return F_MO
-
-
-
 def compute_F_MO(parameters, wfn, C_list): 
     """ 
     Computes the MO basis Fock matrix from the AO basis.
@@ -175,7 +150,7 @@ def compute_F_MO(parameters, wfn, C_list):
     h_AO = wfn.H.T + wfn.H.V
 
     # Set up the two-electron AO integrals.
-    ERI_AO = wfn.H.ERI.copy().astype('complex128')
+    ERI_AO = wfn.H.ERI.copy()
 
     # Compute frozen core energy and append frozen core operator.
     E_fc = 0
@@ -199,23 +174,6 @@ def compute_F_MO(parameters, wfn, C_list):
 
 
 
-#def compute_ERI_MO(parameters, H, wfn, C):
-#    """
-#    Computes the MO basis electron repulsion integrals from the AO basis.
-#    """
-#    # Set up the two-electron AO integrals.
-#    ERI_AO = H.ERI.astype('complex128')
-#
-#    # Compute the two-electron MO integrals.
-#    ERI_MO = np.einsum('mnlg,gs->mnls', H.ERI, C)
-#    ERI_MO = np.einsum('mnls,lr->mnrs', ERI_MO, np.conjugate(C))
-#    ERI_MO = np.einsum('nq,mnrs->mqrs', C, ERI_MO)
-#    ERI_MO = np.einsum('mp,mqrs->pqrs', np.conjugate(C), ERI_MO)
-#
-#    return ERI_MO
-
-
-
 def compute_ERI_MO(parameters, wfn, C_list):
     """
     Computes the MO basis electron repulsion integrals from the AO basis.
@@ -229,7 +187,7 @@ def compute_ERI_MO(parameters, wfn, C_list):
     C = wfn.C.copy()[:,t]
 
     # Set up the two-electron AO integrals.
-    ERI_AO = wfn.H.ERI.copy().astype('complex128')
+    ERI_AO = wfn.H.ERI.copy()
 
     # Compute the two-electron MO integrals.
     ERI_MO = np.einsum('mnlg,gs->mnls', ERI_AO, C)

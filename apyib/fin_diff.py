@@ -499,7 +499,7 @@ class finite_difference(object):
             self.parameters['F_mag'][beta] += mag_pert_strength
 
         # Compute gradient.
-        gradient = np.zeros((3), dtype='complex128')
+        gradient = np.zeros((3))
         print(np.shape(gradient))
         for beta in range(3):
             gradient[beta] = (mag_pos_E[beta] - mag_neg_E[beta]) / (2 * mag_pert_strength)

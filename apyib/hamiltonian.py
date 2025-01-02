@@ -36,13 +36,11 @@ class Hamiltonian(object):
         self.mu_el = mints.ao_dipole()       # \mu^{el}_{\mu\nu, \alpha} = -e \int \phi_{\mu}^*(r) r_{\alpha} \phi_{\nu}(r) dr
         for alpha in range(3):
             self.mu_el[alpha] = self.mu_el[alpha].np
-            self.mu_el[alpha] = self.mu_el[alpha].astype('complex128')
 
         # Magnetic dipole AO integrals.
         self.mu_mag = mints.ao_angular_momentum()    # \mu^{mag}_{\mu\nu, \alpha} = - \frac(e}{2 m_e} \int \phi_{\mu}^*(r) (r x p)_{\alpha} \phi_{\nu}(r) dr
         for alpha in range(3):
             self.mu_mag[alpha] = -0.5j * self.mu_mag[alpha].np
-            self.mu_mag[alpha] = self.mu_mag[alpha].astype('complex128')
 
         # Compute the nuclear repulsion energy.
         F_el = [0.0, 0.0, 0.0]
@@ -51,7 +49,9 @@ class Hamiltonian(object):
         self.E_nuc = self.molecule.nuclear_repulsion_energy(F_el)
 
         # Add electric and magnetic potentials to the core Hamiltonian.
-        self.V = self.V.astype('complex128')
         for alpha in range(3):
-            self.V -=  parameters['F_el'][alpha] * self.mu_el[alpha] + parameters['F_mag'][alpha] * self.mu_mag[alpha]
+            if parameters['F_el'][alpha] != 0.0:
+                self.V =  self.V - parameters['F_el'][alpha] * self.mu_el[alpha]
+            if parameters['F_mag'][alpha] != 0.0:
+                self.V =  self.V - parameters['F_mag'][alpha] * self.mu_mag[alpha]
 
