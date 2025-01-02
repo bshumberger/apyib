@@ -32,15 +32,26 @@ class Hamiltonian(object):
         self.ERI = mints.ao_eri().np         # (\mu \nu|\lambda \sigma) = \int \phi_{\mu}^*(r_1) \phi_{\nu}(r_1) r_{12}^{-1} \phi_{\lambda}^*(r_2) \phi_{\sigma}(r_2) dr_1 dr_2
         self.S = mints.ao_overlap().np       # S_{\mu\nu} = \int \phi_{\mu}^*(r) \phi_{\nu}(r) dr
 
-        # Electric dipole AO integrals.
-        self.mu_el = mints.ao_dipole()       # \mu^{el}_{\mu\nu, \alpha} = -e \int \phi_{\mu}^*(r) r_{\alpha} \phi_{\nu}(r) dr
+        # Checking for fields.
+        E_field = False
+        M_field = False
         for alpha in range(3):
-            self.mu_el[alpha] = self.mu_el[alpha].np
+            if parameters['F_el'][alpha] != 0.0:
+                E_field = True
+            if parameters['F_mag'][alpha] != 0.0:
+                M_field = True
+
+        # Electric dipole AO integrals.
+        if E_field == True:
+            self.mu_el = mints.ao_dipole()       # \mu^{el}_{\mu\nu, \alpha} = -e \int \phi_{\mu}^*(r) r_{\alpha} \phi_{\nu}(r) dr
+            for alpha in range(3):
+                self.mu_el[alpha] = self.mu_el[alpha].np
 
         # Magnetic dipole AO integrals.
-        self.mu_mag = mints.ao_angular_momentum()    # \mu^{mag}_{\mu\nu, \alpha} = - \frac(e}{2 m_e} \int \phi_{\mu}^*(r) (r x p)_{\alpha} \phi_{\nu}(r) dr
-        for alpha in range(3):
-            self.mu_mag[alpha] = -0.5j * self.mu_mag[alpha].np
+        if M_field == True:
+            self.mu_mag = mints.ao_angular_momentum()    # \mu^{mag}_{\mu\nu, \alpha} = - \frac(e}{2 m_e} \int \phi_{\mu}^*(r) (r x p)_{\alpha} \phi_{\nu}(r) dr
+            for alpha in range(3):
+                self.mu_mag[alpha] = -0.5j * self.mu_mag[alpha].np
 
         # Compute the nuclear repulsion energy.
         F_el = [0.0, 0.0, 0.0]
@@ -50,8 +61,8 @@ class Hamiltonian(object):
 
         # Add electric and magnetic potentials to the core Hamiltonian.
         for alpha in range(3):
-            if parameters['F_el'][alpha] != 0.0:
+            if E_field == True:
                 self.V =  self.V - parameters['F_el'][alpha] * self.mu_el[alpha]
-            if parameters['F_mag'][alpha] != 0.0:
+            if M_field == True:
                 self.V =  self.V - parameters['F_mag'][alpha] * self.mu_mag[alpha]
 
