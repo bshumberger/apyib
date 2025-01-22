@@ -778,7 +778,7 @@ class analytic_derivative(object):
                     f_grad[b,b] -= 0.5 * np.einsum('mn,mn->', S_d1[a][o,o], 2*ERI[b,o,b,o] - ERI.swapaxes(2,3)[b,o,b,o])
                     f_grad[b,b] -= 0.5 * np.einsum('mn,nm->', S_d1[a][o,o], 2*ERI[b,o,b,o] - ERI.swapaxes(2,3)[b,o,b,o])
 
-                #print("Fock Matrix Derivative:")
+                #print("Nuclear Displacement Fock Matrix Derivative:")
                 #print(f_grad, "\n")
 
                 # Computing the gradient of the ERIs.
@@ -870,7 +870,7 @@ class analytic_derivative(object):
                 b += no
                 f_grad[b,b] = - h_d1[b,b] + np.einsum('em,em->', U_d1[v,o], A_mag.swapaxes(1,2)[b,v,b,o])
 
-            #print("Fock Matrix Derivative:")
+            #print("Magnetic Field Fock Matrix Derivative:")
             #print(f_grad, "\n")
 
             # Computing the gradient of the ERIs with respect to a magnetic field. # Swapaxes on these elements

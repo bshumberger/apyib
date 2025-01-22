@@ -146,7 +146,7 @@ class AAT(object):
             N_mp = 1 / np.sqrt(self.mag_pos_T[beta][0]**2 + np.einsum('ia,ia->', np.conjugate(self.mag_pos_T[beta][1]), self.mag_pos_T[beta][1]) + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.mag_pos_T[beta][2]), self.mag_pos_T[beta][2]))
             N_mn = 1 / np.sqrt(self.mag_neg_T[beta][0]**2 + np.einsum('ia,ia->', np.conjugate(self.mag_neg_T[beta][1]), self.mag_neg_T[beta][1]) + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.mag_neg_T[beta][2]), self.mag_neg_T[beta][2]))
 
-        elif normalization == 'full':
+        elif normalization == 'full' and self.parameters['method'] != 'CISD_SO':
             N = 1 / np.sqrt(self.unperturbed_T[0]**2 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.unperturbed_T[2]), self.unperturbed_T[2]))
             N_np = 1 / np.sqrt(self.nuc_pos_T[alpha][0]**2 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_pos_T[alpha][2]), self.nuc_pos_T[alpha][2]))
             N_nn = 1 / np.sqrt(self.nuc_neg_T[alpha][0]**2 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_neg_T[alpha][2]), self.nuc_neg_T[alpha][2]))
@@ -299,8 +299,6 @@ class AAT(object):
         return (1 / (4 * self.nuc_pert_strength * self.mag_pert_strength)) * I.imag
 
 
-
-    #################################### BEGIN NEW CODE ##########################################
 
     def compute_SO_I_0S(self, alpha, beta, normalization):
         # Compute the reference/singles determinants in the spin-orbital basis.
@@ -462,6 +460,7 @@ class AAT(object):
                                 I += 0.25 * t1_conj * t2_dH * (det_S_pu * N_np * N - det_S_nu * N_nn * N)
                                 I += 0.25 * t1_conj * t2 * (det_S_pp * N_np * N_mp - det_S_pn * N_np * N_mn - det_S_np * N_nn * N_mp + det_S_nn * N_nn * N_mn)
 
+
         return (1 / (4 * self.nuc_pert_strength * self.mag_pert_strength)) * I.imag
 
 
@@ -514,16 +513,16 @@ class AAT(object):
                                 I += 0.25 * t2_conj * t1 * (det_S_pp * N_np * N_mp - det_S_pn * N_np * N_mn - det_S_np * N_nn * N_mp + det_S_nn * N_nn * N_mn)
 
         return (1 / (4 * self.nuc_pert_strength * self.mag_pert_strength)) * I.imag
-    #################################### END NEW CODE ##########################################
 
 
 
     def compute_SO_aats(self, alpha, beta, normalization='full'):
+        t0 = time.time()
         # Compute the HF term of the AATs.
         I_00 = self.compute_SO_I_00(alpha, beta, normalization)
 
         # Add doubles contribution (for MP2, CID, and CISD).
-        if self.parameters['method'] != 'RHF':
+        if self.parameters['method'] != 'RHF': 
             I_0D = self.compute_SO_I_0D(alpha, beta, normalization)
             I_D0 = self.compute_SO_I_D0(alpha, beta, normalization)
             I_DD = self.compute_SO_I_DD(alpha, beta, normalization)
@@ -544,9 +543,12 @@ class AAT(object):
             I_S0 = 0 
             I_SS = 0 
             I_SD = 0 
-            I_DS = 0 
+            I_DS = 0
 
         I = I_00 + I_0D + I_D0 + I_DD + I_0S + I_S0 + I_SS + I_SD + I_DS
+
+        t1 =time.time()
+        print(f"AAT element computed in {t1-t0} seconds.")
 
         return I
 
@@ -560,15 +562,6 @@ class AAT(object):
 
         # Computes all the determinants required from the row and column swappings.
         S = np.copy(overlap)
-
-        # Initialize nested lists for storing substituted overlap matrices.
-        #ia_S = [[np.copy(S) for _ in range(nv)] for _ in range(nf, no)]
-        #S_kc = [[np.copy(S) for _ in range(nv)] for _ in range(nf, no)]
-        #iajb_S = [[[[np.zeros_like(S) for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)]
-        #S_kcld = [[[[np.zeros_like(S) for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)]
-        #ia_S_kc = [[[[np.zeros_like(S) for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)]
-        #iajb_S_kc = [[[[[[np.zeros_like(S) for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)]
-        #ia_S_kcld = [[[[[[np.zeros_like(S) for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)] for _ in range(nv)] for _ in range(nf, no)]
 
         # Initialize determinant matrices.
         det_ia_S = np.zeros((no-nf, nv), dtype='cdouble')
@@ -592,10 +585,6 @@ class AAT(object):
                 S_kc = np.copy(S)
                 S_kc[:,[i, a + no]] = S_kc[:,[a + no, i]]
                 det_S_kc[i-nf][a] = np.linalg.det(S_kc[0:no, 0:no])
-                #ia_S[i-nf][a][[i, a + no],:] = ia_S[i-nf][a][[a + no, i],:]
-                #S_kc[i-nf][a][:,[i, a + no]] = S_kc[i-nf][a][:,[a + no, i]]
-                #det_ia_S[i-nf][a] = np.linalg.det(ia_S[i-nf][a][0:no, 0:no])
-                #det_S_kc[i-nf][a] = np.linalg.det(S_kc[i-nf][a][0:no, 0:no])
 
                 for j in range(i+1, no):
                     for b in range(a+1, nv):
@@ -605,12 +594,6 @@ class AAT(object):
                         S_kcld = np.copy(S_kc)
                         S_kcld[:,[j, b + no]] = S_kcld[:,[b + no, j]]
                         det_S_kcld[i-nf][a][j-nf][b] = np.linalg.det(S_kcld[0:no, 0:no])
-                        #iajb_S[i-nf][a][j-nf][b] = np.copy(ia_S[i-nf][a])
-                        #iajb_S[i-nf][a][j-nf][b][[j, b + no],:] = iajb_S[i-nf][a][j-nf][b][[b + no, j],:]
-                        #S_kcld[i-nf][a][j-nf][b] = np.copy(S_kc[i-nf][a])
-                        #S_kcld[i-nf][a][j-nf][b][:,[j, b + no]] = S_kcld[i-nf][a][j-nf][b][:,[b + no, j]]
-                        #det_iajb_S[i-nf][a][j-nf][b] = np.linalg.det(iajb_S[i-nf][a][j-nf][b][0:no, 0:no])
-                        #det_S_kcld[i-nf][a][j-nf][b] = np.linalg.det(S_kcld[i-nf][a][j-nf][b][0:no, 0:no])
 
                         for k in range(nf, no):
                             for c in range(0, nv):
@@ -620,38 +603,18 @@ class AAT(object):
                                 ia_S_kcld = np.copy(S_kcld)
                                 ia_S_kcld[[k, c + no],:] = ia_S_kcld[[c + no, k],:]
                                 det_ia_S_kcld[i-nf][a][j-nf][b][k-nf][c] = np.linalg.det(ia_S_kcld[0:no, 0:no])
-                                #iajb_S_kc[i-nf][a][j-nf][b][k-nf][c] = np.copy(iajb_S[i-nf][a][j-nf][b])
-                                #iajb_S_kc[i-nf][a][j-nf][b][k-nf][c][:,[k, c + no]] = iajb_S_kc[i-nf][a][j-nf][b][k-nf][c][:,[c + no, k]]
-                                #ia_S_kcld[i-nf][a][j-nf][b][k-nf][c] = np.copy(S_kcld[i-nf][a][j-nf][b])
-                                #ia_S_kcld[i-nf][a][j-nf][b][k-nf][c][[k, c + no],:] = ia_S_kcld[i-nf][a][j-nf][b][k-nf][c][[c + no, k],:]
-                                #det_iajb_S_kc[i-nf][a][j-nf][b][k-nf][c] = np.linalg.det(iajb_S_kc[i-nf][a][j-nf][b][k-nf][c][0:no, 0:no])
-                                #det_ia_S_kcld[i-nf][a][j-nf][b][k-nf][c] = np.linalg.det(ia_S_kcld[i-nf][a][j-nf][b][k-nf][c][0:no, 0:no])
 
                                 for l in range(k+1, no):
                                     for d in range(c+1, nv):
-                                        #if l == k:
-                                        #    continue
-                                        #if d == c:
-                                        #    continue
-                                        #iajb_S_kcld[i][a][j][b][k][c][l][d] = np.copy(iajb_S_kc[i][a][j][b][k][c])
-                                        #iajb_S_kcld[i][a][j][b][k][c][l][d][:,[l, d + self.ndocc]] = iajb_S_kcld[i][a][j][b][k][c][l][d][:,[d + self.ndocc, l]]
-                                        #det_iajb_S_kcld[i][a][j][b][k][c][l][d] = np.linalg.det(iajb_S_kcld[i][a][j][b][k][c][l][d][0:self.ndocc, 0:self.ndocc])
                                         iajb_S_kcld = np.copy(iajb_S_kc)
                                         iajb_S_kcld[:,[l, d + no]] = iajb_S_kcld[:,[d + no, l]]
                                         det_iajb_S_kcld[i-nf][a][j-nf][b][k-nf][c][l-nf][d] = np.linalg.det(iajb_S_kcld[0:no, 0:no])
-                                        #iajb_S_kcld = np.copy(iajb_S_kc[i-nf][a][j-nf][b][k-nf][c])
-                                        #iajb_S_kcld[:,[l, d + no]] = iajb_S_kcld[:,[d + no, l]]
-                                        #det_iajb_S_kcld[i-nf][a][j-nf][b][k-nf][c][l-nf][d] = np.linalg.det(iajb_S_kcld[0:no, 0:no])
-
 
                 for k in range(nf, no):
                     for c in range(0, nv):
                         ia_S_kc = np.copy(ia_S)
                         ia_S_kc[:,[k, c + no]] = ia_S_kc[:,[c + no, k]]
                         det_ia_S_kc[i-nf][a][k-nf][c] = np.linalg.det(ia_S_kc[0:no, 0:no])
-                        #ia_S_kc[i-nf][a][k-nf][c] = np.copy(ia_S[i-nf][a])
-                        #ia_S_kc[i-nf][a][k-nf][c][:,[k, c + no]] = ia_S_kc[i-nf][a][k-nf][c][:,[c + no, k]]
-                        #det_ia_S_kc[i-nf][a][k-nf][c] = np.linalg.det(ia_S_kc[i-nf][a][k-nf][c][0:no, 0:no])
 
         det_iajb_S = det_iajb_S - np.swapaxes(det_iajb_S,0,2) - np.swapaxes(det_iajb_S,1,3) + np.swapaxes(np.swapaxes(det_iajb_S,0,2),1,3)
         det_S_kcld = det_S_kcld - np.swapaxes(det_S_kcld,0,2) - np.swapaxes(det_S_kcld,1,3) + np.swapaxes(np.swapaxes(det_S_kcld,0,2),1,3)
@@ -691,12 +654,18 @@ class AAT(object):
             N_nn = 1 
             N_mp = 1 
             N_mn = 1
-        elif normalization == 'full':
+        elif normalization == 'full' and self.parameters['method'] != 'CISD':
             N = 1 / np.sqrt(self.unperturbed_T[0] + (2*np.einsum('ijab,ijab->', np.conjugate(self.unperturbed_T[2]), self.unperturbed_T[2]) - np.einsum('ijab,ijba->', np.conjugate(self.unperturbed_T[2]), self.unperturbed_T[2])))
             N_np = 1 / np.sqrt(self.nuc_pos_T[alpha][0] + (2*np.einsum('ijab,ijab->', np.conjugate(self.nuc_pos_T[alpha][2]), self.nuc_pos_T[alpha][2]) - np.einsum('ijab,ijba->', np.conjugate(self.nuc_pos_T[alpha][2]), self.nuc_pos_T[alpha][2])))
             N_nn = 1 / np.sqrt(self.nuc_neg_T[alpha][0] + (2*np.einsum('ijab,ijab->', np.conjugate(self.nuc_neg_T[alpha][2]), self.nuc_neg_T[alpha][2]) - np.einsum('ijab,ijba->', np.conjugate(self.nuc_neg_T[alpha][2]), self.nuc_neg_T[alpha][2])))
             N_mp = 1 / np.sqrt(self.mag_pos_T[beta][0] + (2*np.einsum('ijab,ijab->', np.conjugate(self.mag_pos_T[beta][2]), self.mag_pos_T[beta][2]) - np.einsum('ijab,ijba->', np.conjugate(self.mag_pos_T[beta][2]), self.mag_pos_T[beta][2])))
             N_mn = 1 / np.sqrt(self.mag_neg_T[beta][0] + (2*np.einsum('ijab,ijab->', np.conjugate(self.mag_neg_T[beta][2]), self.mag_neg_T[beta][2]) - np.einsum('ijab,ijba->', np.conjugate(self.mag_neg_T[beta][2]), self.mag_neg_T[beta][2])))
+        elif normalization == 'full' and self.parameters['method'] == 'CISD':
+            N = 1 / np.sqrt(self.unperturbed_T[0] + 2*np.einsum('ia,ia->', np.conjugate(self.unperturbed_T[1]), self.unperturbed_T[1]) + (2*np.einsum('ijab,ijab->', np.conjugate(self.unperturbed_T[2]), self.unperturbed_T[2]) - np.einsum('ijab,ijba->', np.conjugate(self.unperturbed_T[2]), self.unperturbed_T[2])))
+            N_np = 1 / np.sqrt(self.nuc_pos_T[alpha][0] + 2*np.einsum('ia,ia->', np.conjugate(self.nuc_pos_T[alpha][1]), self.nuc_pos_T[alpha][1]) + (2*np.einsum('ijab,ijab->', np.conjugate(self.nuc_pos_T[alpha][2]), self.nuc_pos_T[alpha][2]) - np.einsum('ijab,ijba->', np.conjugate(self.nuc_pos_T[alpha][2]), self.nuc_pos_T[alpha][2])))
+            N_nn = 1 / np.sqrt(self.nuc_neg_T[alpha][0] + 2*np.einsum('ia,ia->', np.conjugate(self.nuc_neg_T[alpha][1]), self.nuc_neg_T[alpha][1]) + (2*np.einsum('ijab,ijab->', np.conjugate(self.nuc_neg_T[alpha][2]), self.nuc_neg_T[alpha][2]) - np.einsum('ijab,ijba->', np.conjugate(self.nuc_neg_T[alpha][2]), self.nuc_neg_T[alpha][2])))
+            N_mp = 1 / np.sqrt(self.mag_pos_T[beta][0] + 2*np.einsum('ia,ia->', np.conjugate(self.mag_pos_T[beta][1]), self.mag_pos_T[beta][1]) + (2*np.einsum('ijab,ijab->', np.conjugate(self.mag_pos_T[beta][2]), self.mag_pos_T[beta][2]) - np.einsum('ijab,ijba->', np.conjugate(self.mag_pos_T[beta][2]), self.mag_pos_T[beta][2])))
+            N_mn = 1 / np.sqrt(self.mag_neg_T[beta][0] + 2*np.einsum('ia,ia->', np.conjugate(self.mag_neg_T[beta][1]), self.mag_neg_T[beta][1]) + (2*np.einsum('ijab,ijab->', np.conjugate(self.mag_neg_T[beta][2]), self.mag_neg_T[beta][2]) - np.einsum('ijab,ijba->', np.conjugate(self.mag_neg_T[beta][2]), self.mag_neg_T[beta][2])))
 
         # Compute the HF AAT.
         S_pp = np.linalg.det(self.overlap_pp[alpha][beta][0:self.ndocc,0:self.ndocc])**2
@@ -704,24 +673,29 @@ class AAT(object):
         S_np = np.linalg.det(self.overlap_np[alpha][beta][0:self.ndocc,0:self.ndocc])**2
         S_nn = np.linalg.det(self.overlap_nn[alpha][beta][0:self.ndocc,0:self.ndocc])**2
 
-        I = S_pp * N_np * N_mp - S_pn * N_np * N_mn - S_np * N_nn * N_mp + S_nn * N_nn * N_mn
+        I_00 = S_pp * N_np * N_mp - S_pn * N_np * N_mn - S_np * N_nn * N_mp + S_nn * N_nn * N_mn
+        I_S0 = 0
+        I_0S = 0
+        I_D0 = 0
+        I_0D = 0
+        I_SS = 0
+        I_DS = 0
+        I_SD = 0
+        I_DD = 0
 
         if self.parameters['method'] != 'RHF':
+            if self.parameters['method'] == 'CISD':
+                # t_ia
+                t1 = N * self.unperturbed_T[1]
 
-            # Commenting out the folloing generation of determinant lists to create a more memory efficient scheme below.
-            ## Compute determinant lists.
-            #S_uu, ia_S_uu, S_kc_uu, iajb_S_uu, S_kcld_uu, ia_S_kc_uu, iajb_S_kc_uu, ia_S_kcld_uu, iajb_S_kcld_uu = self.compute_all_dets(self.overlap_uu)
+                # dt_ia / dH
+                t1_dH = N_mp * self.mag_pos_T[beta][1] - N_mn * self.mag_neg_T[beta][1]
 
-            #S_pu, ia_S_pu, S_kc_pu, iajb_S_pu, S_kcld_pu, ia_S_kc_pu, iajb_S_kc_pu, ia_S_kcld_pu, iajb_S_kcld_pu = self.compute_all_dets(self.overlap_pu[alpha])
-            #S_nu, ia_S_nu, S_kc_nu, iajb_S_nu, S_kcld_nu, ia_S_kc_nu, iajb_S_kc_nu, ia_S_kcld_nu, iajb_S_kcld_nu = self.compute_all_dets(self.overlap_nu[alpha])
+                # t_ia*
+                t1_conj = np.conjugate(t1)
 
-            #S_up, ia_S_up, S_kc_up, iajb_S_up, S_kcld_up, ia_S_kc_up, iajb_S_kc_up, ia_S_kcld_up, iajb_S_kcld_up = self.compute_all_dets(self.overlap_up[beta])
-            #S_un, ia_S_un, S_kc_un, iajb_S_un, S_kcld_un, ia_S_kc_un, iajb_S_kc_un, ia_S_kcld_un, iajb_S_kcld_un = self.compute_all_dets(self.overlap_un[beta])
-
-            #S_pp, ia_S_pp, S_kc_pp, iajb_S_pp, S_kcld_pp, ia_S_kc_pp, iajb_S_kc_pp, ia_S_kcld_pp, iajb_S_kcld_pp = self.compute_all_dets(self.overlap_pp[alpha][beta])
-            #S_pn, ia_S_pn, S_kc_pn, iajb_S_pn, S_kcld_pn, ia_S_kc_pn, iajb_S_kc_pn, ia_S_kcld_pn, iajb_S_kcld_pn = self.compute_all_dets(self.overlap_pn[alpha][beta])
-            #S_np, ia_S_np, S_kc_np, iajb_S_np, S_kcld_np, ia_S_kc_np, iajb_S_kc_np, ia_S_kcld_np, iajb_S_kcld_np = self.compute_all_dets(self.overlap_np[alpha][beta])
-            #S_nn, ia_S_nn, S_kc_nn, iajb_S_nn, S_kcld_nn, ia_S_kc_nn, iajb_S_kc_nn, ia_S_kcld_nn, iajb_S_kcld_nn = self.compute_all_dets(self.overlap_nn[alpha][beta])
+                # dt_ijab / dR
+                t1_dR = np.conjugate(N_np * self.nuc_pos_T[alpha][1] - N_nn * self.nuc_neg_T[alpha][1])
 
             # t_ijab
             t2 = N * self.unperturbed_T[2]
@@ -735,136 +709,343 @@ class AAT(object):
             # dt_ijab / dR
             t2_dR = np.conjugate(N_np * self.nuc_pos_T[alpha][2] - N_nn * self.nuc_neg_T[alpha][2])
 
-            # The following commented out terms are analytically zero.
-            ## dt_ijab/dR < ijab | d0/dH >
-            #I += 0.5 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_up) * S_up * N_mp
-            #I -= 0.5 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_un) * S_un * N_mn
+            # Unperturbed / Unperturbed
+            S_uu, ia_S_uu, S_kc_uu, iajb_S_uu, S_kcld_uu, ia_S_kc_uu, iajb_S_kc_uu, ia_S_kcld_uu, iajb_S_kcld_uu = self.compute_all_dets(self.overlap_uu)
 
-            #I += 0.5 * 2.0 * np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_dR, ia_S_up), ia_S_up) * N_mp
-            #I -= 0.5 * 2.0 * np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_dR, ia_S_un), ia_S_un) * N_mn
+            if self.parameters['method'] == 'CISD':
+                # dt_ia/dR dt_kc/dH < ia | kc >
+                I_SS += 2 * np.einsum('ia,kc,iakc->', t1_dR, t1_dH, ia_S_kc_uu) * S_uu
+                I_SS += 2 * np.einsum('ia,ia->', t1_dR, ia_S_uu) * np.einsum('kc,kc->', t1_dH, S_kc_uu)
 
-            ## t_ijab < dijab/dR | d0/dH >
-            #I += 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pp) * S_pp * N_mp
-            #I -= 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pn) * S_pn * N_mn
-            #I -= 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_np) * S_np * N_mp
-            #I += 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_nn) * S_nn * N_mn
+                # dt_ijab/dR dt_kc/dH < ijab | kc >
+                I_DS += 0.5 * np.einsum('ijab,kc,iajbkc->', t2_dR - np.swapaxes(t2_dR, 2, 3), t1_dH, iajb_S_kc_uu) * S_uu
+                I_DS += 0.5 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_uu) * np.einsum('kc,kc->', t1_dH, S_kc_uu)
+                I_DS += 2 * np.einsum('ijab,kc,iakc,jb->', t2_dR, t1_dH, ia_S_kc_uu, ia_S_uu)
 
-            #I += 0.5 * 2.0 * np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_conj, ia_S_pp), ia_S_pp) * N_mp
-            #I -= 0.5 * 2.0 * np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_conj, ia_S_pn), ia_S_pn) * N_mn
-            #I -= 0.5 * 2.0 * np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_conj, ia_S_np), ia_S_np) * N_mp
-            #I += 0.5 * 2.0 * np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_conj, ia_S_nn), ia_S_nn) * N_mn
-
-            ## dt_ijab/dH < d0/dR | ijab >
-            #I += 0.5 * np.einsum('ijab,iajb->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_pu) * S_pu * N_np
-            #I -= 0.5 * np.einsum('ijab,iajb->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_nu) * S_nu * N_nn
-
-            #I += 0.5 * 2.0 * np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_dR, ia_S_pu), ia_S_pu) * N_np
-            #I -= 0.5 * 2.0 * np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_dR, ia_S_nu), ia_S_nu) * N_nn
-
-            ## t_ijab < d0/dR | dijab/dH >
-            #I += 0.5 * np.einsum('ijab,iajb->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pp) * S_pp * N_np
-            #I -= 0.5 * np.einsum('ijab,iajb->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pn) * S_pn * N_np
-            #I -= 0.5 * np.einsum('ijab,iajb->', t2 - np.swapaxes(t2, 2, 3), S_kcld_np) * S_np * N_nn
-            #I += 0.5 * np.einsum('ijab,iajb->', t2 - np.swapaxes(t2, 2, 3), S_kcld_nn) * S_nn * N_nn
-
-            #I += 0.5 * 2.0 * np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2, S_kc_pp), S_kc_pp) * N_np
-            #I -= 0.5 * 2.0 * np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2, S_kc_pn), S_kc_pn) * N_np
-            #I -= 0.5 * 2.0 * np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2, S_kc_np), S_kc_np) * N_nn
-            #I += 0.5 * 2.0 * np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2, S_kc_nn), S_kc_nn) * N_nn
+                # dt_ia/dR dt_klcd/dH < ia | klcd >
+                I_SD += 0.5 * np.einsum('ia,klcd,iakcld->', t1_dR, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_kcld_uu) * S_uu
+                I_SD += 0.5 * np.einsum('ia,ia->', t1_dR, ia_S_uu) * np.einsum('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_uu)
+                I_SD += 2 * np.einsum('ia,klcd,iakc,ld->', t1_dR, t2_dH, ia_S_kc_uu, S_kc_uu)
 
             # dt_ijab/dR dt_klcd/dH < ijab | klcd >
-            S_uu, ia_S_uu, S_kc_uu, iajb_S_uu, S_kcld_uu, ia_S_kc_uu, iajb_S_kc_uu, ia_S_kcld_uu, iajb_S_kcld_uu = self.compute_all_dets(self.overlap_uu)
-            I += 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2_dH - np.swapaxes(t2_dH, 2, 3), iajb_S_kcld_uu) * S_uu
-            I += 0.125 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_uu) * np.einsum('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_uu)
-            I += 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2_dH, iajb_S_kc_uu, S_kc_uu)
-            I += 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_dR, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_kcld_uu, ia_S_uu)
-            I += 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_dR, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_uu, ia_S_kcld_uu)
-            I += 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_dR, t2_dH, ia_S_kc_uu, ia_S_kc_uu)
+            I_DD += 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2_dH - np.swapaxes(t2_dH, 2, 3), iajb_S_kcld_uu) * S_uu
+            I_DD += 0.125 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_uu) * np.einsum('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_uu)
+            I_DD += 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2_dH, iajb_S_kc_uu, S_kc_uu)
+            I_DD += 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_dR, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_kcld_uu, ia_S_uu)
+            I_DD += 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_dR, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_uu, ia_S_kcld_uu)
+            I_DD += 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_dR, t2_dH, ia_S_kc_uu, ia_S_kc_uu)
             del S_uu; del ia_S_uu; del S_kc_uu; del iajb_S_uu; del S_kcld_uu; del ia_S_kc_uu; del iajb_S_kc_uu; del ia_S_kcld_uu; del iajb_S_kcld_uu
             gc.collect()
 
-            # dt_ijab/dR t_klcd < ijab | dklcd/dH >
+            # Unperturbed / Positive
             S_up, ia_S_up, S_kc_up, iajb_S_up, S_kcld_up, ia_S_kc_up, iajb_S_kc_up, ia_S_kcld_up, iajb_S_kcld_up = self.compute_all_dets(self.overlap_up[beta])
-            I += 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_up) * S_up
-            I += 0.125 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_up) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_up)
-            I += 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2, iajb_S_kc_up, S_kc_up)
-            I += 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_dR, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_up, ia_S_up)
-            I += 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_dR, t2 - np.swapaxes(t2, 2, 3), ia_S_up, ia_S_kcld_up)
-            I += 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_dR, t2, ia_S_kc_up, ia_S_kc_up)
+
+            if self.parameters['method'] == 'CISD':
+                # dt_ia/dR < ia | d0/dH >
+                I_S0 += 2 * np.einsum('ia,ia->', t1_dR, ia_S_up) * S_up * N_mp
+
+                # dt_ijab/dR < ijab | d0/dH >
+                I_D0 += 0.5 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_up) * S_up
+                I_D0 += np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_dR, ia_S_up), ia_S_up)
+
+                # dt_ia/dR t_kc < ia | dkc/dH >
+                I_SS += 2 * np.einsum('ia,kc,iakc->', t1_dR, t1, ia_S_kc_up) * S_up
+                I_SS += 2 * np.einsum('ia,ia->', t1_dR, ia_S_up) * np.einsum('kc,kc->', t1, S_kc_up)
+
+                # dt_ijab/dR t_kc < ijab | dkc/dH >
+                I_DS += 0.5 * np.einsum('ijab,kc,iajbkc->', t2_dR - np.swapaxes(t2_dR, 2, 3), t1, iajb_S_kc_up) * S_up
+                I_DS += 0.5 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_up) * np.einsum('kc,kc->', t1, S_kc_up)
+                I_DS += 2 * np.einsum('ijab,kc,iakc,jb->', t2_dR, t1, ia_S_kc_up, ia_S_up)
+
+                # dt_ia/dR t_klcd < ia | dklcd/dH >
+                I_SD += 0.5 * np.einsum('ia,klcd,iakcld->', t1_dR, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_up) * S_up
+                I_SD += 0.5 * np.einsum('ia,ia->', t1_dR, ia_S_up) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_up)
+                I_SD += 2 * np.einsum('ia,klcd,iakc,ld->', t1_dR, t2, ia_S_kc_up, S_kc_up)
+
+            # dt_ijab/dR t_klcd < ijab | dklcd/dH >
+            I_DD += 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_up) * S_up
+            I_DD += 0.125 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_up) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_up)
+            I_DD += 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2, iajb_S_kc_up, S_kc_up)
+            I_DD += 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_dR, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_up, ia_S_up)
+            I_DD += 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_dR, t2 - np.swapaxes(t2, 2, 3), ia_S_up, ia_S_kcld_up)
+            I_DD += 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_dR, t2, ia_S_kc_up, ia_S_kc_up)
             del S_up; del ia_S_up; del S_kc_up; del iajb_S_up; del S_kcld_up; del ia_S_kc_up; del iajb_S_kc_up; del ia_S_kcld_up; del iajb_S_kcld_up
             gc.collect()
 
+            # Unperturbed / Negative
             S_un, ia_S_un, S_kc_un, iajb_S_un, S_kcld_un, ia_S_kc_un, iajb_S_kc_un, ia_S_kcld_un, iajb_S_kcld_un = self.compute_all_dets(self.overlap_un[beta])
-            I -= 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_un) * S_un
-            I -= 0.125 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_un) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_un)
-            I -= 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2, iajb_S_kc_un, S_kc_un)
-            I -= 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_dR, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_un, ia_S_un)
-            I -= 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_dR, t2 - np.swapaxes(t2, 2, 3), ia_S_un, ia_S_kcld_un)
-            I -= 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_dR, t2, ia_S_kc_un, ia_S_kc_un)
+
+            if self.parameters['method'] == 'CISD':
+                # dt_ia/dR < ia | d0/dH >
+                I_S0 -= 2 * np.einsum('ia,ia->', t1_dR, ia_S_un) * S_un * N_mn
+
+                # dt_ijab/dR < ijab | d0/dH >
+                I_D0 -= 0.5 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_un) * S_un
+                I_D0 -= np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_dR, ia_S_un), ia_S_un)
+
+                # dt_ia/dR t_kc < ia | dkc/dH >
+                I_SS -= 2 * np.einsum('ia,kc,iakc->', t1_dR, t1, ia_S_kc_un) * S_un
+                I_SS -= 2 * np.einsum('ia,ia->', t1_dR, ia_S_un) * np.einsum('kc,kc->', t1, S_kc_un)
+
+                # dt_ijab/dR t_kc < ijab | dkc/dH >
+                I_DS -= 0.5 * np.einsum('ijab,kc,iajbkc->', t2_dR - np.swapaxes(t2_dR, 2, 3), t1, iajb_S_kc_un) * S_un
+                I_DS -= 0.5 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_un) * np.einsum('kc,kc->', t1, S_kc_un)
+                I_DS -= 2 * np.einsum('ijab,kc,iakc,jb->', t2_dR, t1, ia_S_kc_un, ia_S_un)
+
+                # dt_ia/dR t_klcd < ia | dklcd/dH >
+                I_SD -= 0.5 * np.einsum('ia,klcd,iakcld->', t1_dR, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_un) * S_un
+                I_SD -= 0.5 * np.einsum('ia,ia->', t1_dR, ia_S_un) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_un)
+                I_SD -= 2 * np.einsum('ia,klcd,iakc,ld->', t1_dR, t2, ia_S_kc_un, S_kc_un)
+
+            # dt_ijab/dR t_klcd < ijab | dklcd/dH >
+            I_DD -= 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_un) * S_un
+            I_DD -= 0.125 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_un) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_un)
+            I_DD -= 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2, iajb_S_kc_un, S_kc_un)
+            I_DD -= 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_dR, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_un, ia_S_un)
+            I_DD -= 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_dR, t2 - np.swapaxes(t2, 2, 3), ia_S_un, ia_S_kcld_un)
+            I_DD -= 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_dR, t2, ia_S_kc_un, ia_S_kc_un)
             del S_un; del ia_S_un; del S_kc_un; del iajb_S_un; del S_kcld_un; del ia_S_kc_un; del iajb_S_kc_un; del ia_S_kcld_un; del iajb_S_kcld_un
             gc.collect()
 
-            # t_ijab dt_klcd/dH < dijab/dR | klcd >
+            # Positive / Unperturbed
             S_pu, ia_S_pu, S_kc_pu, iajb_S_pu, S_kcld_pu, ia_S_kc_pu, iajb_S_kc_pu, ia_S_kcld_pu, iajb_S_kcld_pu = self.compute_all_dets(self.overlap_pu[alpha])
-            I += 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2_dH - np.swapaxes(t2_dH, 2, 3), iajb_S_kcld_pu) * S_pu
-            I += 0.125 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pu) * np.einsum('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_pu)
-            I += 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2_dH, iajb_S_kc_pu, S_kc_pu)
-            I += 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_conj, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_kcld_pu, ia_S_pu)
-            I += 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_conj, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_pu, ia_S_kcld_pu)
-            I += 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2_dH, ia_S_kc_pu, ia_S_kc_pu)
+
+            if self.parameters['method'] == 'CISD':
+                # dt_kc/dH < d0/dR | kc >
+                I_0S += 2 * np.einsum('kc,kc->', t1_dH, S_kc_pu) * S_pu * N_np
+
+                # dt_ijab/dH < d0/dR | klcd >
+                I_0D += 0.5 * np.einsum('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_pu) * S_pu
+                I_0D += np.einsum('ld,ld->', np.einsum('klcd,kc->ld', t2_dH, S_kc_pu), S_kc_pu)
+
+                # t_ia dt_kc/dH < dia/dR | kc >
+                I_SS += 2 * np.einsum('ia,kc,iakc->', t1_conj, t1_dH, ia_S_kc_pu) * S_pu
+                I_SS += 2 * np.einsum('ia,ia->', t1_conj, ia_S_pu) * np.einsum('kc,kc->', t1_dH, S_kc_pu)
+
+                # t_ia dt_klcd/dH < dia/dR | klcd >
+                I_SD += 0.5 * np.einsum('ia,klcd,iakcld->', t1_conj, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_kcld_pu) * S_pu
+                I_SD += 0.5 * np.einsum('ia,ia->', t1_conj, ia_S_pu) * np.einsum('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_pu)
+                I_SD += 2 * np.einsum('ia,klcd,iakc,ld->', t1_conj, t2_dH, ia_S_kc_pu, S_kc_pu)
+
+                # t_ijab dt_kc/dH < dijab/dR | kc >
+                I_DS += 0.5 * np.einsum('ijab,kc,iajbkc->', t2_conj - np.swapaxes(t2_conj, 2, 3), t1_dH, iajb_S_kc_pu) * S_pu
+                I_DS += 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pu) * np.einsum('kc,kc->', t1_dH, S_kc_pu)
+                I_DS += 2 * np.einsum('ijab,kc,iakc,jb->', t2_conj, t1_dH, ia_S_kc_pu, ia_S_pu)
+
+            # t_ijab dt_klcd/dH < dijab/dR | klcd >
+            I_DD += 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2_dH - np.swapaxes(t2_dH, 2, 3), iajb_S_kcld_pu) * S_pu
+            I_DD += 0.125 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pu) * np.einsum('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_pu)
+            I_DD += 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2_dH, iajb_S_kc_pu, S_kc_pu)
+            I_DD += 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_conj, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_kcld_pu, ia_S_pu)
+            I_DD += 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_conj, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_pu, ia_S_kcld_pu)
+            I_DD += 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2_dH, ia_S_kc_pu, ia_S_kc_pu)
             del S_pu; del ia_S_pu; del S_kc_pu; del iajb_S_pu; del S_kcld_pu; del ia_S_kc_pu; del iajb_S_kc_pu; del ia_S_kcld_pu; del iajb_S_kcld_pu
             gc.collect()
 
+            # Negative / Unperturbed
             S_nu, ia_S_nu, S_kc_nu, iajb_S_nu, S_kcld_nu, ia_S_kc_nu, iajb_S_kc_nu, ia_S_kcld_nu, iajb_S_kcld_nu = self.compute_all_dets(self.overlap_nu[alpha])
-            I -= 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2_dH - np.swapaxes(t2_dH, 2, 3), iajb_S_kcld_nu) * S_nu
-            I -= 0.125 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_nu) * np.einsum('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_nu)
-            I -= 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2_dH, iajb_S_kc_nu, S_kc_nu)
-            I -= 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_conj, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_kcld_nu, ia_S_nu)
-            I -= 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_conj, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_nu, ia_S_kcld_nu)
-            I -= 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2_dH, ia_S_kc_nu, ia_S_kc_nu)
+
+            if self.parameters['method'] == 'CISD':
+                # dt_kc/dH < d0/dR | kc >
+                I_0S -= 2 * np.einsum('kc,kc->', t1_dH, S_kc_nu) * S_nu * N_nn
+
+                # dt_ijab/dH < d0/dR | klcd >
+                I_0D -= 0.5 * np.einsum('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_nu) * S_nu
+                I_0D -= np.einsum('ld,ld->', np.einsum('klcd,kc->ld', t2_dH, S_kc_nu), S_kc_nu)
+
+                # t_ia dt_kc/dH < dia/dR | kc >
+                I_SS -= 2 * np.einsum('ia,kc,iakc->', t1_conj, t1_dH, ia_S_kc_nu) * S_nu
+                I_SS -= 2 * np.einsum('ia,ia->', t1_conj, ia_S_nu) * np.einsum('kc,kc->', t1_dH, S_kc_nu)
+
+                # t_ia dt_klcd/dH < dia/dR | klcd >
+                I_SD -= 0.5 * np.einsum('ia,klcd,iakcld->', t1_conj, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_kcld_nu) * S_nu
+                I_SD -= 0.5 * np.einsum('ia,ia->', t1_conj, ia_S_nu) * np.einsum('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_nu)
+                I_SD -= 2 * np.einsum('ia,klcd,iakc,ld->', t1_conj, t2_dH, ia_S_kc_nu, S_kc_nu)
+
+                # t_ijab dt_kc/dH < dijab/dR | kc >
+                I_DS -= 0.5 * np.einsum('ijab,kc,iajbkc->', t2_conj - np.swapaxes(t2_conj, 2, 3), t1_dH, iajb_S_kc_nu) * S_nu
+                I_DS -= 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_nu) * np.einsum('kc,kc->', t1_dH, S_kc_nu)
+                I_DS -= 2 * np.einsum('ijab,kc,iakc,jb->', t2_conj, t1_dH, ia_S_kc_nu, ia_S_nu)
+
+            # t_ijab dt_klcd/dH < dijab/dR | klcd >
+            I_DD -= 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2_dH - np.swapaxes(t2_dH, 2, 3), iajb_S_kcld_nu) * S_nu
+            I_DD -= 0.125 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_nu) * np.einsum('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_nu)
+            I_DD -= 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2_dH, iajb_S_kc_nu, S_kc_nu)
+            I_DD -= 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_conj, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_kcld_nu, ia_S_nu)
+            I_DD -= 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_conj, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_nu, ia_S_kcld_nu)
+            I_DD -= 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2_dH, ia_S_kc_nu, ia_S_kc_nu)
             del S_nu; del ia_S_nu; del S_kc_nu; del iajb_S_nu; del S_kcld_nu; del ia_S_kc_nu; del iajb_S_kc_nu; del ia_S_kcld_nu; del iajb_S_kcld_nu
             gc.collect()
 
-            # t_ijab t_klcd < dijab/dR | dklcd/dH >
+            # Positive / Positive
             S_pp, ia_S_pp, S_kc_pp, iajb_S_pp, S_kcld_pp, ia_S_kc_pp, iajb_S_kc_pp, ia_S_kcld_pp, iajb_S_kcld_pp = self.compute_all_dets(self.overlap_pp[alpha][beta])
-            I += 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_pp) * S_pp
-            I += 0.125 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pp) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pp)
-            I += 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2, iajb_S_kc_pp, S_kc_pp)
-            I += 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_pp, ia_S_pp)
-            I += 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_pp, ia_S_kcld_pp)
-            I += 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2, ia_S_kc_pp, ia_S_kc_pp)
+
+            if self.parameters['method'] == 'CISD':
+                # t_kc < d0/dR | dkc/dH >
+                I_0S += 2 * np.einsum('kc,kc->', t1, S_kc_pp) * S_pp * N_np
+
+                # t_ia < dia/dR | d0/dH >
+                I_S0 += 2 * np.einsum('ia,ia->', t1_conj, ia_S_pp) * S_pp * N_mp
+
+                # t_klcd < d0/dR | dklcd/dH >
+                I_0D += 0.5 * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pp) * S_pp
+                I_0D += np.einsum('ld,ld->', np.einsum('klcd,kc->ld', t2, S_kc_pp), S_kc_pp)
+
+                # t_ijab < dijab/dR | d0/dH >
+                I_D0 += 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pp) * S_pp
+                I_D0 += np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_conj, ia_S_pp), ia_S_pp)
+
+                # t_ia t_kc < dia/dR | dkc/dH >
+                I_SS += 2 * np.einsum('ia,kc,iakc->', t1_conj, t1, ia_S_kc_pp) * S_pp
+                I_SS += 2 * np.einsum('ia,ia->', t1_conj, ia_S_pp) * np.einsum('kc,kc->', t1, S_kc_pp)
+
+                # t_ia t_klcd < dia/dR | dklcd/dH >
+                I_SD += 0.5 * np.einsum('ia,klcd,iakcld->', t1_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_pp) * S_pp
+                I_SD += 0.5 * np.einsum('ia,ia->', t1_conj, ia_S_pp) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pp)
+                I_SD += 2 * np.einsum('ia,klcd,iakc,ld->', t1_conj, t2, ia_S_kc_pp, S_kc_pp)
+
+                # t_ijab t_kc < dijab/dR | dkc/dH >
+                I_DS += 0.5 * np.einsum('ijab,kc,iajbkc->', t2_conj - np.swapaxes(t2_conj, 2, 3), t1, iajb_S_kc_pp) * S_pp
+                I_DS += 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pp) * np.einsum('kc,kc->', t1, S_kc_pp)
+                I_DS += 2 * np.einsum('ijab,kc,iakc,jb->', t2_conj, t1, ia_S_kc_pp, ia_S_pp)
+
+            # t_ijab t_klcd < dijab/dR | dklcd/dH >
+            I_DD += 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_pp) * S_pp
+            I_DD += 0.125 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pp) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pp)
+            I_DD += 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2, iajb_S_kc_pp, S_kc_pp)
+            I_DD += 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_pp, ia_S_pp)
+            I_DD += 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_pp, ia_S_kcld_pp)
+            I_DD += 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2, ia_S_kc_pp, ia_S_kc_pp)
             del S_pp; del ia_S_pp; del S_kc_pp; del iajb_S_pp; del S_kcld_pp; del ia_S_kc_pp; del iajb_S_kc_pp; del ia_S_kcld_pp; del iajb_S_kcld_pp
             gc.collect()
 
+            # Positive / Negative
             S_pn, ia_S_pn, S_kc_pn, iajb_S_pn, S_kcld_pn, ia_S_kc_pn, iajb_S_kc_pn, ia_S_kcld_pn, iajb_S_kcld_pn = self.compute_all_dets(self.overlap_pn[alpha][beta])
-            I -= 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_pn) * S_pn
-            I -= 0.125 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pn) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pn)
-            I -= 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2, iajb_S_kc_pn, S_kc_pn)
-            I -= 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_pn, ia_S_pn)
-            I -= 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_pn, ia_S_kcld_pn)
-            I -= 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2, ia_S_kc_pn, ia_S_kc_pn)
+
+            if self.parameters['method'] == 'CISD':
+                # t_kc < d0/dR | dkc/dH >
+                I_0S -= 2 * np.einsum('kc,kc->', t1, S_kc_pn) * S_pn * N_np
+
+                # t_ia < dia/dR | d0/dH >
+                I_S0 -= 2 * np.einsum('ia,ia->', t1_conj, ia_S_pn) * S_pn * N_mn
+
+                # t_klcd < d0/dR | dklcd/dH >
+                I_0D -= 0.5 * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pn) * S_pn
+                I_0D -= np.einsum('ld,ld->', np.einsum('klcd,kc->ld', t2, S_kc_pn), S_kc_pn)
+
+                # t_ijab < dijab/dR | d0/dH >
+                I_D0 -= 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pn) * S_pn
+                I_D0 -= np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_conj, ia_S_pn), ia_S_pn)
+
+                # t_ia t_kc < dia/dR | dkc/dH >
+                I_SS -= 2 * np.einsum('ia,kc,iakc->', t1_conj, t1, ia_S_kc_pn) * S_pn
+                I_SS -= 2 * np.einsum('ia,ia->', t1_conj, ia_S_pn) * np.einsum('kc,kc->', t1, S_kc_pn)
+
+                # t_ia t_klcd < dia/dR | dklcd/dH >
+                I_SD -= 0.5 * np.einsum('ia,klcd,iakcld->', t1_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_pn) * S_pn
+                I_SD -= 0.5 * np.einsum('ia,ia->', t1_conj, ia_S_pn) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pn)
+                I_SD -= 2 * np.einsum('ia,klcd,iakc,ld->', t1_conj, t2, ia_S_kc_pn, S_kc_pn)
+
+                # t_ijab t_kc < dijab/dR | dkc/dH >
+                I_DS -= 0.5 * np.einsum('ijab,kc,iajbkc->', t2_conj - np.swapaxes(t2_conj, 2, 3), t1, iajb_S_kc_pn) * S_pn
+                I_DS -= 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pn) * np.einsum('kc,kc->', t1, S_kc_pn)
+                I_DS -= 2 * np.einsum('ijab,kc,iakc,jb->', t2_conj, t1, ia_S_kc_pn, ia_S_pn)
+
+            # t_ijab t_klcd < dijab/dR | dklcd/dH >
+            I_DD -= 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_pn) * S_pn
+            I_DD -= 0.125 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pn) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pn)
+            I_DD -= 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2, iajb_S_kc_pn, S_kc_pn)
+            I_DD -= 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_pn, ia_S_pn)
+            I_DD -= 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_pn, ia_S_kcld_pn)
+            I_DD -= 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2, ia_S_kc_pn, ia_S_kc_pn)
             del S_pn; del ia_S_pn; del S_kc_pn; del iajb_S_pn; del S_kcld_pn; del ia_S_kc_pn; del iajb_S_kc_pn; del ia_S_kcld_pn; del iajb_S_kcld_pn
             gc.collect()
 
+            # Negative / Positive
             S_np, ia_S_np, S_kc_np, iajb_S_np, S_kcld_np, ia_S_kc_np, iajb_S_kc_np, ia_S_kcld_np, iajb_S_kcld_np = self.compute_all_dets(self.overlap_np[alpha][beta])
-            I -= 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_np) * S_np
-            I -= 0.125 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_np) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_np)
-            I -= 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2, iajb_S_kc_np, S_kc_np)
-            I -= 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_np, ia_S_np)
-            I -= 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_np, ia_S_kcld_np)
-            I -= 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2, ia_S_kc_np, ia_S_kc_np)
+
+            if self.parameters['method'] == 'CISD':
+                # t_kc < d0/dR | dkc/dH >
+                I_0S -= 2 * np.einsum('kc,kc->', t1, S_kc_np) * S_np * N_nn
+
+                # t_ia < dia/dR | d0/dH >
+                I_S0 -= 2 * np.einsum('ia,ia->', t1_conj, ia_S_np) * S_np * N_mp
+
+                # t_klcd < d0/dR | dklcd/dH >
+                I_0D -= 0.5 * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_np) * S_np
+                I_0D -= np.einsum('ld,ld->', np.einsum('klcd,kc->ld', t2, S_kc_np), S_kc_np)
+
+                # t_ijab < dijab/dR | d0/dH >
+                I_D0 -= 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_np) * S_np
+                I_D0 -= np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_conj, ia_S_np), ia_S_np)
+
+                # t_ia t_kc < dia/dR | dkc/dH >
+                I_SS -= 2 * np.einsum('ia,kc,iakc->', t1_conj, t1, ia_S_kc_np) * S_np
+                I_SS -= 2 * np.einsum('ia,ia->', t1_conj, ia_S_np) * np.einsum('kc,kc->', t1, S_kc_np)
+
+                # t_ia t_klcd < dia/dR | dklcd/dH >
+                I_SD -= 0.5 * np.einsum('ia,klcd,iakcld->', t1_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_np) * S_np
+                I_SD -= 0.5 * np.einsum('ia,ia->', t1_conj, ia_S_np) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_np)
+                I_SD -= 2 * np.einsum('ia,klcd,iakc,ld->', t1_conj, t2, ia_S_kc_np, S_kc_np)
+
+                # t_ijab t_kc < dijab/dR | dkc/dH >
+                I_DS -= 0.5 * np.einsum('ijab,kc,iajbkc->', t2_conj - np.swapaxes(t2_conj, 2, 3), t1, iajb_S_kc_np) * S_np
+                I_DS -= 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_np) * np.einsum('kc,kc->', t1, S_kc_np)
+                I_DS -= 2 * np.einsum('ijab,kc,iakc,jb->', t2_conj, t1, ia_S_kc_np, ia_S_np)
+
+            # t_ijab t_klcd < dijab/dR | dklcd/dH >
+            I_DD -= 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_np) * S_np
+            I_DD -= 0.125 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_np) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_np)
+            I_DD -= 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2, iajb_S_kc_np, S_kc_np)
+            I_DD -= 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_np, ia_S_np)
+            I_DD -= 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_np, ia_S_kcld_np)
+            I_DD -= 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2, ia_S_kc_np, ia_S_kc_np)
             del S_np; del ia_S_np; del S_kc_np; del iajb_S_np; del S_kcld_np; del ia_S_kc_np; del iajb_S_kc_np; del ia_S_kcld_np; del iajb_S_kcld_np
             gc.collect()
 
+            # Negative / Negative
             S_nn, ia_S_nn, S_kc_nn, iajb_S_nn, S_kcld_nn, ia_S_kc_nn, iajb_S_kc_nn, ia_S_kcld_nn, iajb_S_kcld_nn = self.compute_all_dets(self.overlap_nn[alpha][beta])
-            I += 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_nn) * S_nn
-            I += 0.125 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_nn) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_nn)
-            I += 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2, iajb_S_kc_nn, S_kc_nn)
-            I += 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_nn, ia_S_nn)
-            I += 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_nn, ia_S_kcld_nn)
-            I += 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2, ia_S_kc_nn, ia_S_kc_nn)
+
+            if self.parameters['method'] == 'CISD':
+                # t_kc < d0/dR | dkc/dH >
+                I_0S += 2 * np.einsum('kc,kc->', t1, S_kc_nn) * S_nn * N_nn
+
+                # t_ia < dia/dR | d0/dH >
+                I_S0 += 2 * np.einsum('ia,ia->', t1_conj, ia_S_nn) * S_nn * N_mn
+
+                # t_klcd < d0/dR | dklcd/dH >
+                I_0D += 0.5 * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_nn) * S_nn
+                I_0D += np.einsum('ld,ld->', np.einsum('klcd,kc->ld', t2, S_kc_nn), S_kc_nn)
+
+                # t_ijab < dijab/dR | d0/dH >
+                I_D0 += 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_nn) * S_nn
+                I_D0 += np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_conj, ia_S_nn), ia_S_nn)
+
+                # t_ia t_kc < dia/dR | dkc/dH >
+                I_SS += 2 * np.einsum('ia,kc,iakc->', t1_conj, t1, ia_S_kc_nn) * S_nn
+                I_SS += 2 * np.einsum('ia,ia->', t1_conj, ia_S_nn) * np.einsum('kc,kc->', t1, S_kc_nn)
+
+                # t_ia t_klcd < dia/dR | dklcd/dH >
+                I_SD += 0.5 * np.einsum('ia,klcd,iakcld->', t1_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_nn) * S_nn
+                I_SD += 0.5 * np.einsum('ia,ia->', t1_conj, ia_S_nn) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_nn)
+                I_SD += 2 * np.einsum('ia,klcd,iakc,ld->', t1_conj, t2, ia_S_kc_nn, S_kc_nn)
+
+                # t_ijab t_kc < dijab/dR | dkc/dH >
+                I_DS += 0.5 * np.einsum('ijab,kc,iajbkc->', t2_conj - np.swapaxes(t2_conj, 2, 3), t1, iajb_S_kc_nn) * S_nn
+                I_DS += 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_nn) * np.einsum('kc,kc->', t1, S_kc_nn)
+                I_DS += 2 * np.einsum('ijab,kc,iakc,jb->', t2_conj, t1, ia_S_kc_nn, ia_S_nn)
+
+            # t_ijab t_klcd < dijab/dR | dklcd/dH >
+            I_DD += 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_nn) * S_nn
+            I_DD += 0.125 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_nn) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_nn)
+            I_DD += 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2, iajb_S_kc_nn, S_kc_nn)
+            I_DD += 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_nn, ia_S_nn)
+            I_DD += 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_nn, ia_S_kcld_nn)
+            I_DD += 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2, ia_S_kc_nn, ia_S_kc_nn)
             del S_nn; del ia_S_nn; del S_kc_nn; del iajb_S_nn; del S_kcld_nn; del ia_S_kc_nn; del iajb_S_kc_nn; del ia_S_kcld_nn; del iajb_S_kcld_nn
             gc.collect()
+
+            I = I_00 + I_0D + I_D0 + I_DD + I_0S + I_S0 + I_SS + I_SD + I_DS
 
             t1 = time.time()
             print(f"AAT element computed in {t1-t0} seconds.")
