@@ -1045,10 +1045,10 @@ class AAT(object):
             del S_nn; del ia_S_nn; del S_kc_nn; del iajb_S_nn; del S_kcld_nn; del ia_S_kc_nn; del iajb_S_kc_nn; del ia_S_kcld_nn; del iajb_S_kcld_nn
             gc.collect()
 
-            I = I_00 + I_0D + I_D0 + I_DD + I_0S + I_S0 + I_SS + I_SD + I_DS
+        I = I_00 + I_0D + I_D0 + I_DD + I_0S + I_S0 + I_SS + I_SD + I_DS
 
-            t1 = time.time()
-            print(f"AAT element computed in {t1-t0} seconds.")
+        t1 = time.time()
+        print(f"AAT element computed in {t1-t0} seconds.")
 
         return (1 / (4 * self.nuc_pert_strength * self.mag_pert_strength)) * I.imag
 
