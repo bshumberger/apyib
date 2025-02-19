@@ -299,6 +299,42 @@ class ci_wfn(object):
                     print("Not converged.")
             iteration += 1
 
+        #### Testing adjoint formulation of CISD equations. ####
+
+        ## Compute and normalize amplitudes.
+        #N = 1 / np.sqrt(1**2 + np.einsum('ia,ia->', np.conjugate(t1), t1) + 0.25 * np.einsum('ijab,ijab->', np.conjugate(t2), t2))
+        #t0 = N
+        #t1 *= N
+        #t2 *= N
+
+        ## Build OPD.
+        #D_pq = np.zeros_like(F_SO)
+        #D_pq[o_,o_] -= np.einsum('ja,ia->ij', np.conjugate(t1), t1) + 0.5 * np.einsum('jkab,ikab->ij', np.conjugate(t2), t2)
+        #D_pq[v_,v_] += np.einsum('ia,ib->ab', np.conjugate(t1), t1) + 0.5 * np.einsum('ijac,ijbc->ab', np.conjugate(t2), t2)
+        #D_pq[o_,v_] += np.conjugate(t0) * t1 + np.einsum('jb,ijab->ia', np.conjugate(t1), t2)
+        #D_pq[v_,o_] += np.conjugate(t1.T) * t0 + np.einsum('ijab,jb->ai', np.conjugate(t2), t1)
+
+        ## Build TPD.
+        #D_pqrs = np.zeros_like(ERI_SO)
+        #D_pqrs[o_,o_,o_,o_] += 0.25 * np.einsum('klab,ijab->ijkl', np.conjugate(t2), t2)
+        #D_pqrs[v_,v_,v_,v_] += 0.25 * np.einsum('ijab,ijcd->abcd', np.conjugate(t2), t2)
+        #D_pqrs[o_,v_,v_,o_] += np.einsum('ja,ib->iabj', np.conjugate(t1), t1)
+        #D_pqrs[o_,v_,o_,v_] -= np.einsum('ja,ib->iajb', np.conjugate(t1), t1)
+        #D_pqrs[v_,o_,o_,v_] += np.einsum('jkac,ikbc->aijb', np.conjugate(t2), t2)
+        #D_pqrs[v_,o_,v_,o_] -= np.einsum('jkac,ikbc->aibj', np.conjugate(t2), t2)
+        #D_pqrs[o_,o_,v_,v_] += 0.5 * np.conjugate(t0) * t2
+        #D_pqrs[v_,v_,o_,o_] += 0.5 * np.conjugate(t2.swapaxes(0,2).swapaxes(1,3)) * t0
+        #D_pqrs[v_,o_,v_,v_] += np.einsum('ja,ijcb->aibc', np.conjugate(t1), t2)
+        #D_pqrs[o_,v_,o_,o_] -= np.einsum('kjab,ib->iajk', np.conjugate(t2), t1)
+        #D_pqrs[v_,v_,v_,o_] += np.einsum('jiab,jc->abci', np.conjugate(t2), t1)
+        #D_pqrs[o_,o_,o_,v_] -= np.einsum('kb,ijba->ijka', np.conjugate(t1), t2)
+
+        ## Compute energy.
+        #E = np.einsum('pq,pq->', F_SO, D_pq) + np.einsum('pqrs,pqrs->', ERI_SO, D_pqrs)
+        #print("Adjoint Correlation Energy: ", E)
+
+        ## Equations for adjoint formulation are correct.
+
         return E_CISD, t1, t2
 
 
@@ -324,7 +360,7 @@ class ci_wfn(object):
         # Initial T2 guess amplitude.
         t2 = ERI_MO.copy().swapaxes(0,2).swapaxes(1,3)[o_,o_,v_,v_] / self.D_ijab
 
-        # Solve for initial CID energy.
+        # Solve for initial CISD energy.
         E_CISD =  2.0 * np.einsum('ia,ia->', t1, F_MO[o_,v_]) + np.einsum('ijab,ijab->', t2, 2.0 * ERI_MO[o_,o_,v_,v_] - ERI_MO.swapaxes(2,3)[o_,o_,v_,v_])
         t1 = t1.copy()
         t2 = t2.copy()
@@ -396,6 +432,47 @@ class ci_wfn(object):
                 if abs(delta_E) > self.parameters['e_convergence'] or rms_t2 > self.parameters['d_convergence']:
                     print("Not converged.")
             iteration += 1
+
+        #### Testing adjoint formulation of CISD equations. ####
+
+        ## Compute and normalize amplitudes.
+        #N = 1 / np.sqrt(1**2 + 2*np.einsum('ia,ia->', np.conjugate(t1), t1) + np.einsum('ijab,ijab->', np.conjugate(t2), 2*t2-t2.swapaxes(2,3)))
+        #t0 = N
+        #t1 *= N
+        #t2 *= N
+
+        ## Build OPD.
+        #D_pq = np.zeros_like(F_MO)
+        #D_pq[o_,o_] -= 2 * np.einsum('ja,ia->ij', np.conjugate(t1), t1) + 2 * np.einsum('jkab,ikab->ij', np.conjugate(2*t2 - t2.swapaxes(2,3)), t2)
+        #D_pq[v_,v_] += 2 * np.einsum('ia,ib->ab', np.conjugate(t1), t1) + 2 * np.einsum('ijac,ijbc->ab', np.conjugate(2*t2 - t2.swapaxes(2,3)), t2)
+        #D_pq[o_,v_] += 2 * np.conjugate(t0) * t1 + 2 * np.einsum('jb,ijab->ia', np.conjugate(t1), t2 - t2.swapaxes(2,3))
+        #D_pq[v_,o_] += 2 * np.conjugate(t1.T) * t0 + 2 * np.einsum('ijab,jb->ai', np.conjugate(t2 - t2.swapaxes(2,3)), t1)
+
+        ## Build TPD.
+        #D_pqrs = np.zeros_like(ERI_MO)
+        #D_pqrs[o_,o_,o_,o_] += np.einsum('klab,ijab->ijkl', np.conjugate(t2), (2*t2 - t2.swapaxes(2,3))) 
+        #D_pqrs[v_,v_,v_,v_] += np.einsum('ijab,ijcd->abcd', np.conjugate(t2), (2*t2 - t2.swapaxes(2,3))) 
+        #D_pqrs[o_,v_,v_,o_] += 4 * np.einsum('ja,ib->iabj', np.conjugate(t1), t1) 
+        #D_pqrs[o_,v_,o_,v_] -= 2 * np.einsum('ja,ib->iajb', np.conjugate(t1), t1) 
+        #D_pqrs[v_,o_,o_,v_] += 2 * np.einsum('jkac,ikbc->aijb', np.conjugate(2*t2 - t2.swapaxes(2,3)), 2*t2 - t2.swapaxes(2,3))
+ 
+        #D_pqrs[v_,o_,v_,o_] -= 4 * np.einsum('jkac,ikbc->aibj', np.conjugate(t2), t2)
+        #D_pqrs[v_,o_,v_,o_] += 2 * np.einsum('jkac,ikcb->aibj', np.conjugate(t2), t2)
+        #D_pqrs[v_,o_,v_,o_] += 2 * np.einsum('jkca,ikbc->aibj', np.conjugate(t2), t2)
+        #D_pqrs[v_,o_,v_,o_] -= 4 * np.einsum('jkca,ikcb->aibj', np.conjugate(t2), t2)
+
+        #D_pqrs[o_,o_,v_,v_] += np.conjugate(t0) * (2*t2 -t2.swapaxes(2,3))
+        #D_pqrs[v_,v_,o_,o_] += np.conjugate(2*t2.swapaxes(0,2).swapaxes(1,3) - t2.swapaxes(2,3).swapaxes(0,2).swapaxes(1,3)) * t0
+        #D_pqrs[v_,o_,v_,v_] += 2 * np.einsum('ja,ijcb->aibc', np.conjugate(t1), 2*t2 - t2.swapaxes(2,3))
+        #D_pqrs[o_,v_,o_,o_] -= 2 * np.einsum('kjab,ib->iajk', np.conjugate(2*t2 - t2.swapaxes(2,3)), t1) 
+        #D_pqrs[v_,v_,v_,o_] += 2 * np.einsum('jiab,jc->abci', np.conjugate(2*t2 - t2.swapaxes(2,3)), t1)
+        #D_pqrs[o_,o_,o_,v_] -= 2 * np.einsum('kb,ijba->ijka', np.conjugate(t1), 2*t2 - t2.swapaxes(2,3))
+
+        ## Compute energy.
+        #E = np.einsum('pq,pq->', F_MO, D_pq) + np.einsum('pqrs,pqrs->', ERI_MO, D_pqrs)
+        #print("Adjoint Correlation Energy: ", E)
+
+        ## Equations for adjoint formulation are correct.
 
         return E_CISD, t1, t2
 

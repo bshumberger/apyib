@@ -441,7 +441,7 @@ class finite_difference(object):
             gradient[ab] = (nuc_pos_E[ab] - nuc_neg_E[ab]) / (2 * nuc_pert_strength)
 
         gradient = gradient.reshape(self.natom, 3)
-        print(gradient)
+        #print(gradient)
 
         return gradient, nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T
 

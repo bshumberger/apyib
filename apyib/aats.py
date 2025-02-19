@@ -1046,6 +1046,7 @@ class AAT(object):
             gc.collect()
 
         I = I_00 + I_0D + I_D0 + I_DD + I_0S + I_S0 + I_SS + I_SD + I_DS
+        
 
         t1 = time.time()
         print(f"AAT element computed in {t1-t0} seconds.")
