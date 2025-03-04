@@ -231,3 +231,172 @@ def test_mp2_analytic_aat_h2_2_cc_pVDZ():
     print(aat)
 
     assert(np.max(np.abs(aat-aat_ref)) < 1e-7)
+
+def test_cisd_analytic_aat_h2_2_cc_pVDZ():
+    # Set parameters for the calculation.
+    H2_2_manuscript = """ 
+    H
+    H 1 0.75
+    H 2 1.5 1 90.0
+    H 3 0.75 2 90.0 1 60.0
+    no_com
+    no_reorient
+    symmetry c1
+    """
+
+    parameters = {'geom': H2_2_manuscript,
+                  'basis': 'cc-pVDZ',
+                  'method': 'CISD',
+                  'e_convergence': 1e-12,
+                  'd_convergence': 1e-12,
+                  'DIIS': True,
+                  'freeze_core': False,
+                  'F_el': [0.0, 0.0, 0.0],
+                  'F_mag': [0.0, 0.0, 0.0],
+                  'max_iterations': 120}
+
+    # Setting CISD reference MagPy AAT.
+    aat_ref = np.array(
+    [[-0.0755952002, -0.0055572109,  0.3556911914],
+     [ 0.0240552241,  0.0086313784,  0.0729812674],
+     [-0.5123928959, -0.1353184692,  0.0830194112],
+     [-0.0548471183, -0.0279729559,  0.3368171934],
+     [-0.0166918837, -0.0077470104,  0.1052930483],
+     [-0.5108805203, -0.1189929247,  0.0769323572],
+     [-0.0548471189, -0.0279729561, -0.3368171988],
+     [-0.0166918878, -0.0077470114, -0.1052930462],
+     [ 0.5108805229,  0.1189929254,  0.0769323555],
+     [-0.0755952038, -0.0055572116, -0.3556911913],
+     [ 0.024055221 ,  0.0086313779, -0.0729812712],
+     [ 0.5123928983,  0.1353184699,  0.0830194086]])
+    
+    print("Molecule: ", parameters['geom'])
+    print("Basis: ", parameters['basis'])
+    print("Theory: ", parameters['method'])
+
+    # Compute energy.
+    E_list, T_list, C, basis = apyib.energy.energy(parameters)
+    E_tot = E_list[0] + E_list[1] + E_list[2]
+    print(E_tot)
+
+    H = apyib.hamiltonian.Hamiltonian(parameters)
+    wfn = apyib.hf_wfn.hf_wfn(H)
+
+    # Compute analytic AATs using apyib.  
+    analytic_derivative = apyib.analytic.analytic_derivative(parameters)
+    aat = analytic_derivative.compute_CISD_AATs_Canonical(normalization='full')
+    print(aat)
+
+    assert(np.max(np.abs(aat-aat_ref)) < 1e-6)
+
+def test_cisd_analytic_aat_h2o_6_31G():
+    # Set parameters for the calculation.
+    H2O_manuscript = """
+    O -0.000000000000000   0.000000000000000   0.128444410656440
+    H  0.000000000000000  -1.415531238764228  -1.019253001167221
+    H  0.000000000000000   1.415531238764228  -1.019253001167221
+    no_com
+    no_reorient
+    symmetry c1
+    units bohr
+    """
+
+    parameters = {'geom': H2O_manuscript,
+                  'basis': '6-31G',
+                  'method': 'CISD',
+                  'e_convergence': 1e-12,
+                  'd_convergence': 1e-12,
+                  'DIIS': True,
+                  'freeze_core': False,
+                  'F_el': [0.0, 0.0, 0.0],
+                  'F_mag': [0.0, 0.0, 0.0],
+                  'max_iterations': 120}
+
+    # Setting CISD reference MagPy AAT.
+    aat_ref = np.array(
+    [[ 0.          , -0.126768645 ,  0.0000000002],
+     [ 0.2097831121,  0.0000000002,  0.0000000004],
+     [-0.0000000004, -0.0000000002, -0.0000000003],
+     [-0.0000000001,  0.0545415956, -0.0756632429],
+     [-0.0364059296,  0.0000000005,  0.0000000002],
+     [ 0.0759989962, -0.          , -0.0000000003],
+     [ 0.0000000001,  0.054541596 ,  0.0756632416],
+     [-0.0364059287, -0.0000000001,  0.          ],
+     [-0.0759989958, -0.0000000002,  0.0000000001]])
+
+    print("Molecule: ", parameters['geom'])
+    print("Basis: ", parameters['basis'])
+    print("Theory: ", parameters['method'])
+
+    # Compute energy.
+    E_list, T_list, C, basis = apyib.energy.energy(parameters)
+    E_tot = E_list[0] + E_list[1] + E_list[2]
+    print(E_tot)
+
+    H = apyib.hamiltonian.Hamiltonian(parameters)
+    wfn = apyib.hf_wfn.hf_wfn(H)
+
+    # Compute analytic AATs using apyib.  
+    analytic_derivative = apyib.analytic.analytic_derivative(parameters)
+    aat = analytic_derivative.compute_CISD_AATs_Canonical(normalization='full')
+    print(aat)
+
+    assert(np.max(np.abs(aat-aat_ref)) < 1e-6)
+
+def test_cisd_analytic_aat_h2o2_STO_3G():
+    # Set parameters for the calculation.
+    H2O2_manuscript = """
+    H -1.780954530308296   1.411647335546379   0.872055376436941
+    H  1.780954530308296  -1.411647335546379   0.872055376436941
+    O -1.371214332646589  -0.115525249760340  -0.054947416764017
+    O  1.371214332646589   0.115525249760340  -0.054947416764017
+    no_com
+    no_reorient
+    symmetry c1
+    units bohr
+    """
+
+    parameters = {'geom': H2O2_manuscript,
+                  'basis': 'STO-3G',
+                  'method': 'CISD',
+                  'e_convergence': 1e-12,
+                  'd_convergence': 1e-12,
+                  'DIIS': True,
+                  'freeze_core': False,
+                  'F_el': [0.0, 0.0, 0.0],
+                  'F_mag': [0.0, 0.0, 0.0],
+                  'max_iterations': 120}
+
+    # Setting CISD reference MagPy AAT.
+    aat_ref = np.array(
+    [[-0.0068048939,  0.0213592668,  0.0157638684],
+     [ 0.1059075804, -0.1346215769,  0.3154829831],
+     [-0.1816121323, -0.1870490606,  0.1457004074],
+     [-0.0068048566,  0.0213592718, -0.0157638635],
+     [ 0.1059075847, -0.1346215712, -0.3154829825],
+     [ 0.1816121358,  0.1870490713,  0.1457004015],
+     [ 0.0006046138,  0.0925074   , -0.1257421008],
+     [-0.0723391442, -0.1671952682,  0.6366666832],
+     [ 0.1734247384, -0.5586887007,  0.1657068051],
+     [ 0.0006046641,  0.0925074156,  0.1257421101],
+     [-0.072339139 , -0.1671952611, -0.6366666862],
+     [-0.1734247427,  0.5586886964,  0.165706802 ]])
+
+    print("Molecule: ", parameters['geom'])
+    print("Basis: ", parameters['basis'])
+    print("Theory: ", parameters['method'])
+
+    # Compute energy.
+    E_list, T_list, C, basis = apyib.energy.energy(parameters)
+    E_tot = E_list[0] + E_list[1] + E_list[2]
+    print(E_tot)
+
+    H = apyib.hamiltonian.Hamiltonian(parameters)
+    wfn = apyib.hf_wfn.hf_wfn(H)
+
+    # Compute analytic AATs using apyib.  
+    analytic_derivative = apyib.analytic.analytic_derivative(parameters)
+    aat = analytic_derivative.compute_CISD_AATs_Canonical(normalization='full')
+    print(aat)
+
+    assert(np.max(np.abs(aat-aat_ref)) < 1e-6)

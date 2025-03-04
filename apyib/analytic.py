@@ -962,7 +962,7 @@ class analytic_derivative(object):
 
 
 
-    def compute_CISD_AATs_Canonical(self, normalization='full'):
+    def compute_CISD_AATs_Canonical(self, normalization='full', orbitals='non-canonical'):
         # Compute T2 amplitudes and MP2 energy.
         wfn_CISD = ci_wfn(self.parameters, self.wfn)
         E_CISD, t1, t2 = wfn_CISD.solve_CISD()
@@ -975,6 +975,7 @@ class analytic_derivative(object):
 
         # Setting up slices.
         C_list, I_list = get_slices(self.parameters, self.wfn)
+        f_ = C_list[0]
         o_ = C_list[1]
         v_ = C_list[2]
         t_ = C_list[3]
@@ -1051,6 +1052,7 @@ class analytic_derivative(object):
         D_pq[v_,v_] += 2 * np.einsum('ia,ib->ab', np.conjugate(t1_n), t1_n) + 2 * np.einsum('ijac,ijbc->ab', np.conjugate(2*t2_n - t2_n.swapaxes(2,3)), t2_n)
         D_pq[o_,v_] += 2 * np.conjugate(t0_n) * t1_n + 2 * np.einsum('jb,ijab->ia', np.conjugate(t1_n), t2_n - t2_n.swapaxes(2,3))
         D_pq[v_,o_] += 2 * np.conjugate(t1_n.T) * t0_n + 2 * np.einsum('ijab,jb->ai', np.conjugate(t2_n - t2_n.swapaxes(2,3)), t1_n)
+        D_pq = D_pq[t_,t_]
 
         # Build TPD.
         D_pqrs = np.zeros_like(ERI)
@@ -1071,6 +1073,7 @@ class analytic_derivative(object):
         D_pqrs[o_,v_,o_,o_] -= 2 * np.einsum('kjab,ib->iajk', np.conjugate(2*t2_n - t2_n.swapaxes(2,3)), t1_n)
         D_pqrs[v_,v_,v_,o_] += 2 * np.einsum('jiab,jc->abci', np.conjugate(2*t2_n - t2_n.swapaxes(2,3)), t1_n)
         D_pqrs[o_,o_,o_,v_] -= 2 * np.einsum('kb,ijba->ijka', np.conjugate(t1_n), 2*t2_n - t2_n.swapaxes(2,3))
+        D_pqrs = D_pqrs[t_,t_,t_,t_]
 
         # Compute and store first derivative integrals.
         for N1 in atoms:
@@ -1108,84 +1111,59 @@ class analytic_derivative(object):
                 U_d1[o,v] -= U_d1[v,o].T + S_d1[a][o,v]
 
                 # Solve for the dependent-pairs of the CPHF U-coefficient matrix.
-                D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
-                B = F_d1[o,o].copy() - np.einsum('ij,jj->ij', S_d1[a][o,o], F[o,o]) + np.einsum('em,iejm->ij', U_d1[v,o], A.swapaxes(1,2)[o,v,o,o]) - 0.5 * np.einsum('mn,imjn->ij', S_d1[a][o,o], A.swapaxes(1,2)[o,o,o,o])
-                U_d1[o,o] += B/D
+                if self.parameters['freeze_core'] == True or orbitals == 'canonical':
+                    D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
+                    B = F_d1[o,o].copy() - np.einsum('ij,jj->ij', S_d1[a][o,o], F[o,o]) + np.einsum('em,iejm->ij', U_d1[v,o], A.swapaxes(1,2)[o,v,o,o]) - 0.5 * np.einsum('mn,imjn->ij', S_d1[a][o,o], A.swapaxes(1,2)[o,o,o,o])
+                    U_d1[o,o] += B/D
 
-                D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
-                B = F_d1[v,v].copy() - np.einsum('ab,bb->ab', S_d1[a][v,v], F[v,v]) + np.einsum('em,aebm->ab', U_d1[v,o], A.swapaxes(1,2)[v,v,v,o]) - 0.5 * np.einsum('mn,ambn->ab', S_d1[a][o,o], A.swapaxes(1,2)[v,o,v,o])
-                U_d1[v,v] += B/D
+                    D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
+                    B = F_d1[v,v].copy() - np.einsum('ab,bb->ab', S_d1[a][v,v], F[v,v]) + np.einsum('em,aebm->ab', U_d1[v,o], A.swapaxes(1,2)[v,v,v,o]) - 0.5 * np.einsum('mn,ambn->ab', S_d1[a][o,o], A.swapaxes(1,2)[v,o,v,o])
+                    U_d1[v,v] += B/D
 
-                for j in range(no):
-                    U_d1[j,j] = -0.5 * S_d1[a][j,j]
-                for b in range(no,nbf):
-                    U_d1[b,b] = -0.5 * S_d1[a][b,b]
+                    for j in range(no):
+                        U_d1[j,j] = -0.5 * S_d1[a][j,j]
+                    for b in range(no,nbf):
+                        U_d1[b,b] = -0.5 * S_d1[a][b,b]
 
-                #print("CPHF Coefficients for Nuclear Perturbations:")
-                #print(U_d1, "\n")
+                if orbitals == 'non-canonical':
+                    U_d1[f_,f_] = -0.5 * S_d1[a][f_,f_]
+                    U_d1[o_,o_] = -0.5 * S_d1[a][o_,o_]
+                    U_d1[v_,v_] = -0.5 * S_d1[a][v_,v_]
 
                 # Appending to lists.
                 U_a.append(U_d1)
                 half_S.append(half_S_d1[a])
 
                 # Computing the gradient of the Fock matrix.
-                occ_eps = self.wfn.eps[o].reshape(-1,1) - self.wfn.eps[o]
-                vir_eps = self.wfn.eps[v].reshape(-1,1) - self.wfn.eps[v]
-
                 df_dR = np.zeros((nbf,nbf))
 
                 df_dR[o,o] += F_d1[o,o].copy()
-                df_dR[o,o] += U_d1[o,o] * occ_eps
-                df_dR[o,o] -= np.einsum('ij,jj->ij', S_d1[a][o,o], F[o,o])
+                df_dR[o,o] += U_d1[o,o] * self.wfn.eps[o].reshape(-1,1) + U_d1[o,o].swapaxes(0,1) * self.wfn.eps[o]
                 df_dR[o,o] += np.einsum('em,iejm->ij', U_d1[v,o], A.swapaxes(1,2)[o,v,o,o])
                 df_dR[o,o] -= 0.5 * np.einsum('mn,imjn->ij', S_d1[a][o,o], A.swapaxes(1,2)[o,o,o,o])
 
-                for i in range(no):
-                    df_dR[i,i] = F_d1[i,i]
-                    df_dR[i,i] -= S_d1[a][i,i] * F[i,i]
-                    df_dR[i,i] += np.einsum('em,em->', U_d1[v,o], 2*ERI[i,v,i,o] - ERI.swapaxes(2,3)[i,v,i,o])
-                    df_dR[i,i] += np.einsum('em,me->', U_d1[v,o], 2*ERI[i,o,i,v] - ERI.swapaxes(2,3)[i,o,i,v])
-                    df_dR[i,i] -= 0.5 * np.einsum('mn,mn->', S_d1[a][o,o], 2*ERI[i,o,i,o] - ERI.swapaxes(2,3)[i,o,i,o])
-                    df_dR[i,i] -= 0.5 * np.einsum('mn,nm->', S_d1[a][o,o], 2*ERI[i,o,i,o] - ERI.swapaxes(2,3)[i,o,i,o])
-
                 df_dR[v,v] += F_d1[v,v].copy()
-                df_dR[v,v] += U_d1[v,v] * vir_eps
-                df_dR[v,v] -= np.einsum('ab,bb->ab', S_d1[a][v,v], F[v,v])
+                df_dR[v,v] += U_d1[v,v] * self.wfn.eps[v].reshape(-1,1) + U_d1[v,v].swapaxes(0,1) * self.wfn.eps[v]
                 df_dR[v,v] += np.einsum('em,aebm->ab', U_d1[v,o], A.swapaxes(1,2)[v,v,v,o])
-                df_dR[v,v] -= 0.5 * np.einsum('mn,imjn->ij', S_d1[a][o,o], A.swapaxes(1,2)[v,o,v,o])
-
-                for b in range(nv):
-                    b += no
-                    df_dR[b,b] = F_d1[b,b]
-                    df_dR[b,b] -= S_d1[a][b,b] * F[b,b]
-                    df_dR[b,b] += np.einsum('em,em->', U_d1[v,o], 2*ERI[b,v,b,o] - ERI.swapaxes(2,3)[b,v,b,o])
-                    df_dR[b,b] += np.einsum('em,me->', U_d1[v,o], 2*ERI[b,o,b,v] - ERI.swapaxes(2,3)[b,o,b,v])
-                    df_dR[b,b] -= 0.5 * np.einsum('mn,mn->', S_d1[a][o,o], 2*ERI[b,o,b,o] - ERI.swapaxes(2,3)[b,o,b,o])
-                    df_dR[b,b] -= 0.5 * np.einsum('mn,nm->', S_d1[a][o,o], 2*ERI[b,o,b,o] - ERI.swapaxes(2,3)[b,o,b,o])
-
-                #print("Nuclear Displacement Fock Matrix Derivative:")
-                #print(f_grad, "\n")
+                df_dR[v,v] -= 0.5 * np.einsum('mn,ambn->ab', S_d1[a][o,o], A.swapaxes(1,2)[v,o,v,o])
 
                 # Computing the gradient of the ERIs.
-                dERI_dR = ERI_d1[a][t_,t_,t_,t_].copy()
-                dERI_dR += np.einsum('tp,tqrs->pqrs', U_d1[:,t_], ERI[:,t_,t_,t_])
-                dERI_dR += np.einsum('tq,ptrs->pqrs', U_d1[:,t_], ERI[t_,:,t_,t_])
-                dERI_dR += np.einsum('tr,pqts->pqrs', U_d1[:,t_], ERI[t_,t_,:,t_])
-                dERI_dR += np.einsum('ts,pqrt->pqrs', U_d1[:,t_], ERI[t_,t_,t_,:])
-                #print("ERI_a", ERI_grad, "\n")
+                dERI_dR = ERI_d1[a].copy()
+                dERI_dR += np.einsum('tp,tqrs->pqrs', U_d1[:,t], ERI[:,t,t,t])
+                dERI_dR += np.einsum('tq,ptrs->pqrs', U_d1[:,t], ERI[t,:,t,t])
+                dERI_dR += np.einsum('tr,pqts->pqrs', U_d1[:,t], ERI[t,t,:,t])
+                dERI_dR += np.einsum('ts,pqrt->pqrs', U_d1[:,t], ERI[t,t,t,:])
 
                 # Compute CISD energy gradient.
-                dE_dR = np.einsum('pq,pq->', df_dR, D_pq) + np.einsum('pqrs,pqrs->', dERI_dR, D_pqrs)
+                dE_dR = np.einsum('pq,pq->', df_dR[t_,t_], D_pq) + np.einsum('pqrs,pqrs->', dERI_dR[t_,t_,t_,t_], D_pqrs)
 
                 # Computing the HF energy gradient.
                 dE_dR_HF = 2 * np.einsum('ii->', h_d1[o,o])
-                dE_dR_HF += np.einsum('ijij->', 2 * ERI_d1[a][o_,o_,o_,o_] - ERI_d1[a].swapaxes(2,3)[o_,o_,o_,o_])
+                dE_dR_HF += np.einsum('ijij->', 2 * ERI_d1[a][o,o,o,o] - ERI_d1[a].swapaxes(2,3)[o,o,o,o])
                 dE_dR_HF -= 2 * np.einsum('ii,i->', S_d1[a][o,o], self.wfn.eps[o])
                 dE_dR_HF += Nuc_Gradient[N1][a]
 
                 dE_dR_tot = dE_dR + dE_dR_HF
-
-                #print("Nuclear Energy Gradient: ", dE_dR)
 
                 # Compute dT1_dR guess amplitudes.
                 dt1_dR = -dE_dR * t1
@@ -1324,6 +1302,11 @@ class analytic_derivative(object):
                 #print("T2 Amplitudes Derivatives:")
                 #print(dt2_dR,"\n")
 
+                # Compute derivative of the normalization factor.
+                N_a = - (1 / np.sqrt((1 + 2*np.einsum('ia,ia', np.conjugate(t1), t1) + np.einsum('ijab,ijab', np.conjugate(t2), 2*t2 - t2.swapaxes(2,3)))**3))
+                N_a *= 0.5 * (2*np.einsum('ia,ia', np.conjugate(dt1_dR), t1) + 2*np.einsum('ia,ia', dt1_dR, np.conjugate(t1)) + np.einsum('ijab,ijab', np.conjugate(dt2_dR), 2*t2 - t2.swapaxes(2,3)) + np.einsum('ijab,ijab', dt2_dR, np.conjugate(2*t2 - t2.swapaxes(2,3))))
+                N_R.append(N_a)
+
                 dT1_dR.append(dt1_dR)
                 dT2_dR.append(dt2_dR)
                 U_R.append(U_d1)
@@ -1352,62 +1335,49 @@ class analytic_derivative(object):
             U_d1[o,v] += U_d1[v,o].T
 
             # Solve for the dependent-pairs of the CPHF U-coefficient matrix with respect to a magnetic field.
-            D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
-            B = - h_d1[o,o].copy() + np.einsum('em,iejm->ij', U_d1[v,o], A_mag.swapaxes(1,2)[o,v,o,o])
-            U_d1[o,o] += B/D
+            if self.parameters['freeze_core'] == True or orbitals == 'canonical':
+                D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
+                B = - h_d1[o,o].copy() + np.einsum('em,iejm->ij', U_d1[v,o], A_mag.swapaxes(1,2)[o,v,o,o])
+                U_d1[o,o] += B/D
 
-            D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
-            B = - h_d1[v,v].copy() + np.einsum('em,aebm->ab', U_d1[v,o], A_mag.swapaxes(1,2)[v,v,v,o])
-            U_d1[v,v] += B/D
+                D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
+                B = - h_d1[v,v].copy() + np.einsum('em,aebm->ab', U_d1[v,o], A_mag.swapaxes(1,2)[v,v,v,o])
+                U_d1[v,v] += B/D
 
-            #print("CPHF Coefficients for Magnetic Field Perturbations:")
-            #print(U_d1,"\n")
+                for j in range(no):
+                    U_d1[j,j] = 0
+                for b in range(no,nbf):
+                    U_d1[b,b] = 0
 
-            #for j in range(no):
-            #    U_d1[j,j] = 0
-            #for b in range(no,nbf):
-            #    U_d1[b,b] = 0
+            if orbitals == 'non-canonical':
+                U_d1[f_,f_] = 0
+                U_d1[o_,o_] = 0
+                U_d1[v_,v_] = 0
 
             # Computing the gradient of the Fock matrix with respect to a magnetic field.
-            occ_eps = self.wfn.eps[o].reshape(-1,1) - self.wfn.eps[o]
-            vir_eps = self.wfn.eps[v].reshape(-1,1) - self.wfn.eps[v]
-
             df_dH = np.zeros((nbf,nbf))
 
             df_dH[o,o] -= h_d1[o,o].copy()
-            df_dH[o,o] += U_d1[o,o] * occ_eps
+            df_dH[o,o] += U_d1[o,o] * self.wfn.eps[o].reshape(-1,1) + U_d1[o,o].swapaxes(0,1) * self.wfn.eps[o]
             df_dH[o,o] += np.einsum('em,iejm->ij', U_d1[v,o], A_mag.swapaxes(1,2)[o,v,o,o])
 
-            for i in range(no):
-                df_dH[i,i] = - h_d1[i,i] + np.einsum('em,em->', U_d1[v,o], A_mag.swapaxes(1,2)[i,v,i,o])
-
             df_dH[v,v] -= h_d1[v,v].copy()
-            df_dH[v,v] += U_d1[v,v] * vir_eps
+            df_dH[v,v] += U_d1[v,v] * self.wfn.eps[v].reshape(-1,1) + U_d1[v,v].swapaxes(0,1) * self.wfn.eps[v]
             df_dH[v,v] += np.einsum('em,aebm->ab', U_d1[v,o], A_mag.swapaxes(1,2)[v,v,v,o])
 
-            for b in range(nv):
-                b += no
-                df_dH[b,b] = - h_d1[b,b] + np.einsum('em,em->', U_d1[v,o], A_mag.swapaxes(1,2)[b,v,b,o])
-
-            #print("Magnetic Field Fock Matrix Derivative:")
-            #print(f_grad, "\n")
-
             # Computing the gradient of the ERIs with respect to a magnetic field. # Swapaxes on these elements
-            dERI_dH = np.einsum('tr,pqts->pqrs', U_d1[:,t_], ERI[t_,t_,:,t_])
-            dERI_dH += np.einsum('ts,pqrt->pqrs', U_d1[:,t_], ERI[t_,t_,t_,:])
-            dERI_dH -= np.einsum('tp,tqrs->pqrs', U_d1[:,t_], ERI[:,t_,t_,t_])
-            dERI_dH -= np.einsum('tq,ptrs->pqrs', U_d1[:,t_], ERI[t_,:,t_,t_])
+            dERI_dH = np.einsum('tr,pqts->pqrs', U_d1[:,t], ERI[t,t,:,t])
+            dERI_dH += np.einsum('ts,pqrt->pqrs', U_d1[:,t], ERI[t,t,t,:])
+            dERI_dH -= np.einsum('tp,tqrs->pqrs', U_d1[:,t], ERI[:,t,t,t])
+            dERI_dH -= np.einsum('tq,ptrs->pqrs', U_d1[:,t], ERI[t,:,t,t])
             #print("ERI_a", ERI_grad, "\n")
 
             # Compute CISD energy gradient.
-            dE_dH = np.einsum('pq,pq->', df_dH, D_pq) + np.einsum('pqrs,pqrs->', dERI_dH, D_pqrs)
+            dE_dH = np.einsum('pq,pq->', df_dH[t_,t_], D_pq) + np.einsum('pqrs,pqrs->', dERI_dH[t_,t_,t_,t_], D_pqrs)
 
-            # Computing the HF energy gradient. NEED TO FIX HF GRADIENT.
+            # Computing the HF energy gradient.
             dE_dH_HF = 2 * np.einsum('ii->', h_d1[o,o])
-
             dE_dH_tot = dE_dH + dE_dH_HF
-
-            #print("Magnetic Field Energy Gradient: ", dE_dH)
 
             # Compute dT1_dR guess amplitudes.
             dt1_dH = -dE_dH * t1
@@ -1552,7 +1522,6 @@ class analytic_derivative(object):
 
         # Setting up different components of the AATs.
         AAT_HF = np.zeros((natom * 3, 3))
-
         AAT_S0 = np.zeros((natom * 3, 3))
         AAT_0S = np.zeros((natom * 3, 3))
         AAT_SS = np.zeros((natom * 3, 3))
@@ -1574,37 +1543,37 @@ class analytic_derivative(object):
                 # Singles/Refence terms.
                 AAT_S0[lambda_alpha][beta] += N**2 * 2 * np.einsum("ia,ai", dT1_dR[lambda_alpha], U_H[beta][v_,o_])
 
-                AAT_S0[lambda_alpha][beta] += N**2 * 4 * np.einsum("ia,nn,ia", t1, U_H[beta][o_,o_], U_R[lambda_alpha][o_,v_] + half_S[lambda_alpha][v_,o_].T)
+                AAT_S0[lambda_alpha][beta] += N**2 * 4 * np.einsum("ia,nn,ia", t1, U_H[beta][o,o], U_R[lambda_alpha][o_,v_] + half_S[lambda_alpha][v_,o_].T)
                 AAT_S0[lambda_alpha][beta] += N**2 * 2 * np.einsum("ia,ei,ea", t1, U_H[beta][v_,o_], U_R[lambda_alpha][v_,v_] + half_S[lambda_alpha][v_,v_].T)
-                AAT_S0[lambda_alpha][beta] -= N**2 * 2 * np.einsum("ia,am,im", t1, U_H[beta][v_,o_], U_R[lambda_alpha][o_,o_] + half_S[lambda_alpha][o_,o_].T)
+                AAT_S0[lambda_alpha][beta] -= N**2 * 2 * np.einsum("ia,am,im", t1, U_H[beta][v_,o], U_R[lambda_alpha][o_,o] + half_S[lambda_alpha][o,o_].T)
 
                 # Reference/Singles terms.
                 AAT_0S[lambda_alpha][beta] += N**2 * 2 * np.einsum("kc,ck", dT1_dH[beta], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T)
 
-                AAT_0S[lambda_alpha][beta] += N**2 * 4 * np.einsum("kc,nn,ck", t1, U_H[beta][o_,o_], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T)
+                AAT_0S[lambda_alpha][beta] += N**2 * 4 * np.einsum("kc,nn,ck", t1, U_H[beta][o,o], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T)
                 AAT_0S[lambda_alpha][beta] += N**2 * 2 * np.einsum("kc,fc,fk", t1, U_H[beta][v_,v_], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T)
-                AAT_0S[lambda_alpha][beta] -= N**2 * 2 * np.einsum("kc,kn,cn", t1, U_H[beta][o_,o_], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T)
+                AAT_0S[lambda_alpha][beta] -= N**2 * 2 * np.einsum("kc,kn,cn", t1, U_H[beta][o_,o], U_R[lambda_alpha][v_,o] + half_S[lambda_alpha][o,v_].T)                
 
                 # Singles/Singles terms.
                 AAT_SS[lambda_alpha][beta] += N**2 * 2 * np.einsum("ia,ia", dT1_dR[lambda_alpha], dT1_dH[beta])
 
-                AAT_SS[lambda_alpha][beta] += N**2 * 4 * np.einsum("kc,nn,kc", dT1_dR[lambda_alpha], U_H[beta][o_,o_], t1)
+                AAT_SS[lambda_alpha][beta] += N**2 * 4 * np.einsum("kc,nn,kc", dT1_dR[lambda_alpha], U_H[beta][o,o], t1)
                 AAT_SS[lambda_alpha][beta] += N**2 * 2 * np.einsum("kc,cf,kf", dT1_dR[lambda_alpha], U_H[beta][v_,v_], t1)
                 AAT_SS[lambda_alpha][beta] -= N**2 * 2 * np.einsum("kc,nk,nc", dT1_dR[lambda_alpha], U_H[beta][o_,o_], t1)
 
                 AAT_SS[lambda_alpha][beta] += N**2 * 2 * np.einsum("ia,ae,ie", dT1_dH[beta], U_R[lambda_alpha][v_,v_] + half_S[lambda_alpha][v_,v_].T, t1)
                 AAT_SS[lambda_alpha][beta] -= N**2 * 2 * np.einsum("ia,mi,ma", dT1_dH[beta], U_R[lambda_alpha][o_,o_] + half_S[lambda_alpha][o_,o_].T, t1)
 
-                AAT_SS[lambda_alpha][beta] += N**2 * 4 * np.einsum("kc,nn,ca,ka", t1, U_H[beta][o_,o_], U_R[lambda_alpha][v_,v_] + half_S[lambda_alpha][v_,v_].T, t1)
-                AAT_SS[lambda_alpha][beta] -= N**2 * 4 * np.einsum("kc,nn,ik,ic", t1, U_H[beta][o_,o_], U_R[lambda_alpha][o_,o_] + half_S[lambda_alpha][o_,o_].T, t1)
+                AAT_SS[lambda_alpha][beta] += N**2 * 4 * np.einsum("kc,nn,ca,ka", t1, U_H[beta][o,o], U_R[lambda_alpha][v_,v_] + half_S[lambda_alpha][v_,v_].T, t1)
+                AAT_SS[lambda_alpha][beta] -= N**2 * 4 * np.einsum("kc,nn,ik,ic", t1, U_H[beta][o,o], U_R[lambda_alpha][o_,o_] + half_S[lambda_alpha][o_,o_].T, t1)
                 AAT_SS[lambda_alpha][beta] += N**2 * 2 * np.einsum("kc,fc,fa,ka", t1, U_H[beta][v_,v_], U_R[lambda_alpha][v_,v_] + half_S[lambda_alpha][v_,v_].T, t1)
                 AAT_SS[lambda_alpha][beta] -= N**2 * 2 * np.einsum("kc,fc,ik,if", t1, U_H[beta][v_,v_], U_R[lambda_alpha][o_,o_] + half_S[lambda_alpha][o_,o_].T, t1)
                 AAT_SS[lambda_alpha][beta] -= N**2 * 2 * np.einsum("kc,kn,ca,na", t1, U_H[beta][o_,o_], U_R[lambda_alpha][v_,v_] + half_S[lambda_alpha][v_,v_].T, t1)
-                AAT_SS[lambda_alpha][beta] += N**2 * 2 * np.einsum("kc,kn,in,ic", t1, U_H[beta][o_,o_], U_R[lambda_alpha][o_,o_] + half_S[lambda_alpha][o_,o_].T, t1)
+                AAT_SS[lambda_alpha][beta] += N**2 * 2 * np.einsum("kc,kn,in,ic", t1, U_H[beta][o_,o], U_R[lambda_alpha][o_,o] + half_S[lambda_alpha][o,o_].T, t1)
                 AAT_SS[lambda_alpha][beta] += N**2 * 4 * np.einsum("kc,kc,ia,ia", t1, U_H[beta][o_,v_], U_R[lambda_alpha][o_,v_] + half_S[lambda_alpha][v_,o_].T, t1)
-                AAT_SS[lambda_alpha][beta] += N**2 * 4 * np.einsum("kc,fn,fn,kc", t1, U_H[beta][v_,o_], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T, t1)
+                AAT_SS[lambda_alpha][beta] += N**2 * 4 * np.einsum("kc,fn,fn,kc", t1, U_H[beta][v_,o], U_R[lambda_alpha][v_,o] + half_S[lambda_alpha][o,v_].T, t1)
                 AAT_SS[lambda_alpha][beta] -= N**2 * 2 * np.einsum("kc,fn,fk,nc", t1, U_H[beta][v_,o_], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T, t1)
-                AAT_SS[lambda_alpha][beta] -= N**2 * 2 * np.einsum("kc,fn,cn,kf", t1, U_H[beta][v_,o_], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T, t1)
+                AAT_SS[lambda_alpha][beta] -= N**2 * 2 * np.einsum("kc,fn,cn,kf", t1, U_H[beta][v_,o], U_R[lambda_alpha][v_,o] + half_S[lambda_alpha][o,v_].T, t1)
                 AAT_SS[lambda_alpha][beta] += N**2 * 4 * np.einsum("kc,fn,ck,nf", t1, U_H[beta][v_,o_], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T, t1)
 
                 # Doubles/Singles terms.
@@ -1612,11 +1581,11 @@ class analytic_derivative(object):
 
                 AAT_DS[lambda_alpha][beta] += N**2 * 2 * np.einsum("kc,ia,ikac", dT1_dH[beta], U_R[lambda_alpha][o_,v_] + half_S[lambda_alpha][v_,o_].T, 2*t2 - t2.swapaxes(2,3))
 
-                AAT_DS[lambda_alpha][beta] += N**2 * 4 * np.einsum("kc,nn,ia,ikac", t1, U_H[beta][o_,o_], U_R[lambda_alpha][o_,v_] + half_S[lambda_alpha][v_,o_].T, 2*t2 - t2.swapaxes(2,3))
+                AAT_DS[lambda_alpha][beta] += N**2 * 4 * np.einsum("kc,nn,ia,ikac", t1, U_H[beta][o,o], U_R[lambda_alpha][o_,v_] + half_S[lambda_alpha][v_,o_].T, 2*t2 - t2.swapaxes(2,3))
                 AAT_DS[lambda_alpha][beta] += N**2 * 2 * np.einsum("kc,fc,ia,ikaf", t1, U_H[beta][v_,v_], U_R[lambda_alpha][o_,v_] + half_S[lambda_alpha][v_,o_].T, 2*t2 - t2.swapaxes(2,3))
                 AAT_DS[lambda_alpha][beta] -= N**2 * 2 * np.einsum("kc,kn,ia,inac", t1, U_H[beta][o_,o_], U_R[lambda_alpha][o_,v_] + half_S[lambda_alpha][v_,o_].T, 2*t2 - t2.swapaxes(2,3))
                 AAT_DS[lambda_alpha][beta] -= N**2 * 2 * np.einsum("kc,fn,ik,incf", t1, U_H[beta][v_,o_], U_R[lambda_alpha][o_,o_] + half_S[lambda_alpha][o_,o_].T, 2*t2 - t2.swapaxes(2,3))
-                AAT_DS[lambda_alpha][beta] -= N**2 * 2 * np.einsum("kc,fn,in,ikfc", t1, U_H[beta][v_,o_], U_R[lambda_alpha][o_,o_] + half_S[lambda_alpha][o_,o_].T, 2*t2 - t2.swapaxes(2,3))
+                AAT_DS[lambda_alpha][beta] -= N**2 * 2 * np.einsum("kc,fn,in,ikfc", t1, U_H[beta][v_,o], U_R[lambda_alpha][o_,o] + half_S[lambda_alpha][o,o_].T, 2*t2 - t2.swapaxes(2,3))
                 AAT_DS[lambda_alpha][beta] += N**2 * 2 * np.einsum("kc,fn,ca,knaf", t1, U_H[beta][v_,o_], U_R[lambda_alpha][v_,v_] + half_S[lambda_alpha][v_,v_].T, 2*t2 - t2.swapaxes(2,3))
                 AAT_DS[lambda_alpha][beta] += N**2 * 2 * np.einsum("kc,fn,fa,knca", t1, U_H[beta][v_,o_], U_R[lambda_alpha][v_,v_] + half_S[lambda_alpha][v_,v_].T, 2*t2 - t2.swapaxes(2,3))
 
@@ -1625,13 +1594,13 @@ class analytic_derivative(object):
 
                 AAT_SD[lambda_alpha][beta] += N**2 * 2 * np.einsum("klcd,dl,kc", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T, t1)
 
-                AAT_SD[lambda_alpha][beta] += N**2 * 4 * np.einsum("ia,nn,em,imae", t1, U_H[beta][o_,o_], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T, 2*t2 - t2.swapaxes(2,3))
+                AAT_SD[lambda_alpha][beta] += N**2 * 4 * np.einsum("ia,nn,em,imae", t1, U_H[beta][o,o], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T, 2*t2 - t2.swapaxes(2,3))
                 AAT_SD[lambda_alpha][beta] += N**2 * 2 * np.einsum("ia,kc,ea,kice", t1, U_H[beta][o_,v_], U_R[lambda_alpha][v_,v_] + half_S[lambda_alpha][v_,v_].T, 2*t2 - t2.swapaxes(2,3))
                 AAT_SD[lambda_alpha][beta] -= N**2 * 2 * np.einsum("ia,kc,im,kmca", t1, U_H[beta][o_,v_], U_R[lambda_alpha][o_,o_] + half_S[lambda_alpha][o_,o_].T, 2*t2 - t2.swapaxes(2,3))
                 AAT_SD[lambda_alpha][beta] += N**2 * 2 * np.einsum("ia,ac,em,imce", t1, U_H[beta][v_,v_], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T, 2*t2 - t2.swapaxes(2,3))
                 AAT_SD[lambda_alpha][beta] += N**2 * 2 * np.einsum("ia,ec,em,imac", t1, U_H[beta][v_,v_], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T, 2*t2 - t2.swapaxes(2,3))
                 AAT_SD[lambda_alpha][beta] -= N**2 * 2 * np.einsum("ia,ki,em,kmae", t1, U_H[beta][o_,o_], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T, 2*t2 - t2.swapaxes(2,3))
-                AAT_SD[lambda_alpha][beta] -= N**2 * 2 * np.einsum("ia,km,em,kiea", t1, U_H[beta][o_,o_], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T, 2*t2 - t2.swapaxes(2,3))
+                AAT_SD[lambda_alpha][beta] -= N**2 * 2 * np.einsum("ia,km,em,kiea", t1, U_H[beta][o_,o], U_R[lambda_alpha][v_,o] + half_S[lambda_alpha][o,v_].T, 2*t2 - t2.swapaxes(2,3))
 
                 # Doubles/Doubles terms.
                 AAT_DD[lambda_alpha][beta] += N**2 * np.einsum("ijab,ijab", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), dT2_dH[beta])
@@ -1651,11 +1620,21 @@ class analytic_derivative(object):
 
                 # Adding terms for full normalization. 
                 if normalization == 'full':
-                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2.0 * np.einsum("nn",U_H[beta][o, o])
-                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 1.0 * np.einsum("ijab,ijab,kk", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][o, o])
-                    AAT_Norm[lambda_alpha][beta] -= N * N_R[lambda_alpha] * 2.0 * np.einsum("ijab,kjab,ki", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][o_, o_])
-                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2.0 * np.einsum("ijab,ijcb,ac", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][v_, v_])
-                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 1.0 * np.einsum("ijab,ijab", 2*t2 - t2.swapaxes(2,3), dT2_dH[beta])
+                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2 * np.einsum("nn", U_H[beta][o, o])
+                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 1 * np.einsum("ijab,ijab,kk", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][o, o])
+                    AAT_Norm[lambda_alpha][beta] -= N * N_R[lambda_alpha] * 2 * np.einsum("ijab,kjab,ki", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][o_, o_])
+                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2 * np.einsum("ijab,ijcb,ac", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][v_, v_])
+                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 1 * np.einsum("ijab,ijab", 2*t2 - t2.swapaxes(2,3), dT2_dH[beta])
+
+                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2 * np.einsum("ia,ai", t1, U_H[beta][v_, o_])
+                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2 * np.einsum("kc,kc", t1, U_H[beta][o_, v_])
+                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2 * np.einsum("ia,ia", t1, dT1_dH[beta])
+                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 4 * np.einsum("kc,nn,kc", t1, U_H[beta][o,o], t1)
+                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2 * np.einsum("kc,cf,kf", t1, U_H[beta][v_,v_], t1)
+                    AAT_Norm[lambda_alpha][beta] -= N * N_R[lambda_alpha] * 2 * np.einsum("kc,nk,nc", t1, U_H[beta][o_,o_], t1)
+                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2 * np.einsum("ijab,bj,ia", 2*t2 - t2.swapaxes(2,3), U_H[beta][v_,o_], t1)
+                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2 * np.einsum("ia,kc,ikac", t1, U_H[beta][o_,v_], 2*t2 - t2.swapaxes(2,3))
+
 
         print("Hartree-Fock AAT:")
         print(AAT_HF, "\n")
