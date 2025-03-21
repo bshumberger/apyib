@@ -2,6 +2,7 @@
 
 import numpy as np
 import psi4
+import gc
 from apyib.hamiltonian import Hamiltonian
 from apyib.hf_wfn import hf_wfn
 from apyib.mp2_wfn import mp2_wfn
@@ -1043,6 +1044,10 @@ class analytic_derivative(object):
                 U_R.append(U_d1)
                 half_S.append(half_S_d1[a])
 
+        # Delete excess variables.
+        del dERI_dR; del dt2_dR; del df_dR; del T_d1; del V_d1; del S_d1; del ERI_d1; del half_S_d1; del h_d1; del F_d1; del B; del U_d1; del A; del G
+        gc.collect()
+
         # Compute the perturbation-independent A matrix for the CPHF coefficients with complex wavefunctions.
         A_mag = -(2 * ERI - ERI.swapaxes(2,3)) + (2 * ERI - ERI.swapaxes(2,3)).swapaxes(1,3)
         A_mag = A_mag.swapaxes(1,2)
@@ -1181,6 +1186,10 @@ class analytic_derivative(object):
             dT2_dH.append(dt2_dH)
             U_H.append(U_d1)
 
+        # Delete excess variables.
+        del dERI_dH; del dt2_dH; del df_dH; del h_d1; del B; del U_d1; del A_mag; del G_mag
+        gc.collect()
+
         # Setting up different components of the AATs.
         AAT_HF = np.zeros((natom * 3, 3))
         AAT_1 = np.zeros((natom * 3, 3))
@@ -1203,17 +1212,19 @@ class analytic_derivative(object):
                 AAT_1[lambda_alpha][beta] += N**2 * np.einsum("ijab,ijab", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), dT2_dH[beta])
 
                 # Computing the second term of the AATs.
-                AAT_2[lambda_alpha][beta] += N**2 * 1.0 * np.einsum("ijab,ijab,kk", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][o, o]) 
-                AAT_2[lambda_alpha][beta] -= N**2 * 2.0 * np.einsum("ijab,kjab,ki", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][o_, o_]) 
-                AAT_2[lambda_alpha][beta] += N**2 * 2.0 * np.einsum("ijab,ijcb,ac", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][v_, v_]) 
+                if orbitals == 'canonical':
+                    #AAT_2[lambda_alpha][beta] += N**2 * 1.0 * np.einsum("ijab,ijab,kk", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][o, o]) # U_H[i,i] = 0
+                    AAT_2[lambda_alpha][beta] -= N**2 * 2.0 * np.einsum("ijab,kjab,ki", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][o_, o_]) 
+                    AAT_2[lambda_alpha][beta] += N**2 * 2.0 * np.einsum("ijab,ijcb,ac", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][v_, v_]) 
 
                 # Computing the third term of the AATs.
                 AAT_3[lambda_alpha][beta] -= N**2 * 2.0 * np.einsum("klcd,mlcd,mk", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[lambda_alpha][o_, o_] + half_S[lambda_alpha][o_, o_].T)
                 AAT_3[lambda_alpha][beta] += N**2 * 2.0 * np.einsum("klcd,kled,ce", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[lambda_alpha][v_, v_] + half_S[lambda_alpha][v_, v_].T)
 
                 # Computing the fourth term of the AATs.
-                AAT_4[lambda_alpha][beta] += N**2 * 2.0 * np.einsum("ijab,kjab,km,im", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][o_, o], U_R[lambda_alpha][o_, o] + half_S[lambda_alpha][o, o_].T)
-                AAT_4[lambda_alpha][beta] += N**2 * 2.0 * np.einsum("ijab,ijcb,ec,ea", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, v_], U_R[lambda_alpha][v_, v_] + half_S[lambda_alpha][v_, v_].T)
+                AAT_4[lambda_alpha][beta] += N**2 * 2.0 * np.einsum("ijab,kjab,km,im", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][o_, o], U_R[lambda_alpha][o_, o] + half_S[lambda_alpha][o, o_].T) # Keep becasue [o_,o]
+                if orbitals == 'canonical':
+                    AAT_4[lambda_alpha][beta] += N**2 * 2.0 * np.einsum("ijab,ijcb,ec,ea", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, v_], U_R[lambda_alpha][v_, v_] + half_S[lambda_alpha][v_, v_].T)
 
                 AAT_4[lambda_alpha][beta] += N**2 * 2.0 * np.einsum("ijab,ijab,em,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o], U_R[lambda_alpha][v_, o] + half_S[lambda_alpha][o, v_].T)
                 AAT_4[lambda_alpha][beta] -= N**2 * 2.0 * np.einsum("ijab,imab,ej,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o_], U_R[lambda_alpha][v_, o_] + half_S[lambda_alpha][o_, v_].T)
@@ -1221,10 +1232,11 @@ class analytic_derivative(object):
 
                 # Adding terms for full normalization.
                 if normalization == 'full':
-                    AAT_HF[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2.0 * np.einsum("nn",U_H[beta][o, o])
-                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 1.0 * np.einsum("ijab,ijab,kk", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][o, o])  
-                    AAT_Norm[lambda_alpha][beta] -= N * N_R[lambda_alpha] * 2.0 * np.einsum("ijab,kjab,ki", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][o_, o_])  
-                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2.0 * np.einsum("ijab,ijcb,ac", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][v_, v_])
+                    if orbitals == 'canonical':
+                        #AAT_HF[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2.0 * np.einsum("nn", U_H[beta][o, o]) # U_H[i,i] = 0
+                        #AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 1.0 * np.einsum("ijab,ijab,kk", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][o, o]) # U_H[i,i] = 0
+                        AAT_Norm[lambda_alpha][beta] -= N * N_R[lambda_alpha] * 2.0 * np.einsum("ijab,kjab,ki", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][o_, o_])  
+                        AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2.0 * np.einsum("ijab,ijcb,ac", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][v_, v_])
                     AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 1.0 * np.einsum("ijab,ijab", 2*t2 - t2.swapaxes(2,3), dT2_dH[beta])
 
         print("Hartree-Fock AAT:")
@@ -1593,6 +1605,11 @@ class analytic_derivative(object):
                 dT2_dR.append(dt2_dR)
                 U_R.append(U_d1)
 
+        # Delete excess variables.
+        del dERI_dR; del dt1_dR; del dt2_dR; del dRt1_dR; del dRt2_dR; del dt1_dR_old; del dt2_dR_old
+        del df_dR; del T_d1; del V_d1; del S_d1; del ERI_d1; del half_S_d1; del h_d1; del F_d1; del B; del U_d1; del A; del G
+        gc.collect()
+
         # Compute the perturbation-independent A matrix for the CPHF coefficients with complex wavefunctions.
         A_mag = -(2 * ERI - ERI.swapaxes(2,3)) + (2 * ERI - ERI.swapaxes(2,3)).swapaxes(1,3)
         A_mag = A_mag.swapaxes(1,2)
@@ -1803,6 +1820,11 @@ class analytic_derivative(object):
             dT2_dH.append(dt2_dH)
             U_H.append(U_d1)
 
+        # Delete excess variables.
+        del dERI_dH; del dt1_dH; del dt2_dH; del dRt1_dH; del dRt2_dH; del dt1_dH_old; del dt2_dH_old
+        del df_dH; del h_d1; del B; del U_d1; del A_mag; del G_mag
+        gc.collect()
+
         # Setting up different components of the AATs.
         AAT_HF = np.zeros((natom * 3, 3))
         AAT_S0 = np.zeros((natom * 3, 3))
@@ -1826,32 +1848,35 @@ class analytic_derivative(object):
                 # Singles/Refence terms.
                 AAT_S0[lambda_alpha][beta] += N**2 * 2 * np.einsum("ia,ai", dT1_dR[lambda_alpha], U_H[beta][v_,o_])
 
-                AAT_S0[lambda_alpha][beta] += N**2 * 4 * np.einsum("ia,nn,ia", t1, U_H[beta][o,o], U_R[lambda_alpha][o_,v_] + half_S[lambda_alpha][v_,o_].T)
+                #AAT_S0[lambda_alpha][beta] += N**2 * 4 * np.einsum("ia,nn,ia", t1, U_H[beta][o,o], U_R[lambda_alpha][o_,v_] + half_S[lambda_alpha][v_,o_].T) # U_H[i,i] = 0
                 AAT_S0[lambda_alpha][beta] += N**2 * 2 * np.einsum("ia,ei,ea", t1, U_H[beta][v_,o_], U_R[lambda_alpha][v_,v_] + half_S[lambda_alpha][v_,v_].T)
                 AAT_S0[lambda_alpha][beta] -= N**2 * 2 * np.einsum("ia,am,im", t1, U_H[beta][v_,o], U_R[lambda_alpha][o_,o] + half_S[lambda_alpha][o,o_].T)
 
                 # Reference/Singles terms.
                 AAT_0S[lambda_alpha][beta] += N**2 * 2 * np.einsum("kc,ck", dT1_dH[beta], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T)
 
-                AAT_0S[lambda_alpha][beta] += N**2 * 4 * np.einsum("kc,nn,ck", t1, U_H[beta][o,o], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T)
-                AAT_0S[lambda_alpha][beta] += N**2 * 2 * np.einsum("kc,fc,fk", t1, U_H[beta][v_,v_], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T)
+                AAT_0S[lambda_alpha][beta] += N**2 * 4 * np.einsum("kc,nn,ck", t1, U_H[beta][o,o], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T) # U_H[i,i] = 0
+                if orbitals == 'canonical':
+                    AAT_0S[lambda_alpha][beta] += N**2 * 2 * np.einsum("kc,fc,fk", t1, U_H[beta][v_,v_], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T)
                 AAT_0S[lambda_alpha][beta] -= N**2 * 2 * np.einsum("kc,kn,cn", t1, U_H[beta][o_,o], U_R[lambda_alpha][v_,o] + half_S[lambda_alpha][o,v_].T)                
 
                 # Singles/Singles terms.
                 AAT_SS[lambda_alpha][beta] += N**2 * 2 * np.einsum("ia,ia", dT1_dR[lambda_alpha], dT1_dH[beta])
 
-                AAT_SS[lambda_alpha][beta] += N**2 * 4 * np.einsum("kc,nn,kc", dT1_dR[lambda_alpha], U_H[beta][o,o], t1)
-                AAT_SS[lambda_alpha][beta] += N**2 * 2 * np.einsum("kc,cf,kf", dT1_dR[lambda_alpha], U_H[beta][v_,v_], t1)
-                AAT_SS[lambda_alpha][beta] -= N**2 * 2 * np.einsum("kc,nk,nc", dT1_dR[lambda_alpha], U_H[beta][o_,o_], t1)
+                #AAT_SS[lambda_alpha][beta] += N**2 * 4 * np.einsum("kc,nn,kc", dT1_dR[lambda_alpha], U_H[beta][o,o], t1) # U_H[i,i] = 0
+                if orbitals == 'canonical':
+                    AAT_SS[lambda_alpha][beta] += N**2 * 2 * np.einsum("kc,cf,kf", dT1_dR[lambda_alpha], U_H[beta][v_,v_], t1)
+                    AAT_SS[lambda_alpha][beta] -= N**2 * 2 * np.einsum("kc,nk,nc", dT1_dR[lambda_alpha], U_H[beta][o_,o_], t1)
 
                 AAT_SS[lambda_alpha][beta] += N**2 * 2 * np.einsum("ia,ae,ie", dT1_dH[beta], U_R[lambda_alpha][v_,v_] + half_S[lambda_alpha][v_,v_].T, t1)
                 AAT_SS[lambda_alpha][beta] -= N**2 * 2 * np.einsum("ia,mi,ma", dT1_dH[beta], U_R[lambda_alpha][o_,o_] + half_S[lambda_alpha][o_,o_].T, t1)
 
-                AAT_SS[lambda_alpha][beta] += N**2 * 4 * np.einsum("kc,nn,ca,ka", t1, U_H[beta][o,o], U_R[lambda_alpha][v_,v_] + half_S[lambda_alpha][v_,v_].T, t1)
-                AAT_SS[lambda_alpha][beta] -= N**2 * 4 * np.einsum("kc,nn,ik,ic", t1, U_H[beta][o,o], U_R[lambda_alpha][o_,o_] + half_S[lambda_alpha][o_,o_].T, t1)
-                AAT_SS[lambda_alpha][beta] += N**2 * 2 * np.einsum("kc,fc,fa,ka", t1, U_H[beta][v_,v_], U_R[lambda_alpha][v_,v_] + half_S[lambda_alpha][v_,v_].T, t1)
-                AAT_SS[lambda_alpha][beta] -= N**2 * 2 * np.einsum("kc,fc,ik,if", t1, U_H[beta][v_,v_], U_R[lambda_alpha][o_,o_] + half_S[lambda_alpha][o_,o_].T, t1)
-                AAT_SS[lambda_alpha][beta] -= N**2 * 2 * np.einsum("kc,kn,ca,na", t1, U_H[beta][o_,o_], U_R[lambda_alpha][v_,v_] + half_S[lambda_alpha][v_,v_].T, t1)
+                #AAT_SS[lambda_alpha][beta] += N**2 * 4 * np.einsum("kc,nn,ca,ka", t1, U_H[beta][o,o], U_R[lambda_alpha][v_,v_] + half_S[lambda_alpha][v_,v_].T, t1)
+                #AAT_SS[lambda_alpha][beta] -= N**2 * 4 * np.einsum("kc,nn,ik,ic", t1, U_H[beta][o,o], U_R[lambda_alpha][o_,o_] + half_S[lambda_alpha][o_,o_].T, t1)
+                if orbitals == 'canonical':
+                    AAT_SS[lambda_alpha][beta] += N**2 * 2 * np.einsum("kc,fc,fa,ka", t1, U_H[beta][v_,v_], U_R[lambda_alpha][v_,v_] + half_S[lambda_alpha][v_,v_].T, t1)
+                    AAT_SS[lambda_alpha][beta] -= N**2 * 2 * np.einsum("kc,fc,ik,if", t1, U_H[beta][v_,v_], U_R[lambda_alpha][o_,o_] + half_S[lambda_alpha][o_,o_].T, t1)
+                    AAT_SS[lambda_alpha][beta] -= N**2 * 2 * np.einsum("kc,kn,ca,na", t1, U_H[beta][o_,o_], U_R[lambda_alpha][v_,v_] + half_S[lambda_alpha][v_,v_].T, t1)
                 AAT_SS[lambda_alpha][beta] += N**2 * 2 * np.einsum("kc,kn,in,ic", t1, U_H[beta][o_,o], U_R[lambda_alpha][o_,o] + half_S[lambda_alpha][o,o_].T, t1)
                 AAT_SS[lambda_alpha][beta] += N**2 * 4 * np.einsum("kc,kc,ia,ia", t1, U_H[beta][o_,v_], U_R[lambda_alpha][o_,v_] + half_S[lambda_alpha][v_,o_].T, t1)
                 AAT_SS[lambda_alpha][beta] += N**2 * 4 * np.einsum("kc,fn,fn,kc", t1, U_H[beta][v_,o], U_R[lambda_alpha][v_,o] + half_S[lambda_alpha][o,v_].T, t1)
@@ -1864,57 +1889,63 @@ class analytic_derivative(object):
 
                 AAT_DS[lambda_alpha][beta] += N**2 * 2 * np.einsum("kc,ia,ikac", dT1_dH[beta], U_R[lambda_alpha][o_,v_] + half_S[lambda_alpha][v_,o_].T, 2*t2 - t2.swapaxes(2,3))
 
-                AAT_DS[lambda_alpha][beta] += N**2 * 4 * np.einsum("kc,nn,ia,ikac", t1, U_H[beta][o,o], U_R[lambda_alpha][o_,v_] + half_S[lambda_alpha][v_,o_].T, 2*t2 - t2.swapaxes(2,3))
-                AAT_DS[lambda_alpha][beta] += N**2 * 2 * np.einsum("kc,fc,ia,ikaf", t1, U_H[beta][v_,v_], U_R[lambda_alpha][o_,v_] + half_S[lambda_alpha][v_,o_].T, 2*t2 - t2.swapaxes(2,3))
-                AAT_DS[lambda_alpha][beta] -= N**2 * 2 * np.einsum("kc,kn,ia,inac", t1, U_H[beta][o_,o_], U_R[lambda_alpha][o_,v_] + half_S[lambda_alpha][v_,o_].T, 2*t2 - t2.swapaxes(2,3))
+                if orbitals == 'canonical':
+                    #AAT_DS[lambda_alpha][beta] += N**2 * 4 * np.einsum("kc,nn,ia,ikac", t1, U_H[beta][o,o], U_R[lambda_alpha][o_,v_] + half_S[lambda_alpha][v_,o_].T, 2*t2 - t2.swapaxes(2,3)) # U_H[i,i] = 0
+                    AAT_DS[lambda_alpha][beta] += N**2 * 2 * np.einsum("kc,fc,ia,ikaf", t1, U_H[beta][v_,v_], U_R[lambda_alpha][o_,v_] + half_S[lambda_alpha][v_,o_].T, 2*t2 - t2.swapaxes(2,3))
+                    AAT_DS[lambda_alpha][beta] -= N**2 * 2 * np.einsum("kc,kn,ia,inac", t1, U_H[beta][o_,o_], U_R[lambda_alpha][o_,v_] + half_S[lambda_alpha][v_,o_].T, 2*t2 - t2.swapaxes(2,3))
                 AAT_DS[lambda_alpha][beta] -= N**2 * 2 * np.einsum("kc,fn,ik,incf", t1, U_H[beta][v_,o_], U_R[lambda_alpha][o_,o_] + half_S[lambda_alpha][o_,o_].T, 2*t2 - t2.swapaxes(2,3))
                 AAT_DS[lambda_alpha][beta] -= N**2 * 2 * np.einsum("kc,fn,in,ikfc", t1, U_H[beta][v_,o], U_R[lambda_alpha][o_,o] + half_S[lambda_alpha][o,o_].T, 2*t2 - t2.swapaxes(2,3))
                 AAT_DS[lambda_alpha][beta] += N**2 * 2 * np.einsum("kc,fn,ca,knaf", t1, U_H[beta][v_,o_], U_R[lambda_alpha][v_,v_] + half_S[lambda_alpha][v_,v_].T, 2*t2 - t2.swapaxes(2,3))
                 AAT_DS[lambda_alpha][beta] += N**2 * 2 * np.einsum("kc,fn,fa,knca", t1, U_H[beta][v_,o_], U_R[lambda_alpha][v_,v_] + half_S[lambda_alpha][v_,v_].T, 2*t2 - t2.swapaxes(2,3))
 
                 # Singles/Doubles terms.
-                AAT_SD[lambda_alpha][beta] += N**2 * 2 * np.einsum("ia,kc,ikac", dT1_dR[lambda_alpha], U_H[beta][o_,v_], 2*t2 - t2.swapaxes(2,3)) 
+                AAT_SD[lambda_alpha][beta] += N**2 * 2 * np.einsum("ia,kc,ikac", dT1_dR[lambda_alpha], U_H[beta][o_,v_], 2*t2 - t2.swapaxes(2,3))
 
                 AAT_SD[lambda_alpha][beta] += N**2 * 2 * np.einsum("klcd,dl,kc", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T, t1)
 
-                AAT_SD[lambda_alpha][beta] += N**2 * 4 * np.einsum("ia,nn,em,imae", t1, U_H[beta][o,o], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T, 2*t2 - t2.swapaxes(2,3))
+                #AAT_SD[lambda_alpha][beta] += N**2 * 4 * np.einsum("ia,nn,em,imae", t1, U_H[beta][o,o], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T, 2*t2 - t2.swapaxes(2,3)) # U_H[i,i] = 0
                 AAT_SD[lambda_alpha][beta] += N**2 * 2 * np.einsum("ia,kc,ea,kice", t1, U_H[beta][o_,v_], U_R[lambda_alpha][v_,v_] + half_S[lambda_alpha][v_,v_].T, 2*t2 - t2.swapaxes(2,3))
                 AAT_SD[lambda_alpha][beta] -= N**2 * 2 * np.einsum("ia,kc,im,kmca", t1, U_H[beta][o_,v_], U_R[lambda_alpha][o_,o_] + half_S[lambda_alpha][o_,o_].T, 2*t2 - t2.swapaxes(2,3))
-                AAT_SD[lambda_alpha][beta] += N**2 * 2 * np.einsum("ia,ac,em,imce", t1, U_H[beta][v_,v_], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T, 2*t2 - t2.swapaxes(2,3))
-                AAT_SD[lambda_alpha][beta] += N**2 * 2 * np.einsum("ia,ec,em,imac", t1, U_H[beta][v_,v_], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T, 2*t2 - t2.swapaxes(2,3))
-                AAT_SD[lambda_alpha][beta] -= N**2 * 2 * np.einsum("ia,ki,em,kmae", t1, U_H[beta][o_,o_], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T, 2*t2 - t2.swapaxes(2,3))
+                if orbitals == 'canonical':
+                    AAT_SD[lambda_alpha][beta] += N**2 * 2 * np.einsum("ia,ac,em,imce", t1, U_H[beta][v_,v_], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T, 2*t2 - t2.swapaxes(2,3))
+                    AAT_SD[lambda_alpha][beta] += N**2 * 2 * np.einsum("ia,ec,em,imac", t1, U_H[beta][v_,v_], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T, 2*t2 - t2.swapaxes(2,3))
+                    AAT_SD[lambda_alpha][beta] -= N**2 * 2 * np.einsum("ia,ki,em,kmae", t1, U_H[beta][o_,o_], U_R[lambda_alpha][v_,o_] + half_S[lambda_alpha][o_,v_].T, 2*t2 - t2.swapaxes(2,3))
                 AAT_SD[lambda_alpha][beta] -= N**2 * 2 * np.einsum("ia,km,em,kiea", t1, U_H[beta][o_,o], U_R[lambda_alpha][v_,o] + half_S[lambda_alpha][o,v_].T, 2*t2 - t2.swapaxes(2,3))
 
                 # Doubles/Doubles terms.
                 AAT_DD[lambda_alpha][beta] += N**2 * np.einsum("ijab,ijab", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), dT2_dH[beta])
 
-                AAT_DD[lambda_alpha][beta] += N**2 * 1 * np.einsum("ijab,ijab,kk", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][o, o])  
-                AAT_DD[lambda_alpha][beta] -= N**2 * 2 * np.einsum("ijab,kjab,ki", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][o_, o_]) 
-                AAT_DD[lambda_alpha][beta] += N**2 * 2 * np.einsum("ijab,ijcb,ac", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][v_, v_]) 
+                if orbitals == 'canonical':
+                    AAT_DD[lambda_alpha][beta] += N**2 * 1 * np.einsum("ijab,ijab,kk", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][o, o]) # U_H[i,i] = 0
+                    AAT_DD[lambda_alpha][beta] -= N**2 * 2 * np.einsum("ijab,kjab,ki", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][o_, o_]) 
+                    AAT_DD[lambda_alpha][beta] += N**2 * 2 * np.einsum("ijab,ijcb,ac", 2*dT2_dR[lambda_alpha] - dT2_dR[lambda_alpha].swapaxes(2,3), t2, U_H[beta][v_, v_]) 
 
                 AAT_DD[lambda_alpha][beta] -= N**2 * 2 * np.einsum("klcd,mlcd,mk", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[lambda_alpha][o_, o_] + half_S[lambda_alpha][o_, o_].T)
                 AAT_DD[lambda_alpha][beta] += N**2 * 2 * np.einsum("klcd,kled,ce", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[lambda_alpha][v_, v_] + half_S[lambda_alpha][v_, v_].T)
 
                 AAT_DD[lambda_alpha][beta] += N**2 * 2 * np.einsum("ijab,kjab,km,im", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][o_, o], U_R[lambda_alpha][o_, o] + half_S[lambda_alpha][o, o_].T)
-                AAT_DD[lambda_alpha][beta] += N**2 * 2 * np.einsum("ijab,ijcb,ec,ea", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, v_], U_R[lambda_alpha][v_, v_] + half_S[lambda_alpha][v_, v_].T)
+                if orbitals == 'canonical':
+                    AAT_DD[lambda_alpha][beta] += N**2 * 2 * np.einsum("ijab,ijcb,ec,ea", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, v_], U_R[lambda_alpha][v_, v_] + half_S[lambda_alpha][v_, v_].T)
                 AAT_DD[lambda_alpha][beta] += N**2 * 2 * np.einsum("ijab,ijab,em,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o], U_R[lambda_alpha][v_, o] + half_S[lambda_alpha][o, v_].T)
                 AAT_DD[lambda_alpha][beta] -= N**2 * 2 * np.einsum("ijab,imab,ej,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o_], U_R[lambda_alpha][v_, o_] + half_S[lambda_alpha][o_, v_].T)
                 AAT_DD[lambda_alpha][beta] -= N**2 * 2 * np.einsum("ijab,ijae,bm,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o], U_R[lambda_alpha][v_, o] + half_S[lambda_alpha][o, v_].T)
 
                 # Adding terms for full normalization. 
                 if normalization == 'full':
-                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2 * np.einsum("nn", U_H[beta][o, o])
-                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 1 * np.einsum("ijab,ijab,kk", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][o, o])
-                    AAT_Norm[lambda_alpha][beta] -= N * N_R[lambda_alpha] * 2 * np.einsum("ijab,kjab,ki", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][o_, o_])
-                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2 * np.einsum("ijab,ijcb,ac", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][v_, v_])
+                    #AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2 * np.einsum("nn", U_H[beta][o, o]) # U_H[i,i] = 0
+                    if orbitals == 'canonical':
+                        #AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 1 * np.einsum("ijab,ijab,kk", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][o, o]) # U_H[i,i] = 0
+                        AAT_Norm[lambda_alpha][beta] -= N * N_R[lambda_alpha] * 2 * np.einsum("ijab,kjab,ki", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][o_, o_])
+                        AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2 * np.einsum("ijab,ijcb,ac", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][v_, v_])
                     AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 1 * np.einsum("ijab,ijab", 2*t2 - t2.swapaxes(2,3), dT2_dH[beta])
 
                     AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2 * np.einsum("ia,ai", t1, U_H[beta][v_, o_])
                     AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2 * np.einsum("kc,kc", t1, U_H[beta][o_, v_])
                     AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2 * np.einsum("ia,ia", t1, dT1_dH[beta])
-                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 4 * np.einsum("kc,nn,kc", t1, U_H[beta][o,o], t1)
-                    AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2 * np.einsum("kc,cf,kf", t1, U_H[beta][v_,v_], t1)
-                    AAT_Norm[lambda_alpha][beta] -= N * N_R[lambda_alpha] * 2 * np.einsum("kc,nk,nc", t1, U_H[beta][o_,o_], t1)
+                    if orbitals == 'canonical':
+                        #AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 4 * np.einsum("kc,nn,kc", t1, U_H[beta][o,o], t1) # U_H[i,i] = 0
+                        AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2 * np.einsum("kc,cf,kf", t1, U_H[beta][v_,v_], t1)
+                        AAT_Norm[lambda_alpha][beta] -= N * N_R[lambda_alpha] * 2 * np.einsum("kc,nk,nc", t1, U_H[beta][o_,o_], t1)
                     AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2 * np.einsum("ijab,bj,ia", 2*t2 - t2.swapaxes(2,3), U_H[beta][v_,o_], t1)
                     AAT_Norm[lambda_alpha][beta] += N * N_R[lambda_alpha] * 2 * np.einsum("ia,kc,ikac", t1, U_H[beta][o_,v_], 2*t2 - t2.swapaxes(2,3))
 

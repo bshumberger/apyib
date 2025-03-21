@@ -21,7 +21,7 @@ class mp2_wfn(object):
 
         # Define the Hamiltonian and the Hartree-Fock reference energy and wavefunction.
         self.parameters = parameters
-        self.H = Hamiltonian(parameters)
+        self.H = wfn.H
         self.wfn = wfn
         self.C = wfn.C
 
