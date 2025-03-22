@@ -349,8 +349,8 @@ class analytic_derivative(object):
             U_H.append(U_h)
             dT2_dH.append(dt2_dH)
 
-        del dt2_dH; del df_dH; del dERI_dH; del D; del B; del U_h; del A_mag; del G_mag
-        gc.collect()
+        #del dt2_dH; del df_dH; del dERI_dH; del D; del B; del U_h; del A_mag; del G_mag
+        #gc.collect()
 
         # Compute the perturbation-independent A matrix for the CPHF coefficients with real wavefunctions.
         A = (2 * ERI - ERI.swapaxes(2,3)) + (2 * ERI - ERI.swapaxes(2,3)).swapaxes(1,3)
@@ -812,9 +812,9 @@ class analytic_derivative(object):
             U_H.append(U_h)
 
         # Delete excess variables.
-        del dERI_dH; del dt1_dH; del dt2_dH; del dRt1_dH; del dRt2_dH; del dt1_dH_old; del dt2_dH_old
-        del df_dH; del h_core; del B; del U_h; del A_mag; del G_mag
-        gc.collect()
+        #del dERI_dH; del dt1_dH; del dt2_dH; del dRt1_dH; del dRt2_dH; del dt1_dH_old; del dt2_dH_old
+        #del df_dH; del h_core; del B; del U_h; del A_mag; del G_mag
+        #gc.collect()
 
 
         # Compute the perturbation-independent A matrix for the CPHF coefficients with real wavefunctions.
