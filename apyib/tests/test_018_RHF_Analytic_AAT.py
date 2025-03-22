@@ -52,9 +52,6 @@ def test_rhf_analytic_aat_h2o2_STO_3G_canonical():
     E_tot = E_list[0] + E_list[1] + E_list[2]
     print(E_tot)
 
-    H = apyib.hamiltonian.Hamiltonian(parameters)
-    wfn = apyib.hf_wfn.hf_wfn(H)
-
     # Compute analytic AATs using apyib.
     analytic_derivative = apyib.analytic.analytic_derivative(parameters)
     aat = analytic_derivative.compute_RHF_AATs_Canonical(orbitals='canonical')
@@ -110,9 +107,6 @@ def test_rhf_analytic_aat_h2o2_STO_3G_noncanonical():
     E_tot = E_list[0] + E_list[1] + E_list[2]
     print(E_tot)
 
-    H = apyib.hamiltonian.Hamiltonian(parameters)
-    wfn = apyib.hf_wfn.hf_wfn(H)
-
     # Compute analytic AATs using apyib.
     analytic_derivative = apyib.analytic.analytic_derivative(parameters)
     aat = analytic_derivative.compute_RHF_AATs_Canonical(orbitals='non-canonical')
@@ -164,9 +158,6 @@ def test_rhf_analytic_aat_h2o_6_31Gd_canonical():
     E_tot = E_list[0] + E_list[1] + E_list[2]
     print(E_tot)
 
-    H = apyib.hamiltonian.Hamiltonian(parameters)
-    wfn = apyib.hf_wfn.hf_wfn(H)
-
     # Compute analytic AATs using apyib.
     analytic_derivative = apyib.analytic.analytic_derivative(parameters)
     aat = analytic_derivative.compute_RHF_AATs_Canonical(orbitals='canonical')
@@ -217,9 +208,6 @@ def test_rhf_analytic_aat_h2o_6_31Gd_noncanonical():
     E_list, T_list, C, basis = apyib.energy.energy(parameters)
     E_tot = E_list[0] + E_list[1] + E_list[2]
     print(E_tot)
-
-    H = apyib.hamiltonian.Hamiltonian(parameters)
-    wfn = apyib.hf_wfn.hf_wfn(H)
 
     # Compute analytic AATs using apyib.
     analytic_derivative = apyib.analytic.analytic_derivative(parameters)
