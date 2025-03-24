@@ -3,6 +3,7 @@
 import psi4
 import numpy as np
 import scipy.linalg as la
+import opt_einsum as oe
 from apyib.utils import solve_DIIS
 
 class hf_wfn(object):
@@ -54,7 +55,7 @@ class hf_wfn(object):
         C = X @ C_p
 
         # Compute the inital density matrix.
-        D = np.einsum('mp,np->mn', C[0:self.nbf,0:self.ndocc], np.conjugate(C[0:self.nbf,0:self.ndocc]))
+        D = oe.contract('mp,np->mn', C[0:self.nbf,0:self.ndocc], np.conjugate(C[0:self.nbf,0:self.ndocc]))
 
         # Compute the inital Hartree-Fock Energy
         E_SCF = 0
@@ -79,7 +80,7 @@ class hf_wfn(object):
             D_old = D
 
             # Solve for the Fock matrix.
-            F = H_core + np.einsum('ls,mnls->mn', D, 2 * H.ERI - H.ERI.swapaxes(1,2))
+            F = H_core + oe.contract('ls,mnls->mn', D, 2 * H.ERI - H.ERI.swapaxes(1,2))
 
             # Solve DIIS equations.
             if parameters['DIIS']:
@@ -92,7 +93,7 @@ class hf_wfn(object):
                 C = self.C = X @ C_p
 
             # Compute the new density.
-            D = np.einsum('mp,np->mn', C[0:self.nbf,0:self.ndocc], np.conjugate(C[0:self.nbf,0:self.ndocc]))
+            D = oe.contract('mp,np->mn', C[0:self.nbf,0:self.ndocc], np.conjugate(C[0:self.nbf,0:self.ndocc]))
 
             # Compute the new energy.
             E_SCF = 0.0
@@ -129,15 +130,15 @@ class hf_wfn(object):
 
         #################################################
         ## Compute the AO to MO transformed SCF energy.
-        #H_core_MO = np.einsum('ip,ij,jq->pq', np.conjugate(C), H.T + H.V, C)
-        #F_MO = np.einsum('ip,ij,jq->pq', np.conjugate(C), F, C)
+        #H_core_MO = oe.contract('ip,ij,jq->pq', np.conjugate(C), H.T + H.V, C)
+        #F_MO = oe.contract('ip,ij,jq->pq', np.conjugate(C), F, C)
         #E1 = 0.0 
         #for i in range(0,self.ndocc):
         #    E1 += H_core_MO[i][i] + F_MO[i][i]
         #print('AO to MO Transformed Energy:', E1 + self.H.E_nuc)
 
         ## Compute AO density based SCF energy.
-        #E_SCF1 = np.einsum('vu,uv->', D, H_core + F)
+        #E_SCF1 = oe.contract('vu,uv->', D, H_core + F)
         #print('AO Density-Based Energy:',E_SCF1 + self.H.E_nuc)
 
         ##print(C,'\n')

@@ -3,6 +3,7 @@
 import psi4
 import numpy as np
 import scipy.linalg as la
+import opt_einsum as oe
 from apyib.hamiltonian import Hamiltonian
 from apyib.hf_wfn import hf_wfn
 from apyib.utils import solve_DIIS
@@ -53,7 +54,7 @@ class mp2_wfn(object):
         t2 = ERI_MO.copy().swapaxes(0,2).swapaxes(1,3)[o_,o_,v_,v_] / self.D_ijab
 
         # Compute the MP2 energy.
-        E_MP2 = np.einsum('ijab,ijab->', 2 * ERI_MO[o_,o_,v_,v_] - ERI_MO.swapaxes(2,3)[o_,o_,v_,v_], t2)
+        E_MP2 = oe.contract('ijab,ijab->', 2 * ERI_MO[o_,o_,v_,v_] - ERI_MO.swapaxes(2,3)[o_,o_,v_,v_], t2)
 
         return E_MP2, t2
 
@@ -81,7 +82,7 @@ class mp2_wfn(object):
         t2 = (ERI_SO.copy().swapaxes(0,2).swapaxes(1,3)[o_,o_,v_,v_] - ERI_SO.copy().swapaxes(2,3).swapaxes(0,2).swapaxes(1,3)[o_,o_,v_,v_]) / D_ijab
 
         # Compute the MP2 energy.
-        E_MP2 = 0.25 * np.einsum('ijab,ijab->', ERI_SO[o_,o_,v_,v_] - ERI_SO.swapaxes(2,3)[o_,o_,v_,v_], t2) 
+        E_MP2 = 0.25 * oe.contract('ijab,ijab->', ERI_SO[o_,o_,v_,v_] - ERI_SO.swapaxes(2,3)[o_,o_,v_,v_], t2) 
 
         return E_MP2, t2
 

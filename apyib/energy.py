@@ -2,6 +2,7 @@
 
 import psi4
 import numpy as np
+import opt_einsum as oe
 import scipy.linalg as la
 from apyib.utils import compute_F_SO
 from apyib.utils import compute_ERI_SO

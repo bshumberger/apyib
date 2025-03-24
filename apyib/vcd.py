@@ -2,6 +2,7 @@
 
 import psi4
 import numpy as np
+import opt_einsum as oe
 import scipy.linalg as la
 from apyib.utils import run_psi4
 from apyib.utils import compute_F_SO
@@ -181,8 +182,8 @@ class vcd(object):
     #    R = np.zeros((3 * self.natom - 6))
     #    D = np.zeros((3 * self.natom - 6))
     #    for i in range(3 * self.natom - 6):
-    #        R[i] = np.einsum('i,i->', P_i[:,i].real, M_i[:,i].real)
-    #        D[i] = np.einsum('i,i->', P_i[:,i].real, P_i[:,i].real)
+    #        R[i] = oe.contract('i,i->', P_i[:,i].real, M_i[:,i].real)
+    #        D[i] = oe.contract('i,i->', P_i[:,i].real, P_i[:,i].real)
 
     #    print("\nFrequency   IR Intensity   Rotational Strength")
     #    print(" (cm-1)      (km/mol)    (esu**2 cm**2 10**44)")
@@ -285,8 +286,8 @@ class vcd(object):
         R = np.zeros((3 * self.natom - 6)) 
         D = np.zeros((3 * self.natom - 6)) 
         for i in range(3 * self.natom - 6): 
-            R[i] = np.einsum('i,i->', P_i[:,i].real, M_i[:,i].real)
-            D[i] = np.einsum('i,i->', P_i[:,i].real, P_i[:,i].real)
+            R[i] = oe.contract('i,i->', P_i[:,i].real, M_i[:,i].real)
+            D[i] = oe.contract('i,i->', P_i[:,i].real, P_i[:,i].real)
 
         print("\nFrequency   IR Intensity   Rotational Strength")
         print(" (cm-1)      (km/mol)    (esu**2 cm**2 10**44)")

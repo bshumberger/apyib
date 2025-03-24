@@ -2,6 +2,7 @@
 
 import numpy as np
 import psi4
+import opt_einsum as oe
 
 
 
@@ -78,7 +79,7 @@ def solve_DIIS(parameters, F, D, S, X, F_iter, e_iter, min_DIIS=1, max_DIIS=7):
     B[-1,-1] = 0 
     for m in range(len(e_iter)):
         for n in range(len(e_iter)):
-            #B[m,n] = np.einsum('mn, mn->',e_iter[m], e_iter[n], optimize=True)
+            #B[m,n] = oe.contract('mn, mn->',e_iter[m], e_iter[n], optimize=True)
             for o in range(len(e_diis[0])):
                 for p in range(len(e_diis[0])):
                     B[m,n] = B[m,n] + e_iter[m][o][p] * e_iter[n][o][p]
@@ -156,19 +157,19 @@ def compute_F_MO(parameters, wfn, C_list):
     E_fc = 0
     if parameters['freeze_core'] == True:
         C_fc = C[:,f]
-        D_fc = np.einsum('mp,np->mn', C_fc, np.conjugate(C_fc))
-        h_AO_fc = h_AO + np.einsum('ls,mnls->mn', D_fc, 2 * ERI_AO - ERI_AO.swapaxes(1,2))
-        E_fc = np.einsum('nm,mn->', D_fc, h_AO + h_AO_fc)
+        D_fc = oe.contract('mp,np->mn', C_fc, np.conjugate(C_fc))
+        h_AO_fc = h_AO + oe.contract('ls,mnls->mn', D_fc, 2 * ERI_AO - ERI_AO.swapaxes(1,2))
+        E_fc = oe.contract('nm,mn->', D_fc, h_AO + h_AO_fc)
         h_AO = h_AO_fc
 
     # Compute the density.
-    D = np.einsum('mp,np->mn', C[:,o], np.conjugate(C[:,o]))
+    D = oe.contract('mp,np->mn', C[:,o], np.conjugate(C[:,o]))
 
     # Compute the Fock matrix elements.
-    F_AO = h_AO + np.einsum('ls,mnls->mn', D, 2 * ERI_AO - ERI_AO.swapaxes(1,2))
+    F_AO = h_AO + oe.contract('ls,mnls->mn', D, 2 * ERI_AO - ERI_AO.swapaxes(1,2))
 
     # Compute MO Fock matrix elements.
-    F_MO = np.einsum('ip,ij,jq->pq', np.conjugate(C[:,t]), F_AO, C[:,t])
+    F_MO = oe.contract('ip,ij,jq->pq', np.conjugate(C[:,t]), F_AO, C[:,t])
 
     return F_MO, E_fc
 
@@ -190,10 +191,10 @@ def compute_ERI_MO(parameters, wfn, C_list):
     ERI_AO = wfn.H.ERI.copy()
 
     # Compute the two-electron MO integrals.
-    ERI_MO = np.einsum('mnlg,gs->mnls', ERI_AO, C)
-    ERI_MO = np.einsum('mnls,lr->mnrs', ERI_MO, np.conjugate(C))
-    ERI_MO = np.einsum('nq,mnrs->mqrs', C, ERI_MO)
-    ERI_MO = np.einsum('mp,mqrs->pqrs', np.conjugate(C), ERI_MO)
+    ERI_MO = oe.contract('mnlg,gs->mnls', ERI_AO, C)
+    ERI_MO = oe.contract('mnls,lr->mnrs', ERI_MO, np.conjugate(C))
+    ERI_MO = oe.contract('nq,mnrs->mqrs', C, ERI_MO)
+    ERI_MO = oe.contract('mp,mqrs->pqrs', np.conjugate(C), ERI_MO)
 
     return ERI_MO
 

@@ -2,6 +2,7 @@
 
 import psi4
 import numpy as np
+import opt_einsum as oe
 import math
 import itertools as it
 import time

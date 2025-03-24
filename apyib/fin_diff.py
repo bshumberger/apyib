@@ -2,6 +2,7 @@
 
 import numpy as np
 import psi4
+import opt_einsum as oe
 from apyib.energy import energy
 from apyib.energy import phase_corrected_energy
 #from apyib.rotational_strength import compute_mo_overlap

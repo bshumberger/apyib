@@ -6,6 +6,7 @@ import math
 import itertools as it
 import time
 import gc
+import opt_einsum as oe
 from apyib.utils import compute_mo_overlap
 from apyib.utils import compute_so_overlap
 from apyib.hamiltonian import Hamiltonian
@@ -140,18 +141,18 @@ class AAT(object):
             N_mn = 1
 
         elif normalization == 'full' and self.parameters['method'] == 'CISD_SO':
-            N = 1 / np.sqrt(self.unperturbed_T[0]**2 + np.einsum('ia,ia->', np.conjugate(self.unperturbed_T[1]), self.unperturbed_T[1]) + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.unperturbed_T[2]), self.unperturbed_T[2]))
-            N_np = 1 / np.sqrt(self.nuc_pos_T[alpha][0]**2 + np.einsum('ia,ia->', np.conjugate(self.nuc_pos_T[alpha][1]), self.nuc_pos_T[alpha][1]) + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_pos_T[alpha][2]), self.nuc_pos_T[alpha][2]))
-            N_nn = 1 / np.sqrt(self.nuc_neg_T[alpha][0]**2 + np.einsum('ia,ia->', np.conjugate(self.nuc_neg_T[alpha][1]), self.nuc_neg_T[alpha][1]) + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_neg_T[alpha][2]), self.nuc_neg_T[alpha][2]))
-            N_mp = 1 / np.sqrt(self.mag_pos_T[beta][0]**2 + np.einsum('ia,ia->', np.conjugate(self.mag_pos_T[beta][1]), self.mag_pos_T[beta][1]) + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.mag_pos_T[beta][2]), self.mag_pos_T[beta][2]))
-            N_mn = 1 / np.sqrt(self.mag_neg_T[beta][0]**2 + np.einsum('ia,ia->', np.conjugate(self.mag_neg_T[beta][1]), self.mag_neg_T[beta][1]) + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.mag_neg_T[beta][2]), self.mag_neg_T[beta][2]))
+            N = 1 / np.sqrt(self.unperturbed_T[0]**2 + oe.contract('ia,ia->', np.conjugate(self.unperturbed_T[1]), self.unperturbed_T[1]) + 0.25 * oe.contract('ijab,ijab->', np.conjugate(self.unperturbed_T[2]), self.unperturbed_T[2]))
+            N_np = 1 / np.sqrt(self.nuc_pos_T[alpha][0]**2 + oe.contract('ia,ia->', np.conjugate(self.nuc_pos_T[alpha][1]), self.nuc_pos_T[alpha][1]) + 0.25 * oe.contract('ijab,ijab->', np.conjugate(self.nuc_pos_T[alpha][2]), self.nuc_pos_T[alpha][2]))
+            N_nn = 1 / np.sqrt(self.nuc_neg_T[alpha][0]**2 + oe.contract('ia,ia->', np.conjugate(self.nuc_neg_T[alpha][1]), self.nuc_neg_T[alpha][1]) + 0.25 * oe.contract('ijab,ijab->', np.conjugate(self.nuc_neg_T[alpha][2]), self.nuc_neg_T[alpha][2]))
+            N_mp = 1 / np.sqrt(self.mag_pos_T[beta][0]**2 + oe.contract('ia,ia->', np.conjugate(self.mag_pos_T[beta][1]), self.mag_pos_T[beta][1]) + 0.25 * oe.contract('ijab,ijab->', np.conjugate(self.mag_pos_T[beta][2]), self.mag_pos_T[beta][2]))
+            N_mn = 1 / np.sqrt(self.mag_neg_T[beta][0]**2 + oe.contract('ia,ia->', np.conjugate(self.mag_neg_T[beta][1]), self.mag_neg_T[beta][1]) + 0.25 * oe.contract('ijab,ijab->', np.conjugate(self.mag_neg_T[beta][2]), self.mag_neg_T[beta][2]))
 
         elif normalization == 'full' and self.parameters['method'] != 'CISD_SO':
-            N = 1 / np.sqrt(self.unperturbed_T[0]**2 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.unperturbed_T[2]), self.unperturbed_T[2]))
-            N_np = 1 / np.sqrt(self.nuc_pos_T[alpha][0]**2 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_pos_T[alpha][2]), self.nuc_pos_T[alpha][2]))
-            N_nn = 1 / np.sqrt(self.nuc_neg_T[alpha][0]**2 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.nuc_neg_T[alpha][2]), self.nuc_neg_T[alpha][2]))
-            N_mp = 1 / np.sqrt(self.mag_pos_T[beta][0]**2 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.mag_pos_T[beta][2]), self.mag_pos_T[beta][2]))
-            N_mn = 1 / np.sqrt(self.mag_neg_T[beta][0]**2 + 0.25 * np.einsum('ijab,ijab->', np.conjugate(self.mag_neg_T[beta][2]), self.mag_neg_T[beta][2]))
+            N = 1 / np.sqrt(self.unperturbed_T[0]**2 + 0.25 * oe.contract('ijab,ijab->', np.conjugate(self.unperturbed_T[2]), self.unperturbed_T[2]))
+            N_np = 1 / np.sqrt(self.nuc_pos_T[alpha][0]**2 + 0.25 * oe.contract('ijab,ijab->', np.conjugate(self.nuc_pos_T[alpha][2]), self.nuc_pos_T[alpha][2]))
+            N_nn = 1 / np.sqrt(self.nuc_neg_T[alpha][0]**2 + 0.25 * oe.contract('ijab,ijab->', np.conjugate(self.nuc_neg_T[alpha][2]), self.nuc_neg_T[alpha][2]))
+            N_mp = 1 / np.sqrt(self.mag_pos_T[beta][0]**2 + 0.25 * oe.contract('ijab,ijab->', np.conjugate(self.mag_pos_T[beta][2]), self.mag_pos_T[beta][2]))
+            N_mn = 1 / np.sqrt(self.mag_neg_T[beta][0]**2 + 0.25 * oe.contract('ijab,ijab->', np.conjugate(self.mag_neg_T[beta][2]), self.mag_neg_T[beta][2]))
 
         return N, N_np, N_nn, N_mp, N_mn
 
@@ -655,17 +656,17 @@ class AAT(object):
             N_mp = 1 
             N_mn = 1
         elif normalization == 'full' and self.parameters['method'] != 'CISD':
-            N = 1 / np.sqrt(self.unperturbed_T[0] + (2*np.einsum('ijab,ijab->', np.conjugate(self.unperturbed_T[2]), self.unperturbed_T[2]) - np.einsum('ijab,ijba->', np.conjugate(self.unperturbed_T[2]), self.unperturbed_T[2])))
-            N_np = 1 / np.sqrt(self.nuc_pos_T[alpha][0] + (2*np.einsum('ijab,ijab->', np.conjugate(self.nuc_pos_T[alpha][2]), self.nuc_pos_T[alpha][2]) - np.einsum('ijab,ijba->', np.conjugate(self.nuc_pos_T[alpha][2]), self.nuc_pos_T[alpha][2])))
-            N_nn = 1 / np.sqrt(self.nuc_neg_T[alpha][0] + (2*np.einsum('ijab,ijab->', np.conjugate(self.nuc_neg_T[alpha][2]), self.nuc_neg_T[alpha][2]) - np.einsum('ijab,ijba->', np.conjugate(self.nuc_neg_T[alpha][2]), self.nuc_neg_T[alpha][2])))
-            N_mp = 1 / np.sqrt(self.mag_pos_T[beta][0] + (2*np.einsum('ijab,ijab->', np.conjugate(self.mag_pos_T[beta][2]), self.mag_pos_T[beta][2]) - np.einsum('ijab,ijba->', np.conjugate(self.mag_pos_T[beta][2]), self.mag_pos_T[beta][2])))
-            N_mn = 1 / np.sqrt(self.mag_neg_T[beta][0] + (2*np.einsum('ijab,ijab->', np.conjugate(self.mag_neg_T[beta][2]), self.mag_neg_T[beta][2]) - np.einsum('ijab,ijba->', np.conjugate(self.mag_neg_T[beta][2]), self.mag_neg_T[beta][2])))
+            N = 1 / np.sqrt(self.unperturbed_T[0] + (2*oe.contract('ijab,ijab->', np.conjugate(self.unperturbed_T[2]), self.unperturbed_T[2]) - oe.contract('ijab,ijba->', np.conjugate(self.unperturbed_T[2]), self.unperturbed_T[2])))
+            N_np = 1 / np.sqrt(self.nuc_pos_T[alpha][0] + (2*oe.contract('ijab,ijab->', np.conjugate(self.nuc_pos_T[alpha][2]), self.nuc_pos_T[alpha][2]) - oe.contract('ijab,ijba->', np.conjugate(self.nuc_pos_T[alpha][2]), self.nuc_pos_T[alpha][2])))
+            N_nn = 1 / np.sqrt(self.nuc_neg_T[alpha][0] + (2*oe.contract('ijab,ijab->', np.conjugate(self.nuc_neg_T[alpha][2]), self.nuc_neg_T[alpha][2]) - oe.contract('ijab,ijba->', np.conjugate(self.nuc_neg_T[alpha][2]), self.nuc_neg_T[alpha][2])))
+            N_mp = 1 / np.sqrt(self.mag_pos_T[beta][0] + (2*oe.contract('ijab,ijab->', np.conjugate(self.mag_pos_T[beta][2]), self.mag_pos_T[beta][2]) - oe.contract('ijab,ijba->', np.conjugate(self.mag_pos_T[beta][2]), self.mag_pos_T[beta][2])))
+            N_mn = 1 / np.sqrt(self.mag_neg_T[beta][0] + (2*oe.contract('ijab,ijab->', np.conjugate(self.mag_neg_T[beta][2]), self.mag_neg_T[beta][2]) - oe.contract('ijab,ijba->', np.conjugate(self.mag_neg_T[beta][2]), self.mag_neg_T[beta][2])))
         elif normalization == 'full' and self.parameters['method'] == 'CISD':
-            N = 1 / np.sqrt(self.unperturbed_T[0] + 2*np.einsum('ia,ia->', np.conjugate(self.unperturbed_T[1]), self.unperturbed_T[1]) + (2*np.einsum('ijab,ijab->', np.conjugate(self.unperturbed_T[2]), self.unperturbed_T[2]) - np.einsum('ijab,ijba->', np.conjugate(self.unperturbed_T[2]), self.unperturbed_T[2])))
-            N_np = 1 / np.sqrt(self.nuc_pos_T[alpha][0] + 2*np.einsum('ia,ia->', np.conjugate(self.nuc_pos_T[alpha][1]), self.nuc_pos_T[alpha][1]) + (2*np.einsum('ijab,ijab->', np.conjugate(self.nuc_pos_T[alpha][2]), self.nuc_pos_T[alpha][2]) - np.einsum('ijab,ijba->', np.conjugate(self.nuc_pos_T[alpha][2]), self.nuc_pos_T[alpha][2])))
-            N_nn = 1 / np.sqrt(self.nuc_neg_T[alpha][0] + 2*np.einsum('ia,ia->', np.conjugate(self.nuc_neg_T[alpha][1]), self.nuc_neg_T[alpha][1]) + (2*np.einsum('ijab,ijab->', np.conjugate(self.nuc_neg_T[alpha][2]), self.nuc_neg_T[alpha][2]) - np.einsum('ijab,ijba->', np.conjugate(self.nuc_neg_T[alpha][2]), self.nuc_neg_T[alpha][2])))
-            N_mp = 1 / np.sqrt(self.mag_pos_T[beta][0] + 2*np.einsum('ia,ia->', np.conjugate(self.mag_pos_T[beta][1]), self.mag_pos_T[beta][1]) + (2*np.einsum('ijab,ijab->', np.conjugate(self.mag_pos_T[beta][2]), self.mag_pos_T[beta][2]) - np.einsum('ijab,ijba->', np.conjugate(self.mag_pos_T[beta][2]), self.mag_pos_T[beta][2])))
-            N_mn = 1 / np.sqrt(self.mag_neg_T[beta][0] + 2*np.einsum('ia,ia->', np.conjugate(self.mag_neg_T[beta][1]), self.mag_neg_T[beta][1]) + (2*np.einsum('ijab,ijab->', np.conjugate(self.mag_neg_T[beta][2]), self.mag_neg_T[beta][2]) - np.einsum('ijab,ijba->', np.conjugate(self.mag_neg_T[beta][2]), self.mag_neg_T[beta][2])))
+            N = 1 / np.sqrt(self.unperturbed_T[0] + 2*oe.contract('ia,ia->', np.conjugate(self.unperturbed_T[1]), self.unperturbed_T[1]) + (2*oe.contract('ijab,ijab->', np.conjugate(self.unperturbed_T[2]), self.unperturbed_T[2]) - oe.contract('ijab,ijba->', np.conjugate(self.unperturbed_T[2]), self.unperturbed_T[2])))
+            N_np = 1 / np.sqrt(self.nuc_pos_T[alpha][0] + 2*oe.contract('ia,ia->', np.conjugate(self.nuc_pos_T[alpha][1]), self.nuc_pos_T[alpha][1]) + (2*oe.contract('ijab,ijab->', np.conjugate(self.nuc_pos_T[alpha][2]), self.nuc_pos_T[alpha][2]) - oe.contract('ijab,ijba->', np.conjugate(self.nuc_pos_T[alpha][2]), self.nuc_pos_T[alpha][2])))
+            N_nn = 1 / np.sqrt(self.nuc_neg_T[alpha][0] + 2*oe.contract('ia,ia->', np.conjugate(self.nuc_neg_T[alpha][1]), self.nuc_neg_T[alpha][1]) + (2*oe.contract('ijab,ijab->', np.conjugate(self.nuc_neg_T[alpha][2]), self.nuc_neg_T[alpha][2]) - oe.contract('ijab,ijba->', np.conjugate(self.nuc_neg_T[alpha][2]), self.nuc_neg_T[alpha][2])))
+            N_mp = 1 / np.sqrt(self.mag_pos_T[beta][0] + 2*oe.contract('ia,ia->', np.conjugate(self.mag_pos_T[beta][1]), self.mag_pos_T[beta][1]) + (2*oe.contract('ijab,ijab->', np.conjugate(self.mag_pos_T[beta][2]), self.mag_pos_T[beta][2]) - oe.contract('ijab,ijba->', np.conjugate(self.mag_pos_T[beta][2]), self.mag_pos_T[beta][2])))
+            N_mn = 1 / np.sqrt(self.mag_neg_T[beta][0] + 2*oe.contract('ia,ia->', np.conjugate(self.mag_neg_T[beta][1]), self.mag_neg_T[beta][1]) + (2*oe.contract('ijab,ijab->', np.conjugate(self.mag_neg_T[beta][2]), self.mag_neg_T[beta][2]) - oe.contract('ijab,ijba->', np.conjugate(self.mag_neg_T[beta][2]), self.mag_neg_T[beta][2])))
 
         # Compute the HF AAT.
         S_pp = np.linalg.det(self.overlap_pp[alpha][beta][0:self.ndocc,0:self.ndocc])**2
@@ -714,26 +715,26 @@ class AAT(object):
 
             if self.parameters['method'] == 'CISD':
                 # dt_ia/dR dt_kc/dH < ia | kc >
-                I_SS += 2 * np.einsum('ia,kc,iakc->', t1_dR, t1_dH, ia_S_kc_uu) * S_uu
-                I_SS += 2 * np.einsum('ia,ia->', t1_dR, ia_S_uu) * np.einsum('kc,kc->', t1_dH, S_kc_uu)
+                I_SS += 2 * oe.contract('ia,kc,iakc->', t1_dR, t1_dH, ia_S_kc_uu) * S_uu
+                I_SS += 2 * oe.contract('ia,ia->', t1_dR, ia_S_uu) * oe.contract('kc,kc->', t1_dH, S_kc_uu)
 
                 # dt_ijab/dR dt_kc/dH < ijab | kc >
-                I_DS += 0.5 * np.einsum('ijab,kc,iajbkc->', t2_dR - np.swapaxes(t2_dR, 2, 3), t1_dH, iajb_S_kc_uu) * S_uu
-                I_DS += 0.5 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_uu) * np.einsum('kc,kc->', t1_dH, S_kc_uu)
-                I_DS += 2 * np.einsum('ijab,kc,iakc,jb->', t2_dR, t1_dH, ia_S_kc_uu, ia_S_uu)
+                I_DS += 0.5 * oe.contract('ijab,kc,iajbkc->', t2_dR - np.swapaxes(t2_dR, 2, 3), t1_dH, iajb_S_kc_uu) * S_uu
+                I_DS += 0.5 * oe.contract('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_uu) * oe.contract('kc,kc->', t1_dH, S_kc_uu)
+                I_DS += 2 * oe.contract('ijab,kc,iakc,jb->', t2_dR, t1_dH, ia_S_kc_uu, ia_S_uu)
 
                 # dt_ia/dR dt_klcd/dH < ia | klcd >
-                I_SD += 0.5 * np.einsum('ia,klcd,iakcld->', t1_dR, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_kcld_uu) * S_uu
-                I_SD += 0.5 * np.einsum('ia,ia->', t1_dR, ia_S_uu) * np.einsum('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_uu)
-                I_SD += 2 * np.einsum('ia,klcd,iakc,ld->', t1_dR, t2_dH, ia_S_kc_uu, S_kc_uu)
+                I_SD += 0.5 * oe.contract('ia,klcd,iakcld->', t1_dR, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_kcld_uu) * S_uu
+                I_SD += 0.5 * oe.contract('ia,ia->', t1_dR, ia_S_uu) * oe.contract('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_uu)
+                I_SD += 2 * oe.contract('ia,klcd,iakc,ld->', t1_dR, t2_dH, ia_S_kc_uu, S_kc_uu)
 
             # dt_ijab/dR dt_klcd/dH < ijab | klcd >
-            I_DD += 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2_dH - np.swapaxes(t2_dH, 2, 3), iajb_S_kcld_uu) * S_uu
-            I_DD += 0.125 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_uu) * np.einsum('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_uu)
-            I_DD += 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2_dH, iajb_S_kc_uu, S_kc_uu)
-            I_DD += 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_dR, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_kcld_uu, ia_S_uu)
-            I_DD += 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_dR, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_uu, ia_S_kcld_uu)
-            I_DD += 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_dR, t2_dH, ia_S_kc_uu, ia_S_kc_uu)
+            I_DD += 0.125 * oe.contract('ijab,klcd,iajbkcld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2_dH - np.swapaxes(t2_dH, 2, 3), iajb_S_kcld_uu) * S_uu
+            I_DD += 0.125 * oe.contract('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_uu) * oe.contract('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_uu)
+            I_DD += 0.125 * 4 * oe.contract('ijab,klcd,iajbkc,ld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2_dH, iajb_S_kc_uu, S_kc_uu)
+            I_DD += 0.125 * 2 * oe.contract('ijab,klcd,iakcld,jb->', t2_dR, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_kcld_uu, ia_S_uu)
+            I_DD += 0.125 * 2 * oe.contract('ijab,klcd,ia,jbkcld->', t2_dR, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_uu, ia_S_kcld_uu)
+            I_DD += 0.125 * 2 * 4 * oe.contract('ijab,klcd,iakc,jbld->', t2_dR, t2_dH, ia_S_kc_uu, ia_S_kc_uu)
             del S_uu; del ia_S_uu; del S_kc_uu; del iajb_S_uu; del S_kcld_uu; del ia_S_kc_uu; del iajb_S_kc_uu; del ia_S_kcld_uu; del iajb_S_kcld_uu
             gc.collect()
 
@@ -742,33 +743,33 @@ class AAT(object):
 
             if self.parameters['method'] == 'CISD':
                 # dt_ia/dR < ia | d0/dH >
-                I_S0 += 2 * np.einsum('ia,ia->', t1_dR, ia_S_up) * S_up * N_mp
+                I_S0 += 2 * oe.contract('ia,ia->', t1_dR, ia_S_up) * S_up * N_mp
 
                 # dt_ijab/dR < ijab | d0/dH >
-                I_D0 += 0.5 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_up) * S_up
-                I_D0 += np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_dR, ia_S_up), ia_S_up)
+                I_D0 += 0.5 * oe.contract('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_up) * S_up
+                I_D0 += oe.contract('jb,jb->', oe.contract('ijab,ia->jb', t2_dR, ia_S_up), ia_S_up)
 
                 # dt_ia/dR t_kc < ia | dkc/dH >
-                I_SS += 2 * np.einsum('ia,kc,iakc->', t1_dR, t1, ia_S_kc_up) * S_up
-                I_SS += 2 * np.einsum('ia,ia->', t1_dR, ia_S_up) * np.einsum('kc,kc->', t1, S_kc_up)
+                I_SS += 2 * oe.contract('ia,kc,iakc->', t1_dR, t1, ia_S_kc_up) * S_up
+                I_SS += 2 * oe.contract('ia,ia->', t1_dR, ia_S_up) * oe.contract('kc,kc->', t1, S_kc_up)
 
                 # dt_ijab/dR t_kc < ijab | dkc/dH >
-                I_DS += 0.5 * np.einsum('ijab,kc,iajbkc->', t2_dR - np.swapaxes(t2_dR, 2, 3), t1, iajb_S_kc_up) * S_up
-                I_DS += 0.5 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_up) * np.einsum('kc,kc->', t1, S_kc_up)
-                I_DS += 2 * np.einsum('ijab,kc,iakc,jb->', t2_dR, t1, ia_S_kc_up, ia_S_up)
+                I_DS += 0.5 * oe.contract('ijab,kc,iajbkc->', t2_dR - np.swapaxes(t2_dR, 2, 3), t1, iajb_S_kc_up) * S_up
+                I_DS += 0.5 * oe.contract('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_up) * oe.contract('kc,kc->', t1, S_kc_up)
+                I_DS += 2 * oe.contract('ijab,kc,iakc,jb->', t2_dR, t1, ia_S_kc_up, ia_S_up)
 
                 # dt_ia/dR t_klcd < ia | dklcd/dH >
-                I_SD += 0.5 * np.einsum('ia,klcd,iakcld->', t1_dR, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_up) * S_up
-                I_SD += 0.5 * np.einsum('ia,ia->', t1_dR, ia_S_up) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_up)
-                I_SD += 2 * np.einsum('ia,klcd,iakc,ld->', t1_dR, t2, ia_S_kc_up, S_kc_up)
+                I_SD += 0.5 * oe.contract('ia,klcd,iakcld->', t1_dR, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_up) * S_up
+                I_SD += 0.5 * oe.contract('ia,ia->', t1_dR, ia_S_up) * oe.contract('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_up)
+                I_SD += 2 * oe.contract('ia,klcd,iakc,ld->', t1_dR, t2, ia_S_kc_up, S_kc_up)
 
             # dt_ijab/dR t_klcd < ijab | dklcd/dH >
-            I_DD += 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_up) * S_up
-            I_DD += 0.125 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_up) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_up)
-            I_DD += 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2, iajb_S_kc_up, S_kc_up)
-            I_DD += 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_dR, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_up, ia_S_up)
-            I_DD += 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_dR, t2 - np.swapaxes(t2, 2, 3), ia_S_up, ia_S_kcld_up)
-            I_DD += 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_dR, t2, ia_S_kc_up, ia_S_kc_up)
+            I_DD += 0.125 * oe.contract('ijab,klcd,iajbkcld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_up) * S_up
+            I_DD += 0.125 * oe.contract('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_up) * oe.contract('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_up)
+            I_DD += 0.125 * 4 * oe.contract('ijab,klcd,iajbkc,ld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2, iajb_S_kc_up, S_kc_up)
+            I_DD += 0.125 * 2 * oe.contract('ijab,klcd,iakcld,jb->', t2_dR, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_up, ia_S_up)
+            I_DD += 0.125 * 2 * oe.contract('ijab,klcd,ia,jbkcld->', t2_dR, t2 - np.swapaxes(t2, 2, 3), ia_S_up, ia_S_kcld_up)
+            I_DD += 0.125 * 2 * 4 * oe.contract('ijab,klcd,iakc,jbld->', t2_dR, t2, ia_S_kc_up, ia_S_kc_up)
             del S_up; del ia_S_up; del S_kc_up; del iajb_S_up; del S_kcld_up; del ia_S_kc_up; del iajb_S_kc_up; del ia_S_kcld_up; del iajb_S_kcld_up
             gc.collect()
 
@@ -777,33 +778,33 @@ class AAT(object):
 
             if self.parameters['method'] == 'CISD':
                 # dt_ia/dR < ia | d0/dH >
-                I_S0 -= 2 * np.einsum('ia,ia->', t1_dR, ia_S_un) * S_un * N_mn
+                I_S0 -= 2 * oe.contract('ia,ia->', t1_dR, ia_S_un) * S_un * N_mn
 
                 # dt_ijab/dR < ijab | d0/dH >
-                I_D0 -= 0.5 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_un) * S_un
-                I_D0 -= np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_dR, ia_S_un), ia_S_un)
+                I_D0 -= 0.5 * oe.contract('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_un) * S_un
+                I_D0 -= oe.contract('jb,jb->', oe.contract('ijab,ia->jb', t2_dR, ia_S_un), ia_S_un)
 
                 # dt_ia/dR t_kc < ia | dkc/dH >
-                I_SS -= 2 * np.einsum('ia,kc,iakc->', t1_dR, t1, ia_S_kc_un) * S_un
-                I_SS -= 2 * np.einsum('ia,ia->', t1_dR, ia_S_un) * np.einsum('kc,kc->', t1, S_kc_un)
+                I_SS -= 2 * oe.contract('ia,kc,iakc->', t1_dR, t1, ia_S_kc_un) * S_un
+                I_SS -= 2 * oe.contract('ia,ia->', t1_dR, ia_S_un) * oe.contract('kc,kc->', t1, S_kc_un)
 
                 # dt_ijab/dR t_kc < ijab | dkc/dH >
-                I_DS -= 0.5 * np.einsum('ijab,kc,iajbkc->', t2_dR - np.swapaxes(t2_dR, 2, 3), t1, iajb_S_kc_un) * S_un
-                I_DS -= 0.5 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_un) * np.einsum('kc,kc->', t1, S_kc_un)
-                I_DS -= 2 * np.einsum('ijab,kc,iakc,jb->', t2_dR, t1, ia_S_kc_un, ia_S_un)
+                I_DS -= 0.5 * oe.contract('ijab,kc,iajbkc->', t2_dR - np.swapaxes(t2_dR, 2, 3), t1, iajb_S_kc_un) * S_un
+                I_DS -= 0.5 * oe.contract('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_un) * oe.contract('kc,kc->', t1, S_kc_un)
+                I_DS -= 2 * oe.contract('ijab,kc,iakc,jb->', t2_dR, t1, ia_S_kc_un, ia_S_un)
 
                 # dt_ia/dR t_klcd < ia | dklcd/dH >
-                I_SD -= 0.5 * np.einsum('ia,klcd,iakcld->', t1_dR, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_un) * S_un
-                I_SD -= 0.5 * np.einsum('ia,ia->', t1_dR, ia_S_un) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_un)
-                I_SD -= 2 * np.einsum('ia,klcd,iakc,ld->', t1_dR, t2, ia_S_kc_un, S_kc_un)
+                I_SD -= 0.5 * oe.contract('ia,klcd,iakcld->', t1_dR, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_un) * S_un
+                I_SD -= 0.5 * oe.contract('ia,ia->', t1_dR, ia_S_un) * oe.contract('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_un)
+                I_SD -= 2 * oe.contract('ia,klcd,iakc,ld->', t1_dR, t2, ia_S_kc_un, S_kc_un)
 
             # dt_ijab/dR t_klcd < ijab | dklcd/dH >
-            I_DD -= 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_un) * S_un
-            I_DD -= 0.125 * np.einsum('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_un) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_un)
-            I_DD -= 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2, iajb_S_kc_un, S_kc_un)
-            I_DD -= 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_dR, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_un, ia_S_un)
-            I_DD -= 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_dR, t2 - np.swapaxes(t2, 2, 3), ia_S_un, ia_S_kcld_un)
-            I_DD -= 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_dR, t2, ia_S_kc_un, ia_S_kc_un)
+            I_DD -= 0.125 * oe.contract('ijab,klcd,iajbkcld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_un) * S_un
+            I_DD -= 0.125 * oe.contract('ijab,iajb->', t2_dR - np.swapaxes(t2_dR, 2, 3), iajb_S_un) * oe.contract('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_un)
+            I_DD -= 0.125 * 4 * oe.contract('ijab,klcd,iajbkc,ld->', t2_dR - np.swapaxes(t2_dR, 2, 3), t2, iajb_S_kc_un, S_kc_un)
+            I_DD -= 0.125 * 2 * oe.contract('ijab,klcd,iakcld,jb->', t2_dR, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_un, ia_S_un)
+            I_DD -= 0.125 * 2 * oe.contract('ijab,klcd,ia,jbkcld->', t2_dR, t2 - np.swapaxes(t2, 2, 3), ia_S_un, ia_S_kcld_un)
+            I_DD -= 0.125 * 2 * 4 * oe.contract('ijab,klcd,iakc,jbld->', t2_dR, t2, ia_S_kc_un, ia_S_kc_un)
             del S_un; del ia_S_un; del S_kc_un; del iajb_S_un; del S_kcld_un; del ia_S_kc_un; del iajb_S_kc_un; del ia_S_kcld_un; del iajb_S_kcld_un
             gc.collect()
 
@@ -812,33 +813,33 @@ class AAT(object):
 
             if self.parameters['method'] == 'CISD':
                 # dt_kc/dH < d0/dR | kc >
-                I_0S += 2 * np.einsum('kc,kc->', t1_dH, S_kc_pu) * S_pu * N_np
+                I_0S += 2 * oe.contract('kc,kc->', t1_dH, S_kc_pu) * S_pu * N_np
 
                 # dt_ijab/dH < d0/dR | klcd >
-                I_0D += 0.5 * np.einsum('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_pu) * S_pu
-                I_0D += np.einsum('ld,ld->', np.einsum('klcd,kc->ld', t2_dH, S_kc_pu), S_kc_pu)
+                I_0D += 0.5 * oe.contract('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_pu) * S_pu
+                I_0D += oe.contract('ld,ld->', oe.contract('klcd,kc->ld', t2_dH, S_kc_pu), S_kc_pu)
 
                 # t_ia dt_kc/dH < dia/dR | kc >
-                I_SS += 2 * np.einsum('ia,kc,iakc->', t1_conj, t1_dH, ia_S_kc_pu) * S_pu
-                I_SS += 2 * np.einsum('ia,ia->', t1_conj, ia_S_pu) * np.einsum('kc,kc->', t1_dH, S_kc_pu)
+                I_SS += 2 * oe.contract('ia,kc,iakc->', t1_conj, t1_dH, ia_S_kc_pu) * S_pu
+                I_SS += 2 * oe.contract('ia,ia->', t1_conj, ia_S_pu) * oe.contract('kc,kc->', t1_dH, S_kc_pu)
 
                 # t_ia dt_klcd/dH < dia/dR | klcd >
-                I_SD += 0.5 * np.einsum('ia,klcd,iakcld->', t1_conj, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_kcld_pu) * S_pu
-                I_SD += 0.5 * np.einsum('ia,ia->', t1_conj, ia_S_pu) * np.einsum('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_pu)
-                I_SD += 2 * np.einsum('ia,klcd,iakc,ld->', t1_conj, t2_dH, ia_S_kc_pu, S_kc_pu)
+                I_SD += 0.5 * oe.contract('ia,klcd,iakcld->', t1_conj, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_kcld_pu) * S_pu
+                I_SD += 0.5 * oe.contract('ia,ia->', t1_conj, ia_S_pu) * oe.contract('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_pu)
+                I_SD += 2 * oe.contract('ia,klcd,iakc,ld->', t1_conj, t2_dH, ia_S_kc_pu, S_kc_pu)
 
                 # t_ijab dt_kc/dH < dijab/dR | kc >
-                I_DS += 0.5 * np.einsum('ijab,kc,iajbkc->', t2_conj - np.swapaxes(t2_conj, 2, 3), t1_dH, iajb_S_kc_pu) * S_pu
-                I_DS += 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pu) * np.einsum('kc,kc->', t1_dH, S_kc_pu)
-                I_DS += 2 * np.einsum('ijab,kc,iakc,jb->', t2_conj, t1_dH, ia_S_kc_pu, ia_S_pu)
+                I_DS += 0.5 * oe.contract('ijab,kc,iajbkc->', t2_conj - np.swapaxes(t2_conj, 2, 3), t1_dH, iajb_S_kc_pu) * S_pu
+                I_DS += 0.5 * oe.contract('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pu) * oe.contract('kc,kc->', t1_dH, S_kc_pu)
+                I_DS += 2 * oe.contract('ijab,kc,iakc,jb->', t2_conj, t1_dH, ia_S_kc_pu, ia_S_pu)
 
             # t_ijab dt_klcd/dH < dijab/dR | klcd >
-            I_DD += 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2_dH - np.swapaxes(t2_dH, 2, 3), iajb_S_kcld_pu) * S_pu
-            I_DD += 0.125 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pu) * np.einsum('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_pu)
-            I_DD += 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2_dH, iajb_S_kc_pu, S_kc_pu)
-            I_DD += 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_conj, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_kcld_pu, ia_S_pu)
-            I_DD += 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_conj, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_pu, ia_S_kcld_pu)
-            I_DD += 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2_dH, ia_S_kc_pu, ia_S_kc_pu)
+            I_DD += 0.125 * oe.contract('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2_dH - np.swapaxes(t2_dH, 2, 3), iajb_S_kcld_pu) * S_pu
+            I_DD += 0.125 * oe.contract('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pu) * oe.contract('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_pu)
+            I_DD += 0.125 * 4 * oe.contract('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2_dH, iajb_S_kc_pu, S_kc_pu)
+            I_DD += 0.125 * 2 * oe.contract('ijab,klcd,iakcld,jb->', t2_conj, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_kcld_pu, ia_S_pu)
+            I_DD += 0.125 * 2 * oe.contract('ijab,klcd,ia,jbkcld->', t2_conj, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_pu, ia_S_kcld_pu)
+            I_DD += 0.125 * 2 * 4 * oe.contract('ijab,klcd,iakc,jbld->', t2_conj, t2_dH, ia_S_kc_pu, ia_S_kc_pu)
             del S_pu; del ia_S_pu; del S_kc_pu; del iajb_S_pu; del S_kcld_pu; del ia_S_kc_pu; del iajb_S_kc_pu; del ia_S_kcld_pu; del iajb_S_kcld_pu
             gc.collect()
 
@@ -847,33 +848,33 @@ class AAT(object):
 
             if self.parameters['method'] == 'CISD':
                 # dt_kc/dH < d0/dR | kc >
-                I_0S -= 2 * np.einsum('kc,kc->', t1_dH, S_kc_nu) * S_nu * N_nn
+                I_0S -= 2 * oe.contract('kc,kc->', t1_dH, S_kc_nu) * S_nu * N_nn
 
                 # dt_ijab/dH < d0/dR | klcd >
-                I_0D -= 0.5 * np.einsum('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_nu) * S_nu
-                I_0D -= np.einsum('ld,ld->', np.einsum('klcd,kc->ld', t2_dH, S_kc_nu), S_kc_nu)
+                I_0D -= 0.5 * oe.contract('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_nu) * S_nu
+                I_0D -= oe.contract('ld,ld->', oe.contract('klcd,kc->ld', t2_dH, S_kc_nu), S_kc_nu)
 
                 # t_ia dt_kc/dH < dia/dR | kc >
-                I_SS -= 2 * np.einsum('ia,kc,iakc->', t1_conj, t1_dH, ia_S_kc_nu) * S_nu
-                I_SS -= 2 * np.einsum('ia,ia->', t1_conj, ia_S_nu) * np.einsum('kc,kc->', t1_dH, S_kc_nu)
+                I_SS -= 2 * oe.contract('ia,kc,iakc->', t1_conj, t1_dH, ia_S_kc_nu) * S_nu
+                I_SS -= 2 * oe.contract('ia,ia->', t1_conj, ia_S_nu) * oe.contract('kc,kc->', t1_dH, S_kc_nu)
 
                 # t_ia dt_klcd/dH < dia/dR | klcd >
-                I_SD -= 0.5 * np.einsum('ia,klcd,iakcld->', t1_conj, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_kcld_nu) * S_nu
-                I_SD -= 0.5 * np.einsum('ia,ia->', t1_conj, ia_S_nu) * np.einsum('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_nu)
-                I_SD -= 2 * np.einsum('ia,klcd,iakc,ld->', t1_conj, t2_dH, ia_S_kc_nu, S_kc_nu)
+                I_SD -= 0.5 * oe.contract('ia,klcd,iakcld->', t1_conj, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_kcld_nu) * S_nu
+                I_SD -= 0.5 * oe.contract('ia,ia->', t1_conj, ia_S_nu) * oe.contract('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_nu)
+                I_SD -= 2 * oe.contract('ia,klcd,iakc,ld->', t1_conj, t2_dH, ia_S_kc_nu, S_kc_nu)
 
                 # t_ijab dt_kc/dH < dijab/dR | kc >
-                I_DS -= 0.5 * np.einsum('ijab,kc,iajbkc->', t2_conj - np.swapaxes(t2_conj, 2, 3), t1_dH, iajb_S_kc_nu) * S_nu
-                I_DS -= 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_nu) * np.einsum('kc,kc->', t1_dH, S_kc_nu)
-                I_DS -= 2 * np.einsum('ijab,kc,iakc,jb->', t2_conj, t1_dH, ia_S_kc_nu, ia_S_nu)
+                I_DS -= 0.5 * oe.contract('ijab,kc,iajbkc->', t2_conj - np.swapaxes(t2_conj, 2, 3), t1_dH, iajb_S_kc_nu) * S_nu
+                I_DS -= 0.5 * oe.contract('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_nu) * oe.contract('kc,kc->', t1_dH, S_kc_nu)
+                I_DS -= 2 * oe.contract('ijab,kc,iakc,jb->', t2_conj, t1_dH, ia_S_kc_nu, ia_S_nu)
 
             # t_ijab dt_klcd/dH < dijab/dR | klcd >
-            I_DD -= 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2_dH - np.swapaxes(t2_dH, 2, 3), iajb_S_kcld_nu) * S_nu
-            I_DD -= 0.125 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_nu) * np.einsum('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_nu)
-            I_DD -= 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2_dH, iajb_S_kc_nu, S_kc_nu)
-            I_DD -= 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_conj, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_kcld_nu, ia_S_nu)
-            I_DD -= 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_conj, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_nu, ia_S_kcld_nu)
-            I_DD -= 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2_dH, ia_S_kc_nu, ia_S_kc_nu)
+            I_DD -= 0.125 * oe.contract('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2_dH - np.swapaxes(t2_dH, 2, 3), iajb_S_kcld_nu) * S_nu
+            I_DD -= 0.125 * oe.contract('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_nu) * oe.contract('klcd,kcld->', t2_dH - np.swapaxes(t2_dH, 2, 3), S_kcld_nu)
+            I_DD -= 0.125 * 4 * oe.contract('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2_dH, iajb_S_kc_nu, S_kc_nu)
+            I_DD -= 0.125 * 2 * oe.contract('ijab,klcd,iakcld,jb->', t2_conj, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_kcld_nu, ia_S_nu)
+            I_DD -= 0.125 * 2 * oe.contract('ijab,klcd,ia,jbkcld->', t2_conj, t2_dH - np.swapaxes(t2_dH, 2, 3), ia_S_nu, ia_S_kcld_nu)
+            I_DD -= 0.125 * 2 * 4 * oe.contract('ijab,klcd,iakc,jbld->', t2_conj, t2_dH, ia_S_kc_nu, ia_S_kc_nu)
             del S_nu; del ia_S_nu; del S_kc_nu; del iajb_S_nu; del S_kcld_nu; del ia_S_kc_nu; del iajb_S_kc_nu; del ia_S_kcld_nu; del iajb_S_kcld_nu
             gc.collect()
 
@@ -882,40 +883,40 @@ class AAT(object):
 
             if self.parameters['method'] == 'CISD':
                 # t_kc < d0/dR | dkc/dH >
-                I_0S += 2 * np.einsum('kc,kc->', t1, S_kc_pp) * S_pp * N_np
+                I_0S += 2 * oe.contract('kc,kc->', t1, S_kc_pp) * S_pp * N_np
 
                 # t_ia < dia/dR | d0/dH >
-                I_S0 += 2 * np.einsum('ia,ia->', t1_conj, ia_S_pp) * S_pp * N_mp
+                I_S0 += 2 * oe.contract('ia,ia->', t1_conj, ia_S_pp) * S_pp * N_mp
 
                 # t_klcd < d0/dR | dklcd/dH >
-                I_0D += 0.5 * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pp) * S_pp
-                I_0D += np.einsum('ld,ld->', np.einsum('klcd,kc->ld', t2, S_kc_pp), S_kc_pp)
+                I_0D += 0.5 * oe.contract('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pp) * S_pp
+                I_0D += oe.contract('ld,ld->', oe.contract('klcd,kc->ld', t2, S_kc_pp), S_kc_pp)
 
                 # t_ijab < dijab/dR | d0/dH >
-                I_D0 += 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pp) * S_pp
-                I_D0 += np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_conj, ia_S_pp), ia_S_pp)
+                I_D0 += 0.5 * oe.contract('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pp) * S_pp
+                I_D0 += oe.contract('jb,jb->', oe.contract('ijab,ia->jb', t2_conj, ia_S_pp), ia_S_pp)
 
                 # t_ia t_kc < dia/dR | dkc/dH >
-                I_SS += 2 * np.einsum('ia,kc,iakc->', t1_conj, t1, ia_S_kc_pp) * S_pp
-                I_SS += 2 * np.einsum('ia,ia->', t1_conj, ia_S_pp) * np.einsum('kc,kc->', t1, S_kc_pp)
+                I_SS += 2 * oe.contract('ia,kc,iakc->', t1_conj, t1, ia_S_kc_pp) * S_pp
+                I_SS += 2 * oe.contract('ia,ia->', t1_conj, ia_S_pp) * oe.contract('kc,kc->', t1, S_kc_pp)
 
                 # t_ia t_klcd < dia/dR | dklcd/dH >
-                I_SD += 0.5 * np.einsum('ia,klcd,iakcld->', t1_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_pp) * S_pp
-                I_SD += 0.5 * np.einsum('ia,ia->', t1_conj, ia_S_pp) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pp)
-                I_SD += 2 * np.einsum('ia,klcd,iakc,ld->', t1_conj, t2, ia_S_kc_pp, S_kc_pp)
+                I_SD += 0.5 * oe.contract('ia,klcd,iakcld->', t1_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_pp) * S_pp
+                I_SD += 0.5 * oe.contract('ia,ia->', t1_conj, ia_S_pp) * oe.contract('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pp)
+                I_SD += 2 * oe.contract('ia,klcd,iakc,ld->', t1_conj, t2, ia_S_kc_pp, S_kc_pp)
 
                 # t_ijab t_kc < dijab/dR | dkc/dH >
-                I_DS += 0.5 * np.einsum('ijab,kc,iajbkc->', t2_conj - np.swapaxes(t2_conj, 2, 3), t1, iajb_S_kc_pp) * S_pp
-                I_DS += 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pp) * np.einsum('kc,kc->', t1, S_kc_pp)
-                I_DS += 2 * np.einsum('ijab,kc,iakc,jb->', t2_conj, t1, ia_S_kc_pp, ia_S_pp)
+                I_DS += 0.5 * oe.contract('ijab,kc,iajbkc->', t2_conj - np.swapaxes(t2_conj, 2, 3), t1, iajb_S_kc_pp) * S_pp
+                I_DS += 0.5 * oe.contract('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pp) * oe.contract('kc,kc->', t1, S_kc_pp)
+                I_DS += 2 * oe.contract('ijab,kc,iakc,jb->', t2_conj, t1, ia_S_kc_pp, ia_S_pp)
 
             # t_ijab t_klcd < dijab/dR | dklcd/dH >
-            I_DD += 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_pp) * S_pp
-            I_DD += 0.125 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pp) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pp)
-            I_DD += 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2, iajb_S_kc_pp, S_kc_pp)
-            I_DD += 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_pp, ia_S_pp)
-            I_DD += 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_pp, ia_S_kcld_pp)
-            I_DD += 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2, ia_S_kc_pp, ia_S_kc_pp)
+            I_DD += 0.125 * oe.contract('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_pp) * S_pp
+            I_DD += 0.125 * oe.contract('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pp) * oe.contract('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pp)
+            I_DD += 0.125 * 4 * oe.contract('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2, iajb_S_kc_pp, S_kc_pp)
+            I_DD += 0.125 * 2 * oe.contract('ijab,klcd,iakcld,jb->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_pp, ia_S_pp)
+            I_DD += 0.125 * 2 * oe.contract('ijab,klcd,ia,jbkcld->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_pp, ia_S_kcld_pp)
+            I_DD += 0.125 * 2 * 4 * oe.contract('ijab,klcd,iakc,jbld->', t2_conj, t2, ia_S_kc_pp, ia_S_kc_pp)
             del S_pp; del ia_S_pp; del S_kc_pp; del iajb_S_pp; del S_kcld_pp; del ia_S_kc_pp; del iajb_S_kc_pp; del ia_S_kcld_pp; del iajb_S_kcld_pp
             gc.collect()
 
@@ -924,40 +925,40 @@ class AAT(object):
 
             if self.parameters['method'] == 'CISD':
                 # t_kc < d0/dR | dkc/dH >
-                I_0S -= 2 * np.einsum('kc,kc->', t1, S_kc_pn) * S_pn * N_np
+                I_0S -= 2 * oe.contract('kc,kc->', t1, S_kc_pn) * S_pn * N_np
 
                 # t_ia < dia/dR | d0/dH >
-                I_S0 -= 2 * np.einsum('ia,ia->', t1_conj, ia_S_pn) * S_pn * N_mn
+                I_S0 -= 2 * oe.contract('ia,ia->', t1_conj, ia_S_pn) * S_pn * N_mn
 
                 # t_klcd < d0/dR | dklcd/dH >
-                I_0D -= 0.5 * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pn) * S_pn
-                I_0D -= np.einsum('ld,ld->', np.einsum('klcd,kc->ld', t2, S_kc_pn), S_kc_pn)
+                I_0D -= 0.5 * oe.contract('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pn) * S_pn
+                I_0D -= oe.contract('ld,ld->', oe.contract('klcd,kc->ld', t2, S_kc_pn), S_kc_pn)
 
                 # t_ijab < dijab/dR | d0/dH >
-                I_D0 -= 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pn) * S_pn
-                I_D0 -= np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_conj, ia_S_pn), ia_S_pn)
+                I_D0 -= 0.5 * oe.contract('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pn) * S_pn
+                I_D0 -= oe.contract('jb,jb->', oe.contract('ijab,ia->jb', t2_conj, ia_S_pn), ia_S_pn)
 
                 # t_ia t_kc < dia/dR | dkc/dH >
-                I_SS -= 2 * np.einsum('ia,kc,iakc->', t1_conj, t1, ia_S_kc_pn) * S_pn
-                I_SS -= 2 * np.einsum('ia,ia->', t1_conj, ia_S_pn) * np.einsum('kc,kc->', t1, S_kc_pn)
+                I_SS -= 2 * oe.contract('ia,kc,iakc->', t1_conj, t1, ia_S_kc_pn) * S_pn
+                I_SS -= 2 * oe.contract('ia,ia->', t1_conj, ia_S_pn) * oe.contract('kc,kc->', t1, S_kc_pn)
 
                 # t_ia t_klcd < dia/dR | dklcd/dH >
-                I_SD -= 0.5 * np.einsum('ia,klcd,iakcld->', t1_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_pn) * S_pn
-                I_SD -= 0.5 * np.einsum('ia,ia->', t1_conj, ia_S_pn) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pn)
-                I_SD -= 2 * np.einsum('ia,klcd,iakc,ld->', t1_conj, t2, ia_S_kc_pn, S_kc_pn)
+                I_SD -= 0.5 * oe.contract('ia,klcd,iakcld->', t1_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_pn) * S_pn
+                I_SD -= 0.5 * oe.contract('ia,ia->', t1_conj, ia_S_pn) * oe.contract('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pn)
+                I_SD -= 2 * oe.contract('ia,klcd,iakc,ld->', t1_conj, t2, ia_S_kc_pn, S_kc_pn)
 
                 # t_ijab t_kc < dijab/dR | dkc/dH >
-                I_DS -= 0.5 * np.einsum('ijab,kc,iajbkc->', t2_conj - np.swapaxes(t2_conj, 2, 3), t1, iajb_S_kc_pn) * S_pn
-                I_DS -= 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pn) * np.einsum('kc,kc->', t1, S_kc_pn)
-                I_DS -= 2 * np.einsum('ijab,kc,iakc,jb->', t2_conj, t1, ia_S_kc_pn, ia_S_pn)
+                I_DS -= 0.5 * oe.contract('ijab,kc,iajbkc->', t2_conj - np.swapaxes(t2_conj, 2, 3), t1, iajb_S_kc_pn) * S_pn
+                I_DS -= 0.5 * oe.contract('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pn) * oe.contract('kc,kc->', t1, S_kc_pn)
+                I_DS -= 2 * oe.contract('ijab,kc,iakc,jb->', t2_conj, t1, ia_S_kc_pn, ia_S_pn)
 
             # t_ijab t_klcd < dijab/dR | dklcd/dH >
-            I_DD -= 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_pn) * S_pn
-            I_DD -= 0.125 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pn) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pn)
-            I_DD -= 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2, iajb_S_kc_pn, S_kc_pn)
-            I_DD -= 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_pn, ia_S_pn)
-            I_DD -= 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_pn, ia_S_kcld_pn)
-            I_DD -= 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2, ia_S_kc_pn, ia_S_kc_pn)
+            I_DD -= 0.125 * oe.contract('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_pn) * S_pn
+            I_DD -= 0.125 * oe.contract('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_pn) * oe.contract('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_pn)
+            I_DD -= 0.125 * 4 * oe.contract('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2, iajb_S_kc_pn, S_kc_pn)
+            I_DD -= 0.125 * 2 * oe.contract('ijab,klcd,iakcld,jb->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_pn, ia_S_pn)
+            I_DD -= 0.125 * 2 * oe.contract('ijab,klcd,ia,jbkcld->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_pn, ia_S_kcld_pn)
+            I_DD -= 0.125 * 2 * 4 * oe.contract('ijab,klcd,iakc,jbld->', t2_conj, t2, ia_S_kc_pn, ia_S_kc_pn)
             del S_pn; del ia_S_pn; del S_kc_pn; del iajb_S_pn; del S_kcld_pn; del ia_S_kc_pn; del iajb_S_kc_pn; del ia_S_kcld_pn; del iajb_S_kcld_pn
             gc.collect()
 
@@ -966,40 +967,40 @@ class AAT(object):
 
             if self.parameters['method'] == 'CISD':
                 # t_kc < d0/dR | dkc/dH >
-                I_0S -= 2 * np.einsum('kc,kc->', t1, S_kc_np) * S_np * N_nn
+                I_0S -= 2 * oe.contract('kc,kc->', t1, S_kc_np) * S_np * N_nn
 
                 # t_ia < dia/dR | d0/dH >
-                I_S0 -= 2 * np.einsum('ia,ia->', t1_conj, ia_S_np) * S_np * N_mp
+                I_S0 -= 2 * oe.contract('ia,ia->', t1_conj, ia_S_np) * S_np * N_mp
 
                 # t_klcd < d0/dR | dklcd/dH >
-                I_0D -= 0.5 * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_np) * S_np
-                I_0D -= np.einsum('ld,ld->', np.einsum('klcd,kc->ld', t2, S_kc_np), S_kc_np)
+                I_0D -= 0.5 * oe.contract('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_np) * S_np
+                I_0D -= oe.contract('ld,ld->', oe.contract('klcd,kc->ld', t2, S_kc_np), S_kc_np)
 
                 # t_ijab < dijab/dR | d0/dH >
-                I_D0 -= 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_np) * S_np
-                I_D0 -= np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_conj, ia_S_np), ia_S_np)
+                I_D0 -= 0.5 * oe.contract('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_np) * S_np
+                I_D0 -= oe.contract('jb,jb->', oe.contract('ijab,ia->jb', t2_conj, ia_S_np), ia_S_np)
 
                 # t_ia t_kc < dia/dR | dkc/dH >
-                I_SS -= 2 * np.einsum('ia,kc,iakc->', t1_conj, t1, ia_S_kc_np) * S_np
-                I_SS -= 2 * np.einsum('ia,ia->', t1_conj, ia_S_np) * np.einsum('kc,kc->', t1, S_kc_np)
+                I_SS -= 2 * oe.contract('ia,kc,iakc->', t1_conj, t1, ia_S_kc_np) * S_np
+                I_SS -= 2 * oe.contract('ia,ia->', t1_conj, ia_S_np) * oe.contract('kc,kc->', t1, S_kc_np)
 
                 # t_ia t_klcd < dia/dR | dklcd/dH >
-                I_SD -= 0.5 * np.einsum('ia,klcd,iakcld->', t1_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_np) * S_np
-                I_SD -= 0.5 * np.einsum('ia,ia->', t1_conj, ia_S_np) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_np)
-                I_SD -= 2 * np.einsum('ia,klcd,iakc,ld->', t1_conj, t2, ia_S_kc_np, S_kc_np)
+                I_SD -= 0.5 * oe.contract('ia,klcd,iakcld->', t1_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_np) * S_np
+                I_SD -= 0.5 * oe.contract('ia,ia->', t1_conj, ia_S_np) * oe.contract('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_np)
+                I_SD -= 2 * oe.contract('ia,klcd,iakc,ld->', t1_conj, t2, ia_S_kc_np, S_kc_np)
 
                 # t_ijab t_kc < dijab/dR | dkc/dH >
-                I_DS -= 0.5 * np.einsum('ijab,kc,iajbkc->', t2_conj - np.swapaxes(t2_conj, 2, 3), t1, iajb_S_kc_np) * S_np
-                I_DS -= 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_np) * np.einsum('kc,kc->', t1, S_kc_np)
-                I_DS -= 2 * np.einsum('ijab,kc,iakc,jb->', t2_conj, t1, ia_S_kc_np, ia_S_np)
+                I_DS -= 0.5 * oe.contract('ijab,kc,iajbkc->', t2_conj - np.swapaxes(t2_conj, 2, 3), t1, iajb_S_kc_np) * S_np
+                I_DS -= 0.5 * oe.contract('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_np) * oe.contract('kc,kc->', t1, S_kc_np)
+                I_DS -= 2 * oe.contract('ijab,kc,iakc,jb->', t2_conj, t1, ia_S_kc_np, ia_S_np)
 
             # t_ijab t_klcd < dijab/dR | dklcd/dH >
-            I_DD -= 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_np) * S_np
-            I_DD -= 0.125 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_np) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_np)
-            I_DD -= 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2, iajb_S_kc_np, S_kc_np)
-            I_DD -= 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_np, ia_S_np)
-            I_DD -= 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_np, ia_S_kcld_np)
-            I_DD -= 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2, ia_S_kc_np, ia_S_kc_np)
+            I_DD -= 0.125 * oe.contract('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_np) * S_np
+            I_DD -= 0.125 * oe.contract('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_np) * oe.contract('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_np)
+            I_DD -= 0.125 * 4 * oe.contract('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2, iajb_S_kc_np, S_kc_np)
+            I_DD -= 0.125 * 2 * oe.contract('ijab,klcd,iakcld,jb->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_np, ia_S_np)
+            I_DD -= 0.125 * 2 * oe.contract('ijab,klcd,ia,jbkcld->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_np, ia_S_kcld_np)
+            I_DD -= 0.125 * 2 * 4 * oe.contract('ijab,klcd,iakc,jbld->', t2_conj, t2, ia_S_kc_np, ia_S_kc_np)
             del S_np; del ia_S_np; del S_kc_np; del iajb_S_np; del S_kcld_np; del ia_S_kc_np; del iajb_S_kc_np; del ia_S_kcld_np; del iajb_S_kcld_np
             gc.collect()
 
@@ -1008,40 +1009,40 @@ class AAT(object):
 
             if self.parameters['method'] == 'CISD':
                 # t_kc < d0/dR | dkc/dH >
-                I_0S += 2 * np.einsum('kc,kc->', t1, S_kc_nn) * S_nn * N_nn
+                I_0S += 2 * oe.contract('kc,kc->', t1, S_kc_nn) * S_nn * N_nn
 
                 # t_ia < dia/dR | d0/dH >
-                I_S0 += 2 * np.einsum('ia,ia->', t1_conj, ia_S_nn) * S_nn * N_mn
+                I_S0 += 2 * oe.contract('ia,ia->', t1_conj, ia_S_nn) * S_nn * N_mn
 
                 # t_klcd < d0/dR | dklcd/dH >
-                I_0D += 0.5 * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_nn) * S_nn
-                I_0D += np.einsum('ld,ld->', np.einsum('klcd,kc->ld', t2, S_kc_nn), S_kc_nn)
+                I_0D += 0.5 * oe.contract('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_nn) * S_nn
+                I_0D += oe.contract('ld,ld->', oe.contract('klcd,kc->ld', t2, S_kc_nn), S_kc_nn)
 
                 # t_ijab < dijab/dR | d0/dH >
-                I_D0 += 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_nn) * S_nn
-                I_D0 += np.einsum('jb,jb->', np.einsum('ijab,ia->jb', t2_conj, ia_S_nn), ia_S_nn)
+                I_D0 += 0.5 * oe.contract('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_nn) * S_nn
+                I_D0 += oe.contract('jb,jb->', oe.contract('ijab,ia->jb', t2_conj, ia_S_nn), ia_S_nn)
 
                 # t_ia t_kc < dia/dR | dkc/dH >
-                I_SS += 2 * np.einsum('ia,kc,iakc->', t1_conj, t1, ia_S_kc_nn) * S_nn
-                I_SS += 2 * np.einsum('ia,ia->', t1_conj, ia_S_nn) * np.einsum('kc,kc->', t1, S_kc_nn)
+                I_SS += 2 * oe.contract('ia,kc,iakc->', t1_conj, t1, ia_S_kc_nn) * S_nn
+                I_SS += 2 * oe.contract('ia,ia->', t1_conj, ia_S_nn) * oe.contract('kc,kc->', t1, S_kc_nn)
 
                 # t_ia t_klcd < dia/dR | dklcd/dH >
-                I_SD += 0.5 * np.einsum('ia,klcd,iakcld->', t1_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_nn) * S_nn
-                I_SD += 0.5 * np.einsum('ia,ia->', t1_conj, ia_S_nn) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_nn)
-                I_SD += 2 * np.einsum('ia,klcd,iakc,ld->', t1_conj, t2, ia_S_kc_nn, S_kc_nn)
+                I_SD += 0.5 * oe.contract('ia,klcd,iakcld->', t1_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_nn) * S_nn
+                I_SD += 0.5 * oe.contract('ia,ia->', t1_conj, ia_S_nn) * oe.contract('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_nn)
+                I_SD += 2 * oe.contract('ia,klcd,iakc,ld->', t1_conj, t2, ia_S_kc_nn, S_kc_nn)
 
                 # t_ijab t_kc < dijab/dR | dkc/dH >
-                I_DS += 0.5 * np.einsum('ijab,kc,iajbkc->', t2_conj - np.swapaxes(t2_conj, 2, 3), t1, iajb_S_kc_nn) * S_nn
-                I_DS += 0.5 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_nn) * np.einsum('kc,kc->', t1, S_kc_nn)
-                I_DS += 2 * np.einsum('ijab,kc,iakc,jb->', t2_conj, t1, ia_S_kc_nn, ia_S_nn)
+                I_DS += 0.5 * oe.contract('ijab,kc,iajbkc->', t2_conj - np.swapaxes(t2_conj, 2, 3), t1, iajb_S_kc_nn) * S_nn
+                I_DS += 0.5 * oe.contract('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_nn) * oe.contract('kc,kc->', t1, S_kc_nn)
+                I_DS += 2 * oe.contract('ijab,kc,iakc,jb->', t2_conj, t1, ia_S_kc_nn, ia_S_nn)
 
             # t_ijab t_klcd < dijab/dR | dklcd/dH >
-            I_DD += 0.125 * np.einsum('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_nn) * S_nn
-            I_DD += 0.125 * np.einsum('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_nn) * np.einsum('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_nn)
-            I_DD += 0.125 * 4 * np.einsum('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2, iajb_S_kc_nn, S_kc_nn)
-            I_DD += 0.125 * 2 * np.einsum('ijab,klcd,iakcld,jb->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_nn, ia_S_nn)
-            I_DD += 0.125 * 2 * np.einsum('ijab,klcd,ia,jbkcld->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_nn, ia_S_kcld_nn)
-            I_DD += 0.125 * 2 * 4 * np.einsum('ijab,klcd,iakc,jbld->', t2_conj, t2, ia_S_kc_nn, ia_S_kc_nn)
+            I_DD += 0.125 * oe.contract('ijab,klcd,iajbkcld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2 - np.swapaxes(t2, 2, 3), iajb_S_kcld_nn) * S_nn
+            I_DD += 0.125 * oe.contract('ijab,iajb->', t2_conj - np.swapaxes(t2_conj, 2, 3), iajb_S_nn) * oe.contract('klcd,kcld->', t2 - np.swapaxes(t2, 2, 3), S_kcld_nn)
+            I_DD += 0.125 * 4 * oe.contract('ijab,klcd,iajbkc,ld->', t2_conj - np.swapaxes(t2_conj, 2, 3), t2, iajb_S_kc_nn, S_kc_nn)
+            I_DD += 0.125 * 2 * oe.contract('ijab,klcd,iakcld,jb->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_kcld_nn, ia_S_nn)
+            I_DD += 0.125 * 2 * oe.contract('ijab,klcd,ia,jbkcld->', t2_conj, t2 - np.swapaxes(t2, 2, 3), ia_S_nn, ia_S_kcld_nn)
+            I_DD += 0.125 * 2 * 4 * oe.contract('ijab,klcd,iakc,jbld->', t2_conj, t2, ia_S_kc_nn, ia_S_kc_nn)
             del S_nn; del ia_S_nn; del S_kc_nn; del iajb_S_nn; del S_kcld_nn; del ia_S_kc_nn; del iajb_S_kc_nn; del ia_S_kcld_nn; del iajb_S_kcld_nn
             gc.collect()
 
