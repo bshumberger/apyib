@@ -63,6 +63,7 @@ jobs:
         run: |
           pip install -e .
           pip install pytest
+          pip install opt_einsum
 
       - name: Test and generate coverage report
         run: |
