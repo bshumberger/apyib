@@ -333,6 +333,9 @@ class analytic_derivative(object):
             df_dH[v,v] += U_h[v,v] * self.wfn.eps[v].reshape(-1,1) - U_h[v,v].swapaxes(0,1) * self.wfn.eps[v]
             df_dH[v,v] += oe.contract('em,aebm->ab', U_h[v,o], A_mag.swapaxes(1,2)[v,v,v,o])
 
+            #print("Magnetic Field Perturbed Fock Matrix:")
+            #print(df_dH)
+
             # Computing the gradient of the ERIs with respect to a magnetic field. # Swapaxes on these elements
             dERI_dH =  oe.contract('tr,pqts->pqrs', U_h[:,t], ERI[t,t,:,t])
             dERI_dH += oe.contract('ts,pqrt->pqrs', U_h[:,t], ERI[t,t,t,:])
@@ -426,6 +429,9 @@ class analytic_derivative(object):
                 df_dR[v,v] += U_R[v,v] * self.wfn.eps[v].reshape(-1,1) + U_R[v,v].swapaxes(0,1) * self.wfn.eps[v]
                 df_dR[v,v] += oe.contract('em,aebm->ab', U_R[v,o], A.swapaxes(1,2)[v,v,v,o])
                 df_dR[v,v] -= 0.5 * oe.contract('mn,ambn->ab', S_core[a][o,o], A.swapaxes(1,2)[v,o,v,o])
+
+                #print("Nuclear Displaced Perturbed Fock Matrix:")
+                #print(df_dR)
 
                 # Computing the gradient of the ERIs.
                 dERI_dR = ERI_core[a].copy()
