@@ -101,6 +101,46 @@ def solve_DIIS(parameters, F, D, S, X, F_iter, e_iter, min_DIIS=1, max_DIIS=7):
 
 
 
+def solve_general_DIIS(parameters, res_vec, t_vec, e_iter, t_iter, min_DIIS=1, max_DIIS=7):
+    """ 
+    Solve the direct inversion of the iterative subspace (DIIS) equations for improved CI convergence.
+    """
+    # Truncate the storage of the error matrices for stability reasons.
+    if len(e_iter) > max_DIIS:
+        while len(e_iter) > max_DIIS:
+            del e_iter[0]
+            del t_iter[0]
+    
+    # Compute the error matrix.
+    e_diis = res_vec
+    e_iter.append(e_diis)
+    t_iter.append(t_vec)
+    
+    # Compute the "B" matrix.
+    B = np.zeros((len(e_iter)+1,len(e_iter)+1))
+    B[-1,:] = -1
+    B[:,-1] = -1
+    B[-1,-1] = 0
+    for m in range(len(e_iter)):
+        for n in range(len(e_iter)):
+            B[m,n] += oe.contract('o,o->', np.conjugate(e_iter[m]), e_iter[n])
+
+    # Build the "A" matrix for the system of linear equations.
+    A = np.zeros(len(e_iter)+1)
+    A[-1] = -1
+    
+    # Solve the system of linear equations.
+    C_diis = np.linalg.solve(B,A)
+    
+    # Solve for new Fock matrix.
+    t_vec = np.zeros_like(res_vec)
+    for j in range(len(C_diis) - 1): 
+        t_vec += C_diis[j] * t_iter[j]
+
+    return t_vec
+
+
+
 def get_slices(parameters, wfn):
     # Define the number of occupied and virtual orbitals.
     nfzc = wfn.H.basis_set.n_frozen_core()
@@ -209,7 +249,7 @@ def compute_F_SO(wfn, F_MO):
 
     # Compute the SO Fock matrix.
     F_SO = np.zeros([nSO, nSO])
-    F_SO = F_SO.astype('complex128')
+    #F_SO = F_SO.astype('complex128')
     for p in range(0, nSO):
         if p % 2 == 0:
             p_spin = 1
@@ -246,7 +286,7 @@ def compute_ERI_SO(wfn, ERI_MO):
 
     # Compute the SO ERIs.
     ERI_SO = np.zeros([nSO0, nSO1, nSO2, nSO3])
-    ERI_SO = ERI_SO.astype('complex128')
+    #ERI_SO = ERI_SO.astype('complex128')
     for p in range(0, nSO0):
         if p % 2 == 0:
             p_spin = 1
@@ -315,7 +355,7 @@ def compute_so_overlap(nbf, mo_overlap):
 
     # Compute the SO Fock matrix.
     S_SO = np.zeros([nSO, nSO])
-    S_SO = S_SO.astype('complex128')
+    #S_SO = S_SO.astype('complex128')
     for p in range(0, nSO):
         if p % 2 == 0:
             p_spin = 1  

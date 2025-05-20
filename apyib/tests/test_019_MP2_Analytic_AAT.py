@@ -53,8 +53,8 @@ def test_mp2_analytic_aat_h2o2_STO_3G_canonical():
     print(E_tot)
 
     # Compute analytic AATs using apyib.
-    analytic_derivative = apyib.analytic.analytic_derivative(parameters)
-    aat = analytic_derivative.compute_MP2_AATs_Canonical(normalization='full', orbitals='canonical')
+    analytic_derivative = apyib.analytic_aats.analytic_derivative(parameters)
+    aat = analytic_derivative.compute_MP2_AATs(normalization='full', orbitals='canonical')
     print(aat)
     
     assert(np.max(np.abs(aat-aat_ref)) < 1e-6)
@@ -108,8 +108,8 @@ def test_mp2_analytic_aat_h2o2_STO_3G_noncanonical():
     print(E_tot)
 
     # Compute analytic AATs using apyib.
-    analytic_derivative = apyib.analytic.analytic_derivative(parameters)
-    aat = analytic_derivative.compute_MP2_AATs_Canonical(normalization='full', orbitals='non-canonical')
+    analytic_derivative = apyib.analytic_aats.analytic_derivative(parameters)
+    aat = analytic_derivative.compute_MP2_AATs(normalization='full', orbitals='non-canonical')
     print(aat)
     
     assert(np.max(np.abs(aat-aat_ref)) < 1e-6)
@@ -163,8 +163,8 @@ def test_mp2_analytic_aat_h2o2_STO_3G_canonical_fc():
     print(E_tot)
 
     # Compute analytic AATs using apyib.
-    analytic_derivative = apyib.analytic.analytic_derivative(parameters)
-    aat = analytic_derivative.compute_MP2_AATs_Canonical(normalization='full', orbitals='canonical')
+    analytic_derivative = apyib.analytic_aats.analytic_derivative(parameters)
+    aat = analytic_derivative.compute_MP2_AATs(normalization='full', orbitals='canonical')
     print(aat)
     
     assert(np.max(np.abs(aat-aat_ref)) < 1e-6)
@@ -218,8 +218,8 @@ def test_mp2_analytic_aat_h2o2_STO_3G_noncanonical_fc():
     print(E_tot)
 
     # Compute analytic AATs using apyib.
-    analytic_derivative = apyib.analytic.analytic_derivative(parameters)
-    aat = analytic_derivative.compute_MP2_AATs_Canonical(normalization='full', orbitals='non-canonical')
+    analytic_derivative = apyib.analytic_aats.analytic_derivative(parameters)
+    aat = analytic_derivative.compute_MP2_AATs(normalization='full', orbitals='non-canonical')
     print(aat)
 
     assert(np.max(np.abs(aat-aat_ref)) < 1e-6)
@@ -269,8 +269,8 @@ def test_mp2_analytic_aat_h2o_6_31Gd_canonical():
     print(E_tot)
 
     # Compute analytic AATs using apyib.
-    analytic_derivative = apyib.analytic.analytic_derivative(parameters)
-    aat = analytic_derivative.compute_MP2_AATs_Canonical(normalization='full', orbitals='canonical')
+    analytic_derivative = apyib.analytic_aats.analytic_derivative(parameters)
+    aat = analytic_derivative.compute_MP2_AATs(normalization='full', orbitals='canonical')
     print(aat)
 
     assert(np.max(np.abs(aat-aat_ref)) < 1e-6)
@@ -320,8 +320,8 @@ def test_mp2_analytic_aat_h2o_6_31Gd_noncanonical():
     print(E_tot)
 
     # Compute analytic AATs using apyib.
-    analytic_derivative = apyib.analytic.analytic_derivative(parameters)
-    aat = analytic_derivative.compute_MP2_AATs_Canonical(normalization='full', orbitals='non-canonical')
+    analytic_derivative = apyib.analytic_aats.analytic_derivative(parameters)
+    aat = analytic_derivative.compute_MP2_AATs(normalization='full', orbitals='non-canonical')
     print(aat)
 
     assert(np.max(np.abs(aat-aat_ref)) < 1e-6)
@@ -371,8 +371,8 @@ def test_mp2_analytic_aat_h2o_6_31Gd_canonical_fc():
     print(E_tot)
 
     # Compute analytic AATs using apyib.
-    analytic_derivative = apyib.analytic.analytic_derivative(parameters)
-    aat = analytic_derivative.compute_MP2_AATs_Canonical(normalization='full', orbitals='canonical')
+    analytic_derivative = apyib.analytic_aats.analytic_derivative(parameters)
+    aat = analytic_derivative.compute_MP2_AATs(normalization='full', orbitals='canonical')
     print(aat)
 
     assert(np.max(np.abs(aat-aat_ref)) < 1e-6)
@@ -422,8 +422,8 @@ def test_mp2_analytic_aat_h2o_6_31Gd_noncanonical_fc():
     print(E_tot)
 
     # Compute analytic AATs using apyib.
-    analytic_derivative = apyib.analytic.analytic_derivative(parameters)
-    aat = analytic_derivative.compute_MP2_AATs_Canonical(normalization='full', orbitals='non-canonical')
+    analytic_derivative = apyib.analytic_aats.analytic_derivative(parameters)
+    aat = analytic_derivative.compute_MP2_AATs(normalization='full', orbitals='non-canonical')
     print(aat)
 
     assert(np.max(np.abs(aat-aat_ref)) < 1e-6)
