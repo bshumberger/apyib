@@ -27,17 +27,21 @@ class vcd(object):
         # Define the calculation parameters.
         self.parameters = parameters
 
+        # Set the molecule.
+        self.molecule = psi4.geometry(parameters['geom'])
+
         # Set the Hamiltonian and perform a standard Hartree-Fock calculation.
-        self.H = Hamiltonian(self.parameters)
-        self.wfn = hf_wfn(self.H)
-        self.E_SCF, self.C = self.wfn.solve_SCF(self.parameters)
-        print("Hartree-Fock Electronic Energy: ", self.E_SCF)
-        print("Total Energy: ", self.E_SCF + self.H.E_nuc, "\n")
-        self.unperturbed_basis = self.H.basis_set
-        self.unperturbed_wfn = self.C
+        #self.H = Hamiltonian(self.parameters)
+        #self.wfn = hf_wfn(self.H)
+        #self.E_SCF, self.C = self.wfn.solve_SCF(self.parameters)
+        #print("Hartree-Fock Electronic Energy: ", self.E_SCF)
+        #print("Total Energy: ", self.E_SCF + self.H.E_nuc, "\n")
+        #self.unperturbed_basis = self.H.basis_set
+        #self.unperturbed_wfn = self.C
 
         # Set the number of atoms.
-        self.natom = self.H.molecule.natom()
+        #self.natom = self.H.molecule.natom()
+        self.natom = self.molecule.natom()
 
         # Perform calculations for the chosen method if not Hartree-Fock.
         #if self.parameters['method'] == 'RHF':
@@ -242,7 +246,7 @@ class vcd(object):
         # Mass weight the Cartesian coordinate Hessian [E_h / (m_e * a_0**2].
         mass_weight = np.eye((3 * self.natom))
         for i in range(3 * self.natom):
-            mass_weight[i] *= np.sqrt(1 / (self.H.molecule.mass(i // 3) * _u / _me))
+            mass_weight[i] *= np.sqrt(1 / (self.molecule.mass(i // 3) * _u / _me))
 
         # Obtain the normal coordinate Hessian [E_h / (m_e * a_0**2].
         hessian_m = mass_weight.T @ hessian @ mass_weight
@@ -268,7 +272,7 @@ class vcd(object):
         I = AAT_elec.copy()
 
         # Compute the nuclear component of the AATs [(e * h) / m_e].
-        geom, mass, elem, Z, uniq = self.H.molecule.to_arrays()
+        geom, mass, elem, Z, uniq = self.molecule.to_arrays()
 
         J = np.zeros((3 * self.natom, 3)) 
         for lambd_alpha in range(3 * self.natom):
