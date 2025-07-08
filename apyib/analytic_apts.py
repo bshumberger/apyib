@@ -127,6 +127,7 @@ class analytic_derivative(object):
             U_E.append(U_b)
             h_E.append(h_b)
             F_E.append(h_b)
+            #print(U_b)
 
         for N1 in atoms:
             # Compute the nuclear skeleton (core) one-electron first derivative integrals in the MO basis.
@@ -180,7 +181,7 @@ class analytic_derivative(object):
             for beta in range(3):
                 N[lambd_alpha][beta] += Z[lambd] * delta_ab[alpha, beta]
 
-        APT = APT #+ N
+        APT = APT + N
 
         return APT
 
@@ -228,11 +229,7 @@ class analytic_derivative(object):
 
         # Use the MintsHelper to get the AO integrals from Psi4.
         mints = psi4.core.MintsHelper(self.H.basis_set)
-        Nuc_Gradient = self.H.molecule.nuclear_repulsion_energy_deriv1().np
-
-        # Set up the Hessian.
-        Hessian = np.zeros((natom * 3, natom * 3))
-
+        
         # Set up the atomic axial tensor.
         APT = np.zeros((natom * 3, 3))
 
@@ -247,7 +244,7 @@ class analytic_derivative(object):
         G = np.linalg.inv(G.reshape((nv*no,nv*no)))
 
         # First derivative matrices.
-        half_S = [] 
+        half_S = []
 
         # Compute and store first derivative integrals.
         for N1 in atoms:
@@ -315,9 +312,6 @@ class analytic_derivative(object):
         G_elec = np.linalg.inv(G_elec.reshape((nv*no,nv*no)))
 
         # Get the electric dipole AO integrals and transform into the MO basis.
-        #_h = psi4.qcel.constants.get("Planck constant") # J s
-        #_hbar = _h/(2*np.pi) # J s/rad
-
         mu_elec_AO = mints.ao_nabla()
         for a in range(3):
             mu_elec_AO[a] = - mu_elec_AO[a].np
@@ -326,10 +320,10 @@ class analytic_derivative(object):
             # Computing skeleton (core) first derivative integrals.
             h_d1 = mu_elec
 
-            # Compute the perturbation-dependent B matrix for the CPHF coefficients with respect to a magnetic field.
+            # Compute the perturbation-dependent B matrix for the CPHF coefficients with respect to an electric field.
             B = h_d1[v,o]
 
-            # Solve for the independent-pairs of the CPHF U-coefficient matrix with respect to a magnetic field.
+            # Solve for the independent-pairs of the CPHF U-coefficient matrix with respect to an electric field.
             U_d1 = np.zeros((nbf,nbf))
             U_d1[v,o] += (G_elec @ B.reshape((nv*no))).reshape(nv,no)
             U_d1[o,v] += U_d1[v,o].T
@@ -355,15 +349,22 @@ class analytic_derivative(object):
                 U_d1[v_,v_] = 0
 
             U_E.append(U_d1)
+            #print(U_d1)
 
-        # Setting up different components of the AATs.
+        # Setting up different components of the APTs.
         APT_HF = np.zeros((natom * 3, 3))
 
-        # Compute AATs.
+        # Compute APTs.
         for lambda_alpha in range(3 * natom):
             for beta in range(3):
-                # Computing the Hartree-Fock term of the AAT.
-                APT_HF[lambda_alpha][beta] -= 2 * oe.contract("em,em", U_E[beta][v_, o], U_R[lambda_alpha][v_, o] + half_S[lambda_alpha][o, v_].T)
+                # Computing the Hartree-Fock term of the APT.
+                APT_HF[lambda_alpha][beta] += 2 * oe.contract("em,em", U_E[beta][v_, o], U_R[lambda_alpha][v_, o] + half_S[lambda_alpha][o, v_].T)
+                #print("Lambda Alpha:", lambda_alpha, "Beta:", beta)
+                #print("U_R + half_S:")
+                #print(U_R[lambda_alpha][v_, o] + half_S[lambda_alpha][o, v_].T)
+                #print("U_E:")
+                #print(U_E[beta][v_, o])
+
 
         # Compute the nuclear component of the APTs.
         geom, mass, elem, Z, uniq = self.H.molecule.to_arrays()
@@ -376,7 +377,7 @@ class analytic_derivative(object):
             for beta in range(3):
                 N[lambd_alpha][beta] += Z[lambd] * delta_ab[alpha, beta]
 
-        APT = 2*APT_HF #+ N
+        APT = - 2 * APT_HF + N
 
         return APT
 

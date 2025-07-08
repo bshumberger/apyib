@@ -199,7 +199,7 @@ class vcd(object):
 
 
 
-    def compute_vcd_from_input(self, Hessian, APT, AAT_elec):
+    def compute_vcd_from_input(self, Hessian, APT, AAT_elec, APT_p = None):
         """
         Compute components for VCD spectral generation from user input.
         """
@@ -266,7 +266,16 @@ class vcd(object):
 
         # Compute the APTs in the normal coordinate basis [(e * a_0) / (a_0 * sqrt(m_e))].
         P = APT.copy()
-        P_i = P.T @ S 
+        P_i = P.T @ S
+        print("Length Gauge Atomic Polar Tensor (Normal Mode Basis):")
+        print(P_i)
+
+        # Compute velocity gauge APTs.
+        if APT_p.any():
+            P_p = APT_p.copy()
+            P_pi = P_p.T @ S
+            print("Velocity Gauge Atomic Polar Tensor (Normal Mode Basis):")
+            print(P_pi)
 
         # Compute the electronic component of the AATs [(e * h) / m_e].
         I = AAT_elec.copy()
@@ -284,22 +293,130 @@ class vcd(object):
 
         # Compute the AATs in the normal coordinate basis [(e * h) / m_e].
         M = I + J
-        M_i = M.T @ S 
+        M_i = M.T @ S
+        print("Atomic Axial Tensor (Normal Mode Basis):")
+        print(M_i.T)
 
         # Compute the VCD rotational strengths and IR dipole strengths.
         R = np.zeros((3 * self.natom - 6)) 
         D = np.zeros((3 * self.natom - 6)) 
-        for i in range(3 * self.natom - 6): 
+        for i in range(3 * self.natom - 6):
             R[i] = oe.contract('i,i->', P_i[:,i].real, M_i[:,i].real)
             D[i] = oe.contract('i,i->', P_i[:,i].real, P_i[:,i].real)
 
-        print("\nFrequency   IR Intensity   Rotational Strength")
-        print(" (cm-1)      (km/mol)    (esu**2 cm**2 10**44)")
-        print("----------------------------------------------")
-        for i in range(3 * self.natom - 6): 
-            print(f" {w[i] * conv_freq_au2wavenumber:7.2f}     {D[i] * conv_ir_au2kmmol:8.3f}        {R[i] * conv_vcd_au2cgs:8.3f}")
+        #print("Rotatory Strength:")
+        #print(R)
+        #print("Dipole Strength:")
+        #print(D)
+
+        # Compute tensor to SVD.
+        R_rl_list = []
+        D_rr_list = []
+        if APT_p.any():
+            R_pl_list = []
+            D_rp_list = []
+            D_pp_list = []
+            R_rl_LGOI_list = []
+
+        for i in range(3 * self.natom - 6):
+            R_rl = np.zeros((3, 3))
+            D_rr = np.zeros((3, 3))
+            if APT_p.any():
+                R_pl = np.zeros((3, 3))
+                D_rp = np.zeros((3, 3))
+                D_pp = np.zeros((3, 3))
+            
+            for a in range(3):
+                for b in range(3):
+                    R_rl[a][b] = P_i[a,i].real * M_i[b,i].real
+                    D_rr[a][b] = P_i[a,i].real * P_i[b,i].real
+                    if APT_p.any():
+                        R_pl[a][b] = P_pi[a,i].real * M_i[b,i].real
+                        D_rp[a][b] = P_i[a,i].real * P_pi[b,i].real
+                        D_pp[a][b] = P_pi[a,i].real * P_pi[b,i].real
+
+            R_rl_list.append(np.trace(R_rl))
+            D_rr_list.append(np.trace(D_rr))
+            #print("Mode:", i)
+            #print("R_rl:", np.trace(R_rl) * conv_vcd_au2cgs)
+            #print("D_rr:", D_rr)
+
+            if APT_p.any():
+                R_pl_list.append(np.trace(R_pl))
+                D_rp_list.append(np.trace(D_rp))
+                D_pp_list.append(np.trace(D_pp))
+                #print("R_pl:", np.trace(R_pl) * conv_vcd_au2cgs)
+                #print("D_rp:", D_rp)
+                #print("D_pp:", D_pp)
+
+                U, D_rp_diag, V_T = np.linalg.svd(D_rp)
+                #print("U_T:", U.T)
+                #print("V:", V_T.T)
+                R_rl_LGOI = U.T @ R_rl @ V_T.T
+                R_rl_LGOI_list.append(np.trace(R_rl_LGOI))
+                #print("R_rl_LGOI:", R_rl_LGOI)
+                #print("R_rl_LGOI:", np.trace(R_rl_LGOI) * conv_vcd_au2cgs, "\n")
+
+        #print("\nFrequency   IR Intensity   Rotational Strength")
+        #print(" (cm-1)      (km/mol)    (esu**2 cm**2 10**44)")
+        #print("----------------------------------------------")
+        #for i in range(3 * self.natom - 6): 
+        #    print(f" {w[i] * conv_freq_au2wavenumber:7.2f}     {D[i] * conv_ir_au2kmmol:8.3f}        {R[i] * conv_vcd_au2cgs:8.3f}")
+
+        print("\nFrequency                  IR Intensity                       Rotational Strength")
+        print(" (cm-1)                      (km/mol)                           (esu**2 cm**2 10**44)")
+        print("                 LG          VG          Mixed           LG          VG          LG(OI)")
+        print("-----------------------------------------------------------------------------------------")
+        for i in range(3 * self.natom - 6):
+            print(f" {w[i] * conv_freq_au2wavenumber:7.2f}     {D[i] * conv_ir_au2kmmol:8.3f}     {D_pp_list[i] * conv_ir_au2kmmol:8.3f}     {D_rp_list[i] * conv_ir_au2kmmol:8.3f}     {R[i] * conv_vcd_au2cgs:8.3f}     {R_pl_list[i] * conv_vcd_au2cgs:8.3f}     {R_rl_LGOI_list[i] * conv_vcd_au2cgs:8.3f}")
 
         return w * conv_freq_au2wavenumber, D * conv_ir_au2kmmol, R * conv_vcd_au2cgs
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
