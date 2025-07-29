@@ -52,8 +52,8 @@ def test_rhf_analytic_hessian():
     E_list, T_list, C, basis = apyib.energy.energy(parameters)
 
     # Compute finite difference Hessian using apyib.
-    analytic_derivative = apyib.analytic.analytic_derivative(parameters)
-    gradient, hessian = analytic_derivative.compute_RHF_Hessian()
+    analytic_derivative = apyib.analytic_hessian.analytic_derivative(parameters)
+    hessian = analytic_derivative.compute_RHF_Hessian()
 
     assert(np.max(np.abs(hessian-hess_ref.reshape(9,9))) < 1e-10)
 
@@ -377,8 +377,8 @@ def test_rhf_analytic_hessian2():
     E_list, T_list, C, basis = apyib.energy.energy(parameters)
 
     # Compute finite difference Hessian using apyib.
-    analytic_derivative = apyib.analytic.analytic_derivative(parameters)
-    gradient, hessian = analytic_derivative.compute_RHF_Hessian()
+    analytic_derivative = apyib.analytic_hessian.analytic_derivative(parameters)
+    hessian = analytic_derivative.compute_RHF_Hessian()
 
     assert(np.max(np.abs(hessian-hess_ref.reshape(30,30))) < 1e-10)
 

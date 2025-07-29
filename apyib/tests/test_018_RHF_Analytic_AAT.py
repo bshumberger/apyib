@@ -53,8 +53,8 @@ def test_rhf_analytic_aat_h2o2_STO_3G_canonical():
     print(E_tot)
 
     # Compute analytic AATs using apyib.
-    analytic_derivative = apyib.analytic.analytic_derivative(parameters)
-    aat = analytic_derivative.compute_RHF_AATs_Canonical(orbitals='canonical')
+    analytic_derivative = apyib.analytic_aats.analytic_derivative(parameters)
+    aat = analytic_derivative.compute_RHF_AATs(orbitals='canonical')
     print(aat)
     
     assert(np.max(np.abs(aat-aat_ref)) < 1e-6)
@@ -108,8 +108,8 @@ def test_rhf_analytic_aat_h2o2_STO_3G_noncanonical():
     print(E_tot)
 
     # Compute analytic AATs using apyib.
-    analytic_derivative = apyib.analytic.analytic_derivative(parameters)
-    aat = analytic_derivative.compute_RHF_AATs_Canonical(orbitals='non-canonical')
+    analytic_derivative = apyib.analytic_aats.analytic_derivative(parameters)
+    aat = analytic_derivative.compute_RHF_AATs(orbitals='non-canonical')
     print(aat)
         
     assert(np.max(np.abs(aat-aat_ref)) < 1e-6)
@@ -159,8 +159,8 @@ def test_rhf_analytic_aat_h2o_6_31Gd_canonical():
     print(E_tot)
 
     # Compute analytic AATs using apyib.
-    analytic_derivative = apyib.analytic.analytic_derivative(parameters)
-    aat = analytic_derivative.compute_RHF_AATs_Canonical(orbitals='canonical')
+    analytic_derivative = apyib.analytic_aats.analytic_derivative(parameters)
+    aat = analytic_derivative.compute_RHF_AATs(orbitals='canonical')
     print(aat)
 
     assert(np.max(np.abs(aat-aat_ref)) < 1e-6)
@@ -210,8 +210,8 @@ def test_rhf_analytic_aat_h2o_6_31Gd_noncanonical():
     print(E_tot)
 
     # Compute analytic AATs using apyib.
-    analytic_derivative = apyib.analytic.analytic_derivative(parameters)
-    aat = analytic_derivative.compute_RHF_AATs_Canonical(orbitals='non-canonical')
+    analytic_derivative = apyib.analytic_aats.analytic_derivative(parameters)
+    aat = analytic_derivative.compute_RHF_AATs(orbitals='non-canonical')
     print(aat)
 
     assert(np.max(np.abs(aat-aat_ref)) < 1e-6)

@@ -203,8 +203,8 @@ class analytic_derivative(object):
                 # Computing the Hartree-Fock term of the AAT.
                 AAT_HF[lambda_alpha][beta] += 2 * oe.contract("em,em", U_H[beta][v_, o], U_R[lambda_alpha][v_, o] + half_S[lambda_alpha][o, v_].T)
 
-        print("Hartree-Fock AAT:")
-        print(AAT_HF, "\n")
+        #print("Hartree-Fock AAT:")
+        #print(AAT_HF, "\n")
 
         AAT = AAT_HF
 
