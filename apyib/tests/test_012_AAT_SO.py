@@ -4,7 +4,7 @@ import apyib
 import pytest
 from ..data.molecules import *
 
-@pytest.mark.skip(reason="Too slow.")
+#@pytest.mark.skip(reason="Too slow.")
 def test_rhf_SO_aat():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["H2O"],
@@ -253,66 +253,198 @@ def test_mp2_SO_aat_full_norm():
 
     assert(np.max(np.abs(aat-aat_ref)) < 1e-7)
 
+#@pytest.mark.skip(reason="Too slow.")
+#def test_cid_SO_aat():
+#    # Set parameters for the calculation.
+#    parameters = {'geom': moldict["H2O"],
+#                  'basis': 'STO-6G',
+#                  'method': 'CID_SO',
+#                  'e_convergence': 1e-12,
+#                  'd_convergence': 1e-12,
+#                  'DIIS': True,
+#                  'freeze_core': False,
+#                  'F_el': [0.0, 0.0, 0.0],
+#                  'F_mag': [0.0, 0.0, 0.0],
+#                  'max_iterations': 120}
+#
+#    # Setting reference AAT.
+#    I_00_ref = np.array(
+#    [[ 0.000000000000615,  0.000000000000288, -0.226306484070573],
+#     [-0.000000000001284,  0.000000000002456,  0.000000000009745],
+#     [ 0.329611190264759, -0.000000000003012, -0.               ],
+#     [ 0.000000000000584, -0.000000000000022,  0.059895496710408],
+#     [ 0.000000000000922, -0.000000000000159, -0.136503781615856],
+#     [-0.229202569432311,  0.215872630800364,  0.000000000000086],
+#     [-0.000000000001647,  0.000000000001087,  0.05989549670396 ],
+#     [-0.000000000001775, -0.000000000000769,  0.136503781614182],
+#     [-0.229202569423767, -0.21587263080386 , -0.000000000000086]])
+#
+#    I_0D_ref = np.array(
+#    [[-0.000000000000016, -0.000000000000004,  0.009719122239378],
+#     [-0.000000000000004, -0.00000000000003 , -0.000000000000007],
+#     [-0.008593312033004,  0.000000000000037, -0.               ],
+#     [-0.000000000000046,  0.               ,  0.001199562663158],
+#     [-0.000000000000058,  0.000000000000002,  0.00419309249157 ],
+#     [ 0.005975552929523, -0.002639002775059,  0.000000000000004],
+#     [ 0.000000000000074, -0.000000000000013,  0.001199562663249],
+#     [ 0.000000000000012,  0.000000000000009, -0.004193092491498],
+#     [ 0.005975552929327,  0.002639002775102, -0.000000000000004]])
+#
+#    I_D0_ref = np.array(
+#    [[ 0.000000000000021, -0.000000000000008, -0.009719121979288],
+#     [ 0.000000000000077,  0.000000000000041,  0.000000000000138],
+#     [ 0.008593312029382, -0.000000000000037,  0.               ],
+#     [ 0.000000000000065,  0.000000000000007, -0.001199562713834],
+#     [ 0.000000000000082,  0.000000000000018, -0.004193092483275],
+#     [-0.005975553612676,  0.002639003322523, -0.000000000000003],
+#     [-0.000000000000075,  0.00000000000001 , -0.001199562713837],
+#     [ 0.000000000000094, -0.000000000000019,  0.004193092483204],
+#     [-0.005975553612565, -0.002639003322554,  0.000000000000003]])
+#
+#    I_DD_ref = np.array(
+#    [[ 0.000000000000076,  0.000000000000007, -0.006571145180512],
+#     [ 0.000000000002677,  0.000000000001015, -0.000000000000175],
+#     [ 0.03605012126928 , -0.00000000000062 ,  0.000000000000001],
+#     [ 0.000000000000042, -0.000000000000022,  0.001267365504038],
+#     [ 0.000000000000008,  0.000000000000042, -0.009999089093697],
+#     [-0.020642645988524,  0.016765832724844, -0.000000000000034],
+#     [-0.000000000000056, -0.000000000000001,  0.001267365504546],
+#     [-0.000000000000143,  0.000000000000071,  0.009999089093786],
+#     [-0.020642645988882, -0.016765832725199,  0.000000000000003]])
+#
+#    aat_ref = I_00_ref + I_D0_ref + I_0D_ref + I_DD_ref
+#
+#    # Compute energy.
+#    E_list, T_list, C, basis = apyib.energy.energy(parameters)
+#    E_tot = E_list[0] + E_list[1] + E_list[2]
+#    print(E_tot)
+#
+#    H = apyib.hamiltonian.Hamiltonian(parameters)
+#    wfn = apyib.hf_wfn.hf_wfn(H)
+#
+#    # Compute finite difference AATs inputs.
+#    finite_difference = apyib.fin_diff.finite_difference(parameters, basis, C)
+#    nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T = finite_difference.compute_AAT(0.0001, 0.0001)
+#
+#    # Compute finite difference AATs.
+#    AATs = apyib.aats.AAT(parameters, wfn, C, basis, T_list, nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T, 0.0001, 0.0001)
+#    aat = np.zeros((3 * H.molecule.natom(), 3), dtype=np.cdouble)
+#    for lambd_alpha in range(3 * H.molecule.natom()):
+#        for beta in range(3):
+#            aat[lambd_alpha][beta] = AATs.compute_SO_aats(lambd_alpha, beta, normalization='intermediate')
+#
+#    assert(np.max(np.abs(aat-aat_ref)) < 1e-7)
+
+#@pytest.mark.skip(reason="Too slow.")
+#def test_cid_SO_aat_full_norm():
+#    # Set parameters for the calculation.
+#    parameters = {'geom': moldict["H2O"],
+#                  'basis': 'STO-6G',
+#                  'method': 'CID_SO',
+#                  'e_convergence': 1e-12,
+#                  'd_convergence': 1e-12,
+#                  'DIIS': True,
+#                  'freeze_core': False,
+#                  'F_el': [0.0, 0.0, 0.0],
+#                  'F_mag': [0.0, 0.0, 0.0],
+#                  'max_iterations': 120}
+#
+#    # Setting fully normalized reference AAT.
+#    I_00_ref = np.array(
+#    [[ 0.000000000001681, -0.000000000000066, -0.216369026352184],
+#     [ 0.000000000031349,  0.000000000013539,  0.000000000004924],
+#     [ 0.315137467648931, -0.000000000006571,  0.000000000000019],
+#     [ 0.000000000001682, -0.00000000000047 ,  0.057265395478773],
+#     [ 0.000000000001331,  0.000000000000033, -0.130509695508135],
+#     [-0.21913794022654 ,  0.206393339272046, -0.000000000000701],
+#     [-0.000000000000366, -0.000000000000273,  0.057265395481647],
+#     [-0.000000000000126,  0.00000000000079 ,  0.130509695509671],
+#     [-0.219137940232017, -0.206393339277598, -0.000000000000611]])
+#
+#    I_0D_ref = np.array(
+#    [[-0.000000000000044,  0.000000000000001,  0.009292340979379],
+#     [-0.000000000000829, -0.000000000000166,  0.000000000001179],
+#     [-0.008215966789908,  0.00000000000008 ,  0.               ],
+#     [-0.000000000000053,  0.000000000000006,  0.001146888064831],
+#     [-0.000000000000045, -0.               ,  0.00400896750085 ],
+#     [ 0.005713157422038, -0.002523120198581,  0.000000000000005],
+#     [ 0.000000000000019,  0.000000000000003,  0.001146888064285],
+#     [-0.000000000000007, -0.00000000000001 , -0.004008967500919],
+#     [ 0.005713157422109,  0.002523120198647, -0.000000000000005]])
+#
+#    I_D0_ref = np.array(
+#    [[ 0.000000000000039, -0.000000000000023, -0.009292340730827],
+#     [ 0.00000000000088 ,  0.00000000000017 , -0.000000000001101],
+#     [ 0.00821596678659 , -0.000000000000105, -0.               ],
+#     [ 0.00000000000001 ,  0.000000000000015, -0.001146888112374],
+#     [ 0.000000000000005,  0.000000000000022, -0.004008967492092],
+#     [-0.005713158075148,  0.002523120721989, -0.000000000000004],
+#     [-0.000000000000055,  0.000000000000019, -0.001146888111887],
+#     [-0.000000000000021, -0.000000000000001,  0.004008967492141],
+#     [-0.005713158075265, -0.002523120722027,  0.000000000000004]])
+#
+#    I_DD_ref = np.array(
+#    [[ 0.000000000000072,  0.000000000000007, -0.006282596323029],
+#     [ 0.000000000002559,  0.00000000000097 , -0.000000000000168],
+#     [ 0.034467106277752, -0.000000000000593,  0.000000000000001],
+#     [ 0.00000000000004 , -0.000000000000021,  0.001211713581405],
+#     [ 0.000000000000008,  0.00000000000004 , -0.009560014070841],
+#     [-0.019736196388032,  0.016029619821933, -0.000000000000033],
+#     [-0.000000000000054, -0.000000000000001,  0.001211713581891],
+#     [-0.000000000000137,  0.000000000000068,  0.009560014070926],
+#     [-0.019736196388375, -0.016029619822273,  0.000000000000003]])
+#
+#    aat_ref = I_00_ref + I_D0_ref + I_0D_ref + I_DD_ref
+#
+#    # Compute energy.
+#    E_list, T_list, C, basis = apyib.energy.energy(parameters)
+#    E_tot = E_list[0] + E_list[1] + E_list[2]
+#    print(E_tot)
+#
+#    H = apyib.hamiltonian.Hamiltonian(parameters)
+#    wfn = apyib.hf_wfn.hf_wfn(H)
+#
+#    # Compute finite difference AATs inputs.
+#    finite_difference = apyib.fin_diff.finite_difference(parameters, basis, C)
+#    nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T = finite_difference.compute_AAT(0.0001, 0.0001)
+#
+#    # Compute finite difference AATs.
+#    AATs = apyib.aats.AAT(parameters, wfn, C, basis, T_list, nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T, 0.0001, 0.0001)
+#    aat = np.zeros((3 * H.molecule.natom(), 3), dtype=np.cdouble)
+#    for lambd_alpha in range(3 * H.molecule.natom()):
+#        for beta in range(3):
+#            aat[lambd_alpha][beta] = AATs.compute_SO_aats(lambd_alpha, beta)
+#
+#    assert(np.max(np.abs(aat-aat_ref)) < 1e-7)
+
 @pytest.mark.skip(reason="Too slow.")
-def test_cid_SO_aat():
+def test_cid_SO_aat_full_norm():
     # Set parameters for the calculation.
-    parameters = {'geom': moldict["H2O"],
-                  'basis': 'STO-6G',
+    parameters = {'geom': moldict["(H2)_2"],
+                  'basis': 'STO-3G',
                   'method': 'CID_SO',
-                  'e_convergence': 1e-12,
-                  'd_convergence': 1e-12,
+                  'e_convergence': 1e-13,
+                  'd_convergence': 1e-13,
                   'DIIS': True,
                   'freeze_core': False,
                   'F_el': [0.0, 0.0, 0.0],
                   'F_mag': [0.0, 0.0, 0.0],
                   'max_iterations': 120}
 
-    # Setting reference AAT.
-    I_00_ref = np.array(
-    [[ 0.000000000000615,  0.000000000000288, -0.226306484070573],
-     [-0.000000000001284,  0.000000000002456,  0.000000000009745],
-     [ 0.329611190264759, -0.000000000003012, -0.               ],
-     [ 0.000000000000584, -0.000000000000022,  0.059895496710408],
-     [ 0.000000000000922, -0.000000000000159, -0.136503781615856],
-     [-0.229202569432311,  0.215872630800364,  0.000000000000086],
-     [-0.000000000001647,  0.000000000001087,  0.05989549670396 ],
-     [-0.000000000001775, -0.000000000000769,  0.136503781614182],
-     [-0.229202569423767, -0.21587263080386 , -0.000000000000086]])
-
-    I_0D_ref = np.array(
-    [[-0.000000000000016, -0.000000000000004,  0.009719122239378],
-     [-0.000000000000004, -0.00000000000003 , -0.000000000000007],
-     [-0.008593312033004,  0.000000000000037, -0.               ],
-     [-0.000000000000046,  0.               ,  0.001199562663158],
-     [-0.000000000000058,  0.000000000000002,  0.00419309249157 ],
-     [ 0.005975552929523, -0.002639002775059,  0.000000000000004],
-     [ 0.000000000000074, -0.000000000000013,  0.001199562663249],
-     [ 0.000000000000012,  0.000000000000009, -0.004193092491498],
-     [ 0.005975552929327,  0.002639002775102, -0.000000000000004]])
-
-    I_D0_ref = np.array(
-    [[ 0.000000000000021, -0.000000000000008, -0.009719121979288],
-     [ 0.000000000000077,  0.000000000000041,  0.000000000000138],
-     [ 0.008593312029382, -0.000000000000037,  0.               ],
-     [ 0.000000000000065,  0.000000000000007, -0.001199562713834],
-     [ 0.000000000000082,  0.000000000000018, -0.004193092483275],
-     [-0.005975553612676,  0.002639003322523, -0.000000000000003],
-     [-0.000000000000075,  0.00000000000001 , -0.001199562713837],
-     [ 0.000000000000094, -0.000000000000019,  0.004193092483204],
-     [-0.005975553612565, -0.002639003322554,  0.000000000000003]])
-
-    I_DD_ref = np.array(
-    [[ 0.000000000000076,  0.000000000000007, -0.006571145180512],
-     [ 0.000000000002677,  0.000000000001015, -0.000000000000175],
-     [ 0.03605012126928 , -0.00000000000062 ,  0.000000000000001],
-     [ 0.000000000000042, -0.000000000000022,  0.001267365504038],
-     [ 0.000000000000008,  0.000000000000042, -0.009999089093697],
-     [-0.020642645988524,  0.016765832724844, -0.000000000000034],
-     [-0.000000000000056, -0.000000000000001,  0.001267365504546],
-     [-0.000000000000143,  0.000000000000071,  0.009999089093786],
-     [-0.020642645988882, -0.016765832725199,  0.000000000000003]])
-
-    aat_ref = I_00_ref + I_D0_ref + I_0D_ref + I_DD_ref
+    # Setting fully normalized reference AAT.
+    aat_ref = np.array(
+    [[-0.095540814320978, -0.023838374184792,  0.067534308328104],
+     [ 0.024859894690783,  0.005930943259976, -0.00402322935501 ],
+     [-0.203998603555246, -0.050615735214713,  0.091451278012954],
+     [-0.086426692706765, -0.021733317747402,  0.05884087885991 ],
+     [-0.016994525637844, -0.004269530902621,  0.020306187975289],
+     [-0.21037648261415 , -0.051889007431137,  0.086924374842542],
+     [-0.086426693169612, -0.02173331316276 , -0.058840875550237],
+     [-0.016994530646993, -0.004269531583851, -0.020306190977836],
+     [ 0.210376480592374,  0.051888999607868,  0.086924255327167],
+     [-0.095540814399817, -0.023838378409075, -0.067534324183816],
+     [ 0.024859895761856,  0.005930942535482,  0.004023230328119],
+     [ 0.203998605580878,  0.050615743039658,  0.091451279747092]])
 
     # Compute energy.
     E_list, T_list, C, basis = apyib.energy.energy(parameters)
@@ -324,23 +456,23 @@ def test_cid_SO_aat():
 
     # Compute finite difference AATs inputs.
     finite_difference = apyib.fin_diff.finite_difference(parameters, basis, C)
-    nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T = finite_difference.compute_AAT(0.0001, 0.0001)
+    nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T = finite_difference.compute_AAT(0.000001, 0.000001)
 
     # Compute finite difference AATs.
-    AATs = apyib.aats.AAT(parameters, wfn, C, basis, T_list, nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T, 0.0001, 0.0001)
+    AATs = apyib.aats.AAT(parameters, wfn, C, basis, T_list, nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T, 0.000001, 0.000001)
     aat = np.zeros((3 * H.molecule.natom(), 3), dtype=np.cdouble)
     for lambd_alpha in range(3 * H.molecule.natom()):
         for beta in range(3):
-            aat[lambd_alpha][beta] = AATs.compute_SO_aats(lambd_alpha, beta, normalization='intermediate')
+            aat[lambd_alpha][beta] = AATs.compute_SO_aats(lambd_alpha, beta)
 
     assert(np.max(np.abs(aat-aat_ref)) < 1e-7)
 
 @pytest.mark.skip(reason="Too slow.")
-def test_cid_SO_aat_full_norm():
+def test_cisd_SO_aat():
     # Set parameters for the calculation.
-    parameters = {'geom': moldict["H2O"],
-                  'basis': 'STO-6G',
-                  'method': 'CID_SO',
+    parameters = {'geom': moldict["(H2)_2"],
+                  'basis': 'STO-3G',
+                  'method': 'CISD_SO',
                   'e_convergence': 1e-12,
                   'd_convergence': 1e-12,
                   'DIIS': True,
@@ -350,51 +482,19 @@ def test_cid_SO_aat_full_norm():
                   'max_iterations': 120}
 
     # Setting fully normalized reference AAT.
-    I_00_ref = np.array(
-    [[ 0.000000000001681, -0.000000000000066, -0.216369026352184],
-     [ 0.000000000031349,  0.000000000013539,  0.000000000004924],
-     [ 0.315137467648931, -0.000000000006571,  0.000000000000019],
-     [ 0.000000000001682, -0.00000000000047 ,  0.057265395478773],
-     [ 0.000000000001331,  0.000000000000033, -0.130509695508135],
-     [-0.21913794022654 ,  0.206393339272046, -0.000000000000701],
-     [-0.000000000000366, -0.000000000000273,  0.057265395481647],
-     [-0.000000000000126,  0.00000000000079 ,  0.130509695509671],
-     [-0.219137940232017, -0.206393339277598, -0.000000000000611]])
-
-    I_0D_ref = np.array(
-    [[-0.000000000000044,  0.000000000000001,  0.009292340979379],
-     [-0.000000000000829, -0.000000000000166,  0.000000000001179],
-     [-0.008215966789908,  0.00000000000008 ,  0.               ],
-     [-0.000000000000053,  0.000000000000006,  0.001146888064831],
-     [-0.000000000000045, -0.               ,  0.00400896750085 ],
-     [ 0.005713157422038, -0.002523120198581,  0.000000000000005],
-     [ 0.000000000000019,  0.000000000000003,  0.001146888064285],
-     [-0.000000000000007, -0.00000000000001 , -0.004008967500919],
-     [ 0.005713157422109,  0.002523120198647, -0.000000000000005]])
-
-    I_D0_ref = np.array(
-    [[ 0.000000000000039, -0.000000000000023, -0.009292340730827],
-     [ 0.00000000000088 ,  0.00000000000017 , -0.000000000001101],
-     [ 0.00821596678659 , -0.000000000000105, -0.               ],
-     [ 0.00000000000001 ,  0.000000000000015, -0.001146888112374],
-     [ 0.000000000000005,  0.000000000000022, -0.004008967492092],
-     [-0.005713158075148,  0.002523120721989, -0.000000000000004],
-     [-0.000000000000055,  0.000000000000019, -0.001146888111887],
-     [-0.000000000000021, -0.000000000000001,  0.004008967492141],
-     [-0.005713158075265, -0.002523120722027,  0.000000000000004]])
-
-    I_DD_ref = np.array(
-    [[ 0.000000000000072,  0.000000000000007, -0.006282596323029],
-     [ 0.000000000002559,  0.00000000000097 , -0.000000000000168],
-     [ 0.034467106277752, -0.000000000000593,  0.000000000000001],
-     [ 0.00000000000004 , -0.000000000000021,  0.001211713581405],
-     [ 0.000000000000008,  0.00000000000004 , -0.009560014070841],
-     [-0.019736196388032,  0.016029619821933, -0.000000000000033],
-     [-0.000000000000054, -0.000000000000001,  0.001211713581891],
-     [-0.000000000000137,  0.000000000000068,  0.009560014070926],
-     [-0.019736196388375, -0.016029619822273,  0.000000000000003]])
-
-    aat_ref = I_00_ref + I_D0_ref + I_0D_ref + I_DD_ref
+    aat_ref = np.array(
+    [[-0.0959055286, -0.02391999  ,  0.0674080955],
+     [ 0.0191224523,  0.0045302271, -0.0026461627],
+     [-0.2037785253, -0.0505421735,  0.0929373342],
+     [-0.0896531257, -0.0225174447,  0.0604971932],
+     [-0.0115279984, -0.0029403899,  0.0180324154],
+     [-0.2104465742, -0.0518826005,  0.0894213555],
+     [-0.0896531255, -0.0225174447, -0.0604971936],
+     [-0.011527999 , -0.0029403901, -0.0180324155],
+     [ 0.2104465742,  0.0518826006,  0.0894213555],
+     [-0.0959055288, -0.0239199901, -0.0674080953],
+     [ 0.0191224532,  0.0045302273,  0.0026461629],
+     [ 0.2037785259,  0.0505421736,  0.0929373346]])
 
     # Compute energy.
     E_list, T_list, C, basis = apyib.energy.energy(parameters)
@@ -406,10 +506,60 @@ def test_cid_SO_aat_full_norm():
 
     # Compute finite difference AATs inputs.
     finite_difference = apyib.fin_diff.finite_difference(parameters, basis, C)
-    nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T = finite_difference.compute_AAT(0.0001, 0.0001)
+    nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T = finite_difference.compute_AAT(0.000001, 0.000001)
 
     # Compute finite difference AATs.
-    AATs = apyib.aats.AAT(parameters, wfn, C, basis, T_list, nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T, 0.0001, 0.0001)
+    AATs = apyib.aats.AAT(parameters, wfn, C, basis, T_list, nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T, 0.000001, 0.000001)
+    aat = np.zeros((3 * H.molecule.natom(), 3), dtype=np.cdouble)
+    for lambd_alpha in range(3 * H.molecule.natom()):
+        for beta in range(3):
+            aat[lambd_alpha][beta] = AATs.compute_SO_aats(lambd_alpha, beta, normalization='intermediate')
+
+    assert(np.max(np.abs(aat-aat_ref)) < 1e-7)
+
+@pytest.mark.skip(reason="Too slow.")
+def test_cisd_SO_aat_full_norm():
+    # Set parameters for the calculation.
+    parameters = {'geom': moldict["(H2)_2"],
+                  'basis': 'STO-3G',
+                  'method': 'CISD_SO',
+                  'e_convergence': 1e-12,
+                  'd_convergence': 1e-12,
+                  'DIIS': True,
+                  'freeze_core': False,
+                  'F_el': [0.0, 0.0, 0.0],
+                  'F_mag': [0.0, 0.0, 0.0],
+                  'max_iterations': 120}
+
+    # Setting fully normalized reference AAT.
+    aat_ref = np.array(
+    [[-0.0932435402, -0.0232560581,  0.0655477146],
+     [ 0.0185916827,  0.0044044845, -0.0025707274],
+     [-0.198122375 , -0.0491393066,  0.0903772041],
+     [-0.0871646814, -0.0218924424,  0.0588063949],
+     [-0.0112080231, -0.0028587754,  0.0175329454],
+     [-0.2046053431, -0.0504425284,  0.0869198719],
+     [-0.087164681 , -0.0218924424, -0.0588063955],
+     [-0.0112080237, -0.0028587756, -0.0175329455],
+     [ 0.2046053431,  0.0504425284,  0.0869198719],
+     [-0.0932435404, -0.0232560582, -0.0655477145],
+     [ 0.0185916834,  0.0044044847,  0.0025707274],
+     [ 0.1981223755,  0.0491393068,  0.0903772046]]) 
+
+    # Compute energy.
+    E_list, T_list, C, basis = apyib.energy.energy(parameters)
+    E_tot = E_list[0] + E_list[1] + E_list[2]
+    print(E_tot)
+
+    H = apyib.hamiltonian.Hamiltonian(parameters)
+    wfn = apyib.hf_wfn.hf_wfn(H)
+
+    # Compute finite difference AATs inputs.
+    finite_difference = apyib.fin_diff.finite_difference(parameters, basis, C)
+    nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T = finite_difference.compute_AAT(0.000001, 0.000001)
+
+    # Compute finite difference AATs.
+    AATs = apyib.aats.AAT(parameters, wfn, C, basis, T_list, nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T, 0.000001, 0.000001)
     aat = np.zeros((3 * H.molecule.natom(), 3), dtype=np.cdouble)
     for lambd_alpha in range(3 * H.molecule.natom()):
         for beta in range(3):

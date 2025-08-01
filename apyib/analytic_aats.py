@@ -752,11 +752,6 @@ class analytic_derivative(object):
             dt1_dH = dt1_dH.copy()
             dt2_dH = dt2_dH.copy()
 
-            # Setting up DIIS arrays for the error matrices and Fock matrices.
-            if self.parameters['DIIS']:
-                dt_dH_iter = []
-                de_dH_iter = []
-
             # Start iterative procedure.
             iteration = 1
             while iteration <= self.parameters['max_iterations']:
@@ -832,7 +827,10 @@ class analytic_derivative(object):
                     dt2_dH_flat = len(np.reshape(dt2_dH, (-1)))
                     res_vec = np.concatenate((np.reshape(dRt1_dH, (-1)), np.reshape(dRt2_dH, (-1))))
                     t_vec = np.concatenate((np.reshape(dt1_dH, (-1)), np.reshape(dt2_dH, (-1))))
-                    t_vec = solve_general_DIIS(self.parameters, res_vec, t_vec, de_dH_iter, dt_dH_iter)
+                    if iteration == 1:
+                        t_iter = np.atleast_2d(t_vec).T
+                        e_iter = np.atleast_2d(res_vec).T
+                    t_vec, e_iter, t_iter = solve_general_DIIS(self.parameters, res_vec, t_vec, e_iter, t_iter, iteration)
                     dt1_dH = np.reshape(t_vec[0:dt1_dH_flat], (occ, vir))
                     dt2_dH = np.reshape(t_vec[dt1_dH_flat:], (occ, occ, vir, vir))
 
@@ -1001,11 +999,6 @@ class analytic_derivative(object):
                 dt1_dR = dt1_dR.copy()
                 dt2_dR = dt2_dR.copy()                
 
-                # Setting up DIIS arrays for the error matrices and Fock matrices.
-                if self.parameters['DIIS']:
-                    dt_dR_iter = [] 
-                    de_dR_iter = [] 
-
                 # Start iterative procedure.
                 iteration = 1
                 while iteration <= self.parameters['max_iterations']:
@@ -1081,7 +1074,10 @@ class analytic_derivative(object):
                         dt2_dR_flat = len(np.reshape(dt2_dR, (-1)))
                         res_vec = np.concatenate((np.reshape(dRt1_dR, (-1)), np.reshape(dRt2_dR, (-1))))
                         t_vec = np.concatenate((np.reshape(dt1_dR, (-1)), np.reshape(dt2_dR, (-1))))
-                        t_vec = solve_general_DIIS(self.parameters, res_vec, t_vec, de_dR_iter, dt_dR_iter)
+                        if iteration == 1:
+                            t_iter = np.atleast_2d(t_vec).T
+                            e_iter = np.atleast_2d(res_vec).T
+                        t_vec, e_iter, t_iter = solve_general_DIIS(self.parameters, res_vec, t_vec, e_iter, t_iter, iteration)
                         dt1_dR = np.reshape(t_vec[0:dt1_dR_flat], (occ, vir))
                         dt2_dR = np.reshape(t_vec[dt1_dR_flat:], (occ, occ, vir, vir))
 

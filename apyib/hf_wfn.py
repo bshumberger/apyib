@@ -4,7 +4,7 @@ import psi4
 import numpy as np
 import scipy.linalg as la
 import opt_einsum as oe
-from apyib.utils import solve_DIIS
+from apyib.utils import solve_general_DIIS
 
 class hf_wfn(object):
     """
@@ -68,10 +68,10 @@ class hf_wfn(object):
             print("\n Iter      E_elec(real)       E_elec(imaginary)        E(tot)           Delta_E(real)       Delta_E(imaginary)      RMS_D(real)      RMS_D(imaginary)")
             print(" %02d %20.12f %20.12f %20.12f" % (0, E_SCF.real, E_SCF.imag, E_tot))
 
-        # Setting up DIIS arrays for the error matrices and Fock matrices.
-        if parameters['DIIS']:
-            e_iter = []
-            F_iter = []
+        ## Setting up DIIS arrays for the error matrices and Fock matrices.
+        #if parameters['DIIS']:
+        #    e_iter = []
+        #    F_iter = []
 
         # Starting the SCF procedure.
         i = 1
@@ -84,7 +84,15 @@ class hf_wfn(object):
 
             # Solve DIIS equations.
             if parameters['DIIS']:
-                F = solve_DIIS(parameters, F, D, H.S, X, F_iter, e_iter) 
+                F_flat = len(np.reshape(F, (-1)))
+                res_vec = np.reshape(X@(H.S@D@F - np.conjugate(np.transpose(H.S@D@F)))@X, (-1))
+                F_vec = np.reshape(F, (-1))
+                if i == 1:
+                    F_iter = np.atleast_2d(F_vec).T
+                    e_iter = np.atleast_2d(res_vec).T
+                F_vec, e_iter, F_iter = solve_general_DIIS(parameters, res_vec, F_vec, e_iter, F_iter, i)
+                F = np.reshape(F_vec, (self.nbf, self.nbf))
+                #F = solve_DIIS(parameters, F, D, H.S, X, F_iter, e_iter) 
 
             # Compute the molecular orbital coefficients.
             if i >= 1:

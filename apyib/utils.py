@@ -55,7 +55,7 @@ def run_psi4(parameters, method='RHF'):
 
 
 def solve_DIIS(parameters, F, D, S, X, F_iter, e_iter, min_DIIS=1, max_DIIS=7):
-    """
+    """ 
     Solve the direct inversion of the iterative subspace (DIIS) equations for improved SCF convergence.
     """
     # Truncate the storage of the Fock matrices and error matrices for stability reasons.
@@ -79,10 +79,10 @@ def solve_DIIS(parameters, F, D, S, X, F_iter, e_iter, min_DIIS=1, max_DIIS=7):
     B[-1,-1] = 0 
     for m in range(len(e_iter)):
         for n in range(len(e_iter)):
-            #B[m,n] = oe.contract('mn, mn->',e_iter[m], e_iter[n], optimize=True)
-            for o in range(len(e_diis[0])):
-                for p in range(len(e_diis[0])):
-                    B[m,n] = B[m,n] + e_iter[m][o][p] * e_iter[n][o][p]
+            B[m,n] = B[m,n] + oe.contract('op,op->', np.conjugate(e_iter[m]), e_iter[n])
+            #for o in range(len(e_diis[0])):
+            #    for p in range(len(e_diis[0])):
+            #        B[m,n] = B[m,n] + np.conjugate(e_iter[m][o][p]) * e_iter[n][o][p]
     
     # Build the "A" matrix for the system of linear equations.
     A = np.zeros(len(e_iter)+1)
@@ -101,43 +101,83 @@ def solve_DIIS(parameters, F, D, S, X, F_iter, e_iter, min_DIIS=1, max_DIIS=7):
 
 
 
-def solve_general_DIIS(parameters, res_vec, t_vec, e_iter, t_iter, min_DIIS=1, max_DIIS=7):
+def solve_general_DIIS(parameters, res_vec, t_vec, e_iter, t_iter, iteration, min_DIIS=1, max_DIIS=7):
     """ 
     Solve the direct inversion of the iterative subspace (DIIS) equations for improved CI convergence.
     """
     # Truncate the storage of the error matrices for stability reasons.
-    if len(e_iter) > max_DIIS:
-        while len(e_iter) > max_DIIS:
-            del e_iter[0]
-            del t_iter[0]
+    if len(e_iter[0]) > max_DIIS:
+        while len(e_iter[0]) > max_DIIS:
+            e_iter = np.delete(e_iter, 0, axis=1)
+            t_iter = np.delete(t_iter, 0, axis=1)
     
     # Compute the error matrix.
-    e_diis = res_vec
-    e_iter.append(e_diis)
-    t_iter.append(t_vec)
-    
-    # Compute the "B" matrix.
-    B = np.zeros((len(e_iter)+1,len(e_iter)+1))
+    e_diis = res_vec.copy()
+
+    if iteration != 1:
+        e_iter = np.hstack((e_iter, np.atleast_2d(e_diis).T))
+        t_iter = np.hstack((t_iter, np.atleast_2d(t_vec).T))
+
+    B = oe.contract('om,on->mn', np.conjugate(e_iter), e_iter)
+    row = np.zeros((len(B)))
+    col = np.zeros((len(B)+1))
+    B = np.vstack((B, row))
+    B = np.hstack((B, np.atleast_2d(col).T))
     B[-1,:] = -1
     B[:,-1] = -1
     B[-1,-1] = 0
-    for m in range(len(e_iter)):
-        for n in range(len(e_iter)):
-            B[m,n] += oe.contract('o,o->', np.conjugate(e_iter[m]), e_iter[n])
 
     # Build the "A" matrix for the system of linear equations.
-    A = np.zeros(len(e_iter)+1)
+    A = np.zeros(len(B))
     A[-1] = -1
-    
+
     # Solve the system of linear equations.
     C_diis = np.linalg.solve(B,A)
     
-    # Solve for new Fock matrix.
-    t_vec = np.zeros_like(res_vec)
-    for j in range(len(C_diis) - 1): 
-        t_vec += C_diis[j] * t_iter[j]
+    # Solve for new flattened t-amplitudes matrix.
+    t_vec = oe.contract('j,ij->i', C_diis[0:-1], t_iter)
 
-    return t_vec
+    return t_vec, e_iter, t_iter
+
+
+
+#def solve_general_DIIS(parameters, res_vec, t_vec, e_iter, t_iter, min_DIIS=1, max_DIIS=7):
+#    """ 
+#    Solve the direct inversion of the iterative subspace (DIIS) equations for improved CI convergence.
+#    """
+#    # Truncate the storage of the error matrices for stability reasons.
+#    if len(e_iter) > max_DIIS:
+#        while len(e_iter) > max_DIIS:
+#            del e_iter[0]
+#            del t_iter[0]
+#
+#    # Compute the error matrix.
+#    e_diis = res_vec
+#    e_iter.append(e_diis)
+#    t_iter.append(t_vec)
+#
+#    # Compute the "B" matrix.
+#    B = np.zeros((len(e_iter)+1,len(e_iter)+1))
+#    B[-1,:] = -1
+#    B[:,-1] = -1
+#    B[-1,-1] = 0 
+#    for m in range(len(e_iter)):
+#        for n in range(len(e_iter)):
+#            B[m,n] = B[m,n] + oe.contract('o,o->', np.conjugate(e_iter[m]), e_iter[n])
+#    
+#    # Build the "A" matrix for the system of linear equations.
+#    A = np.zeros(len(e_iter)+1)
+#    A[-1] = -1
+#    
+#    # Solve the system of linear equations.
+#    C_diis = np.linalg.solve(B,A)
+#    
+#    # Solve for new Fock matrix.
+#    t_vec = np.zeros_like(res_vec)
+#    for j in range(len(C_diis) - 1): 
+#        t_vec = t_vec + C_diis[j] * t_iter[j]
+#
+#    return t_vec
 
 
 
@@ -248,7 +288,8 @@ def compute_F_SO(wfn, F_MO):
     nSO = 2*F_MO.shape[0]
 
     # Compute the SO Fock matrix.
-    F_SO = np.zeros([nSO, nSO])
+    cast_type = F_MO.dtype
+    F_SO = np.zeros([nSO, nSO], dtype=cast_type)
     #F_SO = F_SO.astype('complex128')
     for p in range(0, nSO):
         if p % 2 == 0:
@@ -285,7 +326,8 @@ def compute_ERI_SO(wfn, ERI_MO):
     nSO3 = 2*ERI_MO.shape[3]
 
     # Compute the SO ERIs.
-    ERI_SO = np.zeros([nSO0, nSO1, nSO2, nSO3])
+    cast_type = ERI_MO.dtype
+    ERI_SO = np.zeros([nSO0, nSO1, nSO2, nSO3], dtype=cast_type)
     #ERI_SO = ERI_SO.astype('complex128')
     for p in range(0, nSO0):
         if p % 2 == 0:
@@ -333,14 +375,16 @@ def compute_mo_overlap(ndocc, nbf, bra_basis, bra_wfn, ket_basis, ket_wfn):
     elif bra_basis != ket_basis:
         ao_overlap = mints.ao_overlap(bra_basis, ket_basis).np
 
-    mo_overlap = np.zeros_like(ao_overlap)
-    mo_overlap = mo_overlap.astype('complex128')
+    #mo_overlap = np.zeros_like(ao_overlap)
+    #mo_overlap = mo_overlap.astype('complex128')
 
-    for m in range(0, nbf):
-        for n in range(0, nbf):
-            for mu in range(0, nbf):
-                for nu in range(0, nbf):
-                    mo_overlap[m, n] += np.conjugate(np.transpose(bra_wfn[mu, m])) *  ao_overlap[mu, nu] * ket_wfn[nu, n]
+    mo_overlap = oe.contract('mp,mn,nq->pq', np.conjugate(bra_wfn), ao_overlap, ket_wfn)
+
+    #for m in range(0, nbf):
+    #    for n in range(0, nbf):
+    #        for mu in range(0, nbf):
+    #            for nu in range(0, nbf):
+    #                mo_overlap[m, n] += np.conjugate(np.transpose(bra_wfn[mu, m])) *  ao_overlap[mu, nu] * ket_wfn[nu, n]
     return mo_overlap
 
 
@@ -354,8 +398,8 @@ def compute_so_overlap(nbf, mo_overlap):
     nSO = 2 * nbf
 
     # Compute the SO Fock matrix.
-    S_SO = np.zeros([nSO, nSO])
-    #S_SO = S_SO.astype('complex128')
+    cast_type = mo_overlap.dtype
+    S_SO = np.zeros([nSO, nSO], dtype=cast_type)
     for p in range(0, nSO):
         if p % 2 == 0:
             p_spin = 1  

@@ -70,11 +70,6 @@ class ci_wfn(object):
         E_CID =  oe.contract('ijab,ijab->', 2 * ERI_MO[o_,o_,v_,v_] - ERI_MO.swapaxes(2,3)[o_,o_,v_,v_], t2)
         t2 = t2.copy()
 
-        # Setting up DIIS arrays for the error matrices and Fock matrices.
-        if self.parameters['DIIS']:
-            t_iter = []
-            e_iter = []
-
         if print_level > 0:
             print("\n Iter      E_elec(real)       E_elec(imaginary)        E(tot)           Delta_E(real)       Delta_E(imaginary)      RMS_T2(real)      RMS_T2(imaginary)")
 
@@ -105,7 +100,10 @@ class ci_wfn(object):
                 t2_flat = len(np.reshape(t2, (-1)))
                 res_vec = np.reshape(r_T2, (-1))
                 t_vec = np.reshape(t2, (-1))
-                t_vec = solve_general_DIIS(self.parameters, res_vec, t_vec, e_iter, t_iter)
+                if iteration == 1:
+                    t_iter = np.atleast_2d(t_vec).T
+                    e_iter = np.atleast_2d(res_vec).T
+                t_vec, e_iter, t_iter = solve_general_DIIS(self.parameters, res_vec, t_vec, e_iter, t_iter, iteration)
                 t2 = np.reshape(t_vec, (occ, occ, vir, vir))
 
             # Compute new CID energy.
@@ -164,11 +162,6 @@ class ci_wfn(object):
         E_CID =  0.25 * oe.contract('ijab,ijab->', t2, ERI_SO[o_,o_,v_,v_] - ERI_SO.swapaxes(2,3)[o_,o_,v_,v_])
         t2 = t2.copy()
 
-        # Setting up DIIS arrays for the error matrices and Fock matrices.
-        if self.parameters['DIIS']:
-            t_iter = []
-            e_iter = []
-
         if print_level > 0:
             print("\n Iter      E_elec(real)       E_elec(imaginary)        E(tot)           Delta_E(real)       Delta_E(imaginary)      RMS_T2(real)      RMS_T2(imaginary)")
 
@@ -199,7 +192,10 @@ class ci_wfn(object):
                 t2_flat = len(np.reshape(t2, (-1)))
                 res_vec = np.reshape(r_T2, (-1))
                 t_vec = np.reshape(t2, (-1))
-                t_vec = solve_general_DIIS(self.parameters, res_vec, t_vec, e_iter, t_iter)
+                if iteration == 1:
+                    t_iter = np.atleast_2d(t_vec).T
+                    e_iter = np.atleast_2d(res_vec).T
+                t_vec, e_iter, t_iter = solve_general_DIIS(self.parameters, res_vec, t_vec, e_iter, t_iter, iteration)
                 t2 = np.reshape(t_vec, (occ, occ, vir, vir))
 
             # Compute new CID energy.
@@ -263,11 +259,6 @@ class ci_wfn(object):
         t1 = t1.copy()
         t2 = t2.copy()
 
-        # Setting up DIIS arrays for the error matrices and Fock matrices.
-        if self.parameters['DIIS']:
-            t_iter = []
-            e_iter = []
-
         if print_level > 0:
             print("\n Iter      E_elec(real)       E_elec(imaginary)        E(tot)           Delta_E(real)       Delta_E(imaginary)      RMS_T1(real)      RMS_T1(imaginary)      RMS_T2(real)      RMS_T2(imaginary)")
 
@@ -318,7 +309,10 @@ class ci_wfn(object):
                 t2_flat = len(np.reshape(t2, (-1)))
                 res_vec = np.concatenate((np.reshape(r_T1, (-1)), np.reshape(r_T2, (-1))))
                 t_vec = np.concatenate((np.reshape(t1, (-1)), np.reshape(t2, (-1))))
-                t_vec = solve_general_DIIS(self.parameters, res_vec, t_vec, e_iter, t_iter)
+                if iteration == 1:
+                    t_iter = np.atleast_2d(t_vec).T
+                    e_iter = np.atleast_2d(res_vec).T
+                t_vec, e_iter, t_iter = solve_general_DIIS(self.parameters, res_vec, t_vec, e_iter, t_iter, iteration)
                 t1 = np.reshape(t_vec[0:t1_flat], (occ, vir))
                 t2 = np.reshape(t_vec[t1_flat:], (occ, occ, vir, vir))
 
@@ -414,11 +408,6 @@ class ci_wfn(object):
         t1 = t1.copy()
         t2 = t2.copy()
 
-        # Setting up DIIS arrays for the error matrices and Fock matrices.
-        if self.parameters['DIIS']:
-            t_iter = []
-            e_iter = []
-
         if print_level > 0:
             print("\n Iter      E_elec(real)       E_elec(imaginary)        E(tot)           Delta_E(real)       Delta_E(imaginary)      RMS_T1(real)      RMS_T1(imaginary)      RMS_T2(real)      RMS_T2(imaginary)")
 
@@ -469,7 +458,10 @@ class ci_wfn(object):
                 t2_flat = len(np.reshape(t2, (-1)))
                 res_vec = np.concatenate((np.reshape(r_T1, (-1)), np.reshape(r_T2, (-1))))
                 t_vec = np.concatenate((np.reshape(t1, (-1)), np.reshape(t2, (-1))))
-                t_vec = solve_general_DIIS(self.parameters, res_vec, t_vec, e_iter, t_iter)
+                if iteration == 1:
+                    t_iter = np.atleast_2d(t_vec).T
+                    e_iter = np.atleast_2d(res_vec).T
+                t_vec, e_iter, t_iter = solve_general_DIIS(self.parameters, res_vec, t_vec, e_iter, t_iter, iteration)
                 t1 = np.reshape(t_vec[0:t1_flat], (occ, vir))
                 t2 = np.reshape(t_vec[t1_flat:], (occ, occ, vir, vir))
 
