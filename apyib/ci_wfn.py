@@ -129,6 +129,38 @@ class ci_wfn(object):
                     print("Not converged.")
             iteration += 1
 
+        #### Testing adjoint formulation of CISD equations. ####
+
+        ## Compute and normalize amplitudes.
+        #N = 1 / np.sqrt(1**2 + oe.contract('ijab,ijab->', np.conjugate(t2), 2*t2-t2.swapaxes(2,3)))
+        #t0 = N
+        #t2 *= N
+
+        ## Build OPD.
+        #D_pq = np.zeros_like(F_MO)
+        #D_pq[o_,o_] -= 2 * oe.contract('jkab,ikab->ij', np.conjugate(2*t2 - t2.swapaxes(2,3)), t2)
+        #D_pq[v_,v_] += 2 * oe.contract('ijac,ijbc->ab', np.conjugate(2*t2 - t2.swapaxes(2,3)), t2)
+
+        ## Build TPD.
+        #D_pqrs = np.zeros_like(ERI_MO)
+        #D_pqrs[o_,o_,o_,o_] += oe.contract('klab,ijab->ijkl', np.conjugate(t2), (2*t2 - t2.swapaxes(2,3))) 
+        #D_pqrs[v_,v_,v_,v_] += oe.contract('ijab,ijcd->abcd', np.conjugate(t2), (2*t2 - t2.swapaxes(2,3))) 
+        #D_pqrs[v_,o_,o_,v_] += 2 * oe.contract('jkac,ikbc->aijb', np.conjugate(2*t2 - t2.swapaxes(2,3)), 2*t2 - t2.swapaxes(2,3))
+
+        #D_pqrs[v_,o_,v_,o_] -= 4 * oe.contract('jkac,ikbc->aibj', np.conjugate(t2), t2)
+        #D_pqrs[v_,o_,v_,o_] += 2 * oe.contract('jkac,ikcb->aibj', np.conjugate(t2), t2)
+        #D_pqrs[v_,o_,v_,o_] += 2 * oe.contract('jkca,ikbc->aibj', np.conjugate(t2), t2)
+        #D_pqrs[v_,o_,v_,o_] -= 4 * oe.contract('jkca,ikcb->aibj', np.conjugate(t2), t2)
+
+        #D_pqrs[o_,o_,v_,v_] += np.conjugate(t0) * (2*t2 -t2.swapaxes(2,3))
+        #D_pqrs[v_,v_,o_,o_] += np.conjugate(2*t2.swapaxes(0,2).swapaxes(1,3) - t2.swapaxes(2,3).swapaxes(0,2).swapaxes(1,3)) * t0
+
+        ## Compute energy.
+        #E = oe.contract('pq,pq->', F_MO, D_pq) + oe.contract('pqrs,pqrs->', ERI_MO, D_pqrs)
+        #print("Adjoint Correlation Energy: ", E)
+
+        ## Equations for adjoint formulation are correct.
+
         return E_CID, t2
 
 

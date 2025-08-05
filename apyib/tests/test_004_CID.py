@@ -31,7 +31,7 @@ def test_cid_h2o_sto_3g():
     
     # Compute the MP2 energy and wavefunction.
     wfn_CI = apyib.ci_wfn.ci_wfn(parameters, wfn)
-    apyib_E_CID, t2 = wfn_CI.solve_CID()
+    apyib_E_CID, t2 = wfn_CI.solve_CID(print_level=1)
     
     # Print energies and energy difference between apyib code and Psi4.
     print("Electronic Hartree-Fock Energy: ", apyib_E)
@@ -71,7 +71,7 @@ def test_cid_h2o_cc_pvdz():
         
     # Compute the MP2 energy and wavefunction.
     wfn_CI = apyib.ci_wfn.ci_wfn(parameters, wfn)
-    apyib_E_CID, t2 = wfn_CI.solve_CID()
+    apyib_E_CID, t2 = wfn_CI.solve_CID(print_level=1)
         
     # Print energies and energy difference between apyib code and Psi4.
     print("Electronic Hartree-Fock Energy: ", apyib_E)
@@ -100,7 +100,7 @@ def test_cid_energy():
     c4_CID = c4scf + c4ci
 
     # Compute energy.
-    E_list, T_list, C, basis = apyib.energy.energy(parameters)
+    E_list, T_list, C, basis = apyib.energy.energy(parameters,print_level=1)
     apyib_E_tot = E_list[0] + E_list[1] + E_list[2]
 
     # Print energies and energy difference between apyib code and Psi4.
