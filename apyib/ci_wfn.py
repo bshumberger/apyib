@@ -129,6 +129,9 @@ class ci_wfn(object):
                     print("Not converged.")
             iteration += 1
 
+        print("t-Amplitude Data:")
+        print("Maximum t2: ", np.max(t2))
+
         #### Testing adjoint formulation of CISD equations. ####
 
         ## Compute and normalize amplitudes.
@@ -522,6 +525,10 @@ class ci_wfn(object):
                 if abs(delta_E) > self.parameters['e_convergence'] or rms_t2 > self.parameters['d_convergence']:
                     print("Not converged.")
             iteration += 1
+
+        print("t-Amplitude Data:")
+        print("Maximum t1: ", np.max(t1))
+        print("Maximum t2: ", np.max(t2))
 
         #### Testing adjoint formulation of CISD equations. ####
 

@@ -354,8 +354,9 @@ class analytic_derivative(object):
             U_H.append(U_h)
             dT2_dH.append(dt2_dH)
 
-        #del dt2_dH; del df_dH; del dERI_dH; del D; del B; del U_h; del A_mag; del G_mag
-        #gc.collect()
+            print("\nMagnetic Field Perturbtion Data:")
+            print("Cartesian: ", b)
+            print("Maximum dt2/dH: ", np.max(dt2_dH))
 
         # Compute the perturbation-independent A matrix for the CPHF coefficients with real wavefunctions.
         A = (2 * ERI - ERI.swapaxes(2,3)) + (2 * ERI - ERI.swapaxes(2,3)).swapaxes(1,3)
@@ -449,6 +450,11 @@ class analytic_derivative(object):
                 dt2_dR += oe.contract('ijac,cb->ijab', t2, df_dR[v_,v_])
                 dt2_dR /= (wfn_MP2.D_ijab)
 
+                print("\nNuclear Perturbation Data:")
+                print("Atom: ", N1)
+                print("Cartesian: ", a)
+                print("Maximum dt2/dR: ", np.max(dt2_dR))
+
                 # Compute derivative of the normalization factor.
                 N_R = - (1 / np.sqrt((1 + oe.contract('ijab,ijab', np.conjugate(t2), 2*t2 - t2.swapaxes(2,3)))**3))
                 N_R *= 0.5 * (oe.contract('ijab,ijab', np.conjugate(dt2_dR), 2*t2 - t2.swapaxes(2,3)) + oe.contract('ijab,ijab', dt2_dR, np.conjugate(2*t2 - t2.swapaxes(2,3))))
@@ -522,16 +528,21 @@ class analytic_derivative(object):
                         if normalization == 'full':
                             AAT_Norm[lambda_alpha][beta] += N * N_R * 1.0 * oe.contract("ijab,ijab", 2*t2 - t2.swapaxes(2,3), dT2_dH[beta])
 
-        print("Hartree-Fock AAT:")
+        #print("Hartree-Fock AAT:")
+        #print(AAT_HF, "\n")
+        #print("AAT Term 1:")
+        #print(AAT_1, "\n")
+        #print("AAT Term 2:")
+        #print(AAT_2, "\n")
+        #print("AAT Term 3:")
+        #print(AAT_3, "\n")
+        #print("AAT Term 4:")
+        #print(AAT_4, "\n")
+
+        print("\nHartree-Fock AAT:")
         print(AAT_HF, "\n")
-        print("AAT Term 1:")
-        print(AAT_1, "\n")
-        print("AAT Term 2:")
-        print(AAT_2, "\n")
-        print("AAT Term 3:")
-        print(AAT_3, "\n")
-        print("AAT Term 4:")
-        print(AAT_4, "\n")
+        print("Doubles/Doubles:")
+        print(AAT_1 + AAT_2 + AAT_3 + AAT_4, "\n")
 
         AAT = AAT_HF + AAT_1 + AAT_2 + AAT_3 + AAT_4 + AAT_Norm
 
@@ -861,6 +872,11 @@ class analytic_derivative(object):
                         print("Not converged.")
                 iteration += 1
 
+            print("\nMagnetic Field Perturbtion Data:")
+            print("Cartesian: ", a)
+            print("Maximum dt1/dH: ", np.max(dt1_dH))
+            print("Maximum dt2/dH: ", np.max(dt2_dH))
+
             dT1_dH.append(dt1_dH)
             dT2_dH.append(dt2_dH)
             U_H.append(U_h)
@@ -1107,6 +1123,12 @@ class analytic_derivative(object):
                         if abs(delta_dE_dR_proj) > self.parameters['e_convergence'] or rms_dt1_dR > self.parameters['d_convergence'] or rms_dt2_dR > self.parameters['d_convergence']:
                             print("Not converged.")
                     iteration += 1
+
+                print("\nNuclear Perturbation Data:")
+                print("Atom: ", N1)
+                print("Cartesian: ", a)
+                print("Maximum dt1/dR: ", np.max(dt1_dR))
+                print("Maximum dt2/dR: ", np.max(dt2_dR))
 
                 # Compute derivative of the normalization factor.
                 N_R = - (1 / np.sqrt((1 + 2*oe.contract('ia,ia', np.conjugate(t1), t1) + oe.contract('ijab,ijab', np.conjugate(t2), 2*t2 - t2.swapaxes(2,3)))**3))
@@ -1546,6 +1568,10 @@ class analytic_derivative(object):
                         print("Not converged.")
                 iteration += 1
 
+            print("\nMagnetic Field Perturbation Data:")
+            print("Cartesian: ", a)
+            print("Maximum dt2/dH: ", np.max(dt2_dH))
+
             dT2_dH.append(dt2_dH)
             U_H.append(U_h)
 
@@ -1742,6 +1768,11 @@ class analytic_derivative(object):
                         if abs(delta_dE_dR_proj) > self.parameters['e_convergence'] or rms_dt2_dR > self.parameters['d_convergence']:
                             print("Not converged.")
                     iteration += 1
+
+                print("\nNuclear Perturbation Data:")
+                print("Atom: ", N1)
+                print("Cartesian: ", a)
+                print("Maximum dt2/dR: ", np.max(dt2_dR))
 
                 # Compute derivative of the normalization factor.
                 N_R = - (1 / np.sqrt((1 + oe.contract('ijab,ijab', np.conjugate(t2), 2*t2 - t2.swapaxes(2,3)))**3))
