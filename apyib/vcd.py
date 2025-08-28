@@ -97,8 +97,8 @@ class vcd(object):
         # Compute the APTs in the normal coordinate basis [(e * a_0) / (a_0 * sqrt(m_e))].
         P = APT.copy()
         P_i = P.T @ S
-        print("Length Gauge Atomic Polar Tensor (Normal Mode Basis):")
-        print(P_i)
+        #print("Length Gauge Atomic Polar Tensor (Normal Mode Basis):")
+        #print(P_i.T)
 
         # Compute the electronic component of the AATs [(e * h) / m_e].
         I = AAT_elec.copy()
@@ -117,8 +117,8 @@ class vcd(object):
         # Compute the AATs in the normal coordinate basis [(e * h) / m_e].
         M = I + J
         M_i = M.T @ S
-        print("Atomic Axial Tensor (Normal Mode Basis):")
-        print(M_i.T)
+        #print("Atomic Axial Tensor (Normal Mode Basis):")
+        #print(M_i.T)
 
         # Compute the VCD rotational strengths and IR dipole strengths.
         R = np.zeros((3 * self.natom - 6)) 
@@ -205,14 +205,14 @@ class vcd(object):
         # Compute the length gauge APTs in the normal coordinate basis [(e * a_0) / (a_0 * sqrt(m_e))].
         P_r = APT_LG.copy()
         P_ri = P_r.T @ S 
-        print("Length Gauge Atomic Polar Tensor (Normal Mode Basis):")
-        print(P_ri)
+        #print("Length Gauge Atomic Polar Tensor (Normal Mode Basis):")
+        #print(P_ri.T)
 
         # Compute velocity gauge APTs.
         P_p = APT_VG.copy()
         P_pi = P_p.T @ S 
-        print("Velocity Gauge Atomic Polar Tensor (Normal Mode Basis):")
-        print(P_pi)
+        #print("Velocity Gauge Atomic Polar Tensor (Normal Mode Basis):")
+        #print(P_pi.T)
 
         # Compute the electronic component of the AATs [(e * h) / m_e].
         I = AAT_elec.copy()
@@ -231,15 +231,8 @@ class vcd(object):
         # Compute the AATs in the normal coordinate basis [(e * h) / m_e].
         M = I + J 
         M_i = M.T @ S 
-        print("Atomic Axial Tensor (Normal Mode Basis):")
-        print(M_i.T)
-
-        ## Compute the VCD rotational strengths and IR dipole strengths.
-        #R = np.zeros((3 * self.natom - 6)) 
-        #D = np.zeros((3 * self.natom - 6)) 
-        #for i in range(3 * self.natom - 6): 
-        #    R[i] = oe.contract('i,i->', P_ri[:,i].real, M_i[:,i].real)
-        #    D[i] = oe.contract('i,i->', P_ri[:,i].real, P_ri[:,i].real)
+        #print("Atomic Axial Tensor (Normal Mode Basis):")
+        #print(M_i.T)
 
         # Compute tensor to SVD.
         R_rl_list = []
@@ -291,43 +284,6 @@ class vcd(object):
         R_rl_LGOI_list = np.array(R_rl_LGOI_list)
 
         return w * conv_freq_au2wavenumber, D_rr_list * conv_ir_au2kmmol, D_pp_list * conv_ir_au2kmmol, R_rl_list * conv_vcd_au2cgs, R_pl_list * conv_vcd_au2cgs, R_rl_LGOI_list * conv_vcd_au2cgs
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
