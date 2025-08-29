@@ -55,23 +55,18 @@ class hf_wfn(object):
         C = X @ C_p
 
         # Compute the inital density matrix.
-        D = oe.contract('mp,np->mn', C[0:self.nbf,0:self.ndocc], np.conjugate(C[0:self.nbf,0:self.ndocc]))
+        D = 2 * oe.contract('mp,np->mn', C[0:self.nbf,0:self.ndocc], np.conjugate(C[0:self.nbf,0:self.ndocc]))
 
         # Compute the inital Hartree-Fock Energy
         E_SCF = 0
         for mu in range(self.nbf):
             for nu in range(self.nbf):
-                E_SCF += D[mu, nu] * ( H_core[mu, nu] + H_core[mu, nu] )
+                E_SCF += 0.5 * D[mu, nu] * ( H_core[mu, nu] + H_core[mu, nu] )
         E_tot = E_SCF.real + H.E_nuc
 
         if print_level > 0:
             print("\n Iter      E_elec(real)       E_elec(imaginary)        E(tot)           Delta_E(real)       Delta_E(imaginary)      RMS_D(real)      RMS_D(imaginary)")
             print(" %02d %20.12f %20.12f %20.12f" % (0, E_SCF.real, E_SCF.imag, E_tot))
-
-        ## Setting up DIIS arrays for the error matrices and Fock matrices.
-        #if parameters['DIIS']:
-        #    e_iter = []
-        #    F_iter = []
 
         # Starting the SCF procedure.
         i = 1
@@ -80,7 +75,7 @@ class hf_wfn(object):
             D_old = D
 
             # Solve for the Fock matrix.
-            F = H_core + oe.contract('ls,mnls->mn', D, 2 * H.ERI - H.ERI.swapaxes(1,2))
+            F = H_core + 0.5 * oe.contract('ls,mnls->mn', D, 2 * H.ERI - H.ERI.swapaxes(1,2))
 
             # Solve DIIS equations.
             if parameters['DIIS']:
@@ -92,7 +87,6 @@ class hf_wfn(object):
                     e_iter = np.atleast_2d(res_vec).T
                 F_vec, e_iter, F_iter = solve_general_DIIS(parameters, res_vec, F_vec, e_iter, F_iter, i)
                 F = np.reshape(F_vec, (self.nbf, self.nbf))
-                #F = solve_DIIS(parameters, F, D, H.S, X, F_iter, e_iter) 
 
             # Compute the molecular orbital coefficients.
             if i >= 1:
@@ -101,13 +95,13 @@ class hf_wfn(object):
                 C = self.C = X @ C_p
 
             # Compute the new density.
-            D = oe.contract('mp,np->mn', C[0:self.nbf,0:self.ndocc], np.conjugate(C[0:self.nbf,0:self.ndocc]))
+            D = 2 * oe.contract('mp,np->mn', C[0:self.nbf,0:self.ndocc], np.conjugate(C[0:self.nbf,0:self.ndocc]))
 
             # Compute the new energy.
             E_SCF = 0.0
             for mu in range(self.nbf):
                 for nu in range(self.nbf):
-                    E_SCF += D[nu, mu] * ( H_core[mu, nu] + F[mu, nu] )
+                    E_SCF += 0.5 * D[nu, mu] * ( H_core[mu, nu] + F[mu, nu] )
             E_tot = E_SCF + H.E_nuc
 
             # Compute the energy convergence.

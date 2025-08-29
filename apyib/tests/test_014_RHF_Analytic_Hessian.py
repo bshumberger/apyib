@@ -4,7 +4,7 @@ import apyib
 import pytest
 from ..data.molecules import *
 
-def test_rhf_analytic_hessian():
+def test_rhf_analytic_hessian_noncanonical():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["H2O_C4_HF"],
                   'basis': 'STO-3G',
@@ -53,7 +53,60 @@ def test_rhf_analytic_hessian():
 
     # Compute finite difference Hessian using apyib.
     analytic_derivative = apyib.analytic_hessian.analytic_derivative(parameters)
-    hessian = analytic_derivative.compute_RHF_Hessian()
+    hessian = analytic_derivative.compute_RHF_Hessian_opt()
+
+    assert(np.max(np.abs(hessian-hess_ref.reshape(9,9))) < 1e-10)
+
+def test_rhf_analytic_hessian_canonical():
+    # Set parameters for the calculation.
+    parameters = {'geom': moldict["H2O_C4_HF"],
+                  'basis': 'STO-3G',
+                  'method': 'RHF',
+                  'e_convergence': 1e-10,
+                  'd_convergence': 1e-10,
+                  'DIIS': True,
+                  'freeze_core': False,
+                  'F_el': [0.0, 0.0, 0.0],
+                  'F_mag': [0.0, 0.0, 0.0],
+                  'max_iterations': 120}
+
+    # Setting RHF reference Hessian from CFOUR HF/STO-3G optimized geometry.
+    hess_ref = np.array([
+     [  0.0000002355,        0.0000000000,        0.0000000000],
+     [ -0.0000001178,        0.0000000000,        0.0000000000],
+     [ -0.0000001178,        0.0000000000,        0.0000000000],
+     [  0.0000000000,        0.8039499964,        0.0000000000],
+     [  0.0000000000,       -0.4019749982,       -0.3371363249],
+     [  0.0000000000,       -0.4019749982,        0.3371363249],
+     [  0.0000000000,        0.0000000000,        0.6348993605],
+     [  0.0000000000,       -0.2163116072,       -0.3174496803],
+     [  0.0000000000,        0.2163116072,       -0.3174496803],
+     [ -0.0000001178,        0.0000000000,        0.0000000000],
+     [  0.0000001262,        0.0000000000,        0.0000000000],
+     [ -0.0000000084,        0.0000000000,        0.0000000000],
+     [  0.0000000000,       -0.4019749982,       -0.2163116072],
+     [  0.0000000000,        0.4389111622,        0.2767239660],
+     [  0.0000000000,       -0.0369361640,       -0.0604123588],
+     [  0.0000000000,       -0.3371363249,       -0.3174496803],
+     [  0.0000000000,        0.2767239660,        0.3001030221],
+     [  0.0000000000,        0.0604123588,        0.0173466582],
+     [ -0.0000001178,        0.0000000000,        0.0000000000],
+     [ -0.0000000084,        0.0000000000,        0.0000000000],
+     [  0.0000001262,        0.0000000000,        0.0000000000],
+     [  0.0000000000,       -0.4019749982,        0.2163116072],
+     [  0.0000000000,       -0.0369361640,        0.0604123588],
+     [  0.0000000000,        0.4389111622,       -0.2767239660],
+     [  0.0000000000,        0.3371363249,       -0.3174496803],
+     [  0.0000000000,       -0.0604123588,        0.0173466582],
+     [  0.0000000000,       -0.2767239660,        0.3001030221]
+    ])  
+    
+    # Compute energy.
+    E_list, T_list, C, basis = apyib.energy.energy(parameters)
+
+    # Compute finite difference Hessian using apyib.
+    analytic_derivative = apyib.analytic_hessian.analytic_derivative(parameters)
+    hessian = analytic_derivative.compute_RHF_Hessian_opt(orbitals='canonical')
 
     assert(np.max(np.abs(hessian-hess_ref.reshape(9,9))) < 1e-10)
 
