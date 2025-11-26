@@ -230,6 +230,8 @@ class vcd(object):
 
         # Compute the AATs in the normal coordinate basis [(e * h) / m_e].
         M = I + J 
+        print("Total AAT (Cartesian Coordinate Basis):")
+        print(M)
         M_i = M.T @ S 
         #print("Atomic Axial Tensor (Normal Mode Basis):")
         #print(M_i.T)
@@ -241,6 +243,9 @@ class vcd(object):
         D_rr_list = []
         D_rp_list = []
         D_pp_list = []
+        DoS_list = []
+        det_U = []
+        det_V = []
 
         for i in range(3 * self.natom - 6):
             R_rl = np.zeros((3, 3))
@@ -248,7 +253,7 @@ class vcd(object):
             D_rr = np.zeros((3, 3))
             D_rp = np.zeros((3, 3))
             D_pp = np.zeros((3, 3))
-    
+ 
             # Compute the full rotatory strength and dipole strength tensor for a given normal mode i.
             for a in range(3):
                 for b in range(3):
@@ -266,16 +271,26 @@ class vcd(object):
             D_pp_list.append(np.trace(D_pp))
 
             # Compute LGOI rotatory strength.
-            U, D_rp_diag, V_T = np.linalg.svd(D_rp)
-            R_rl_LGOI = U.T @ R_rl @ V_T.T
+            U, D_rp_diag, Vt = np.linalg.svd(D_rp)
+            det_U.append(np.linalg.det(U))
+            det_V.append(np.linalg.det(Vt))
+
+            R_rl_LGOI = U.T @ R_rl @ Vt.T
             R_rl_LGOI_list.append(np.trace(R_rl_LGOI))
 
-        print("\nFrequency                  IR Intensity                       Rotational Strength")
-        print(" (cm-1)                      (km/mol)                           (esu**2 cm**2 10**44)")
-        print("                 LG          VG          Mixed           LG          VG          LG(OI)")
-        print("-----------------------------------------------------------------------------------------")
+            # Compute degree of symmetry.
+            A_rp = 0.5 * (D_rp - D_rp.T)
+            norm_A_rp = np.linalg.norm(A_rp, ord='fro')
+            norm_D_rp = np.linalg.norm(D_rp, ord='fro')
+            DoS = 1 - (norm_A_rp / norm_D_rp)
+            DoS_list.append(DoS)
+
+        print("\nMode   Frequency              IR Intensity                       Rotational Strength                Analysis")
+        print("        (cm-1)                  (km/mol)                        (esu**2 cm**2 10**44)")
+        print("                      LG          VG          Mixed           LG          VG          LG(OI)      DoS   det(U)  det(V)")
+        print("----------------------------------------------------------------------------------------------------------------------------")
         for i in range(3 * self.natom - 6): 
-            print(f" {w[i] * conv_freq_au2wavenumber:7.2f}     {D_rr_list[i] * conv_ir_au2kmmol:8.3f}     {D_pp_list[i] * conv_ir_au2kmmol:8.3f}     {D_rp_list[i] * conv_ir_au2kmmol:8.3f}     {R_rl_list[i] * conv_vcd_au2cgs:8.3f}     {R_pl_list[i] * conv_vcd_au2cgs:8.3f}     {R_rl_LGOI_list[i] * conv_vcd_au2cgs:8.3f}")
+            print(f"{3 * self.natom - 6 - i}      {w[i] * conv_freq_au2wavenumber:7.2f}    {D_rr_list[i] * conv_ir_au2kmmol:8.3f}     {D_pp_list[i] * conv_ir_au2kmmol:8.3f}     {D_rp_list[i] * conv_ir_au2kmmol:8.3f}     {R_rl_list[i] * conv_vcd_au2cgs:8.3f}     {R_pl_list[i] * conv_vcd_au2cgs:8.3f}     {R_rl_LGOI_list[i] * conv_vcd_au2cgs:8.3f}   {DoS_list[i]:8.3f} {det_U[i]:8.3f} {det_V[i]:8.3f}")
 
         D_rr_list = np.array(D_rr_list)
         D_pp_list = np.array(D_pp_list)

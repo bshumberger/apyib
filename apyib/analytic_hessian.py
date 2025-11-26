@@ -412,7 +412,7 @@ class analytic_derivative(object):
                                 U_R.append(U_Rb)
                                 U_R_list.append(N2b)
 
-                            print("U_R_list:", U_R_list)
+                            #print("U_R_list:", U_R_list)
 
                             eta_RR = oe.contract('im,jm->ij', U_Ra[o,:], U_Rb[o,:]) + oe.contract('im,jm->ij', U_Rb[o,:], U_Ra[o,:]) - oe.contract('im,jm->ij', S_Ra[a][o,:], S_Rb[b][o,:]) - oe.contract('im,jm->ij', S_Rb[b][o,:], S_Ra[a][o,:])
 

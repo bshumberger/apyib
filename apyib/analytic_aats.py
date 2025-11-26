@@ -611,6 +611,18 @@ class analytic_derivative(object):
         AAT_DD = np.zeros((natom * 3, 3))
         AAT_Norm = np.zeros((natom * 3, 3))
 
+        ########## Test ############
+        ## Setting up different components of the AATs.
+        #AAT_HF_test = np.zeros((natom * 3, 3))
+        #AAT_S0_test = np.zeros((natom * 3, 3))
+        #AAT_0S_test = np.zeros((natom * 3, 3))
+        #AAT_SS_test = np.zeros((natom * 3, 3))
+        #AAT_DS_test = np.zeros((natom * 3, 3))
+        #AAT_SD_test = np.zeros((natom * 3, 3))
+        #AAT_DD_test = np.zeros((natom * 3, 3))
+        #AAT_Norm_test = np.zeros((natom * 3, 3))
+        ########### End ############
+
         # Compute normalization factor.
         if normalization == 'intermediate':
             N = 1
@@ -1287,6 +1299,74 @@ class analytic_derivative(object):
                             AAT_Norm[lambda_alpha][beta] += N * N_R * 4 * oe.contract("ia,ai", t1, U_H[beta][v_, o_])
                             AAT_Norm[lambda_alpha][beta] += N * N_R * 2 * oe.contract("ia,ia", t1, dT1_dH[beta])
                             AAT_Norm[lambda_alpha][beta] += N * N_R * 4 * oe.contract("ijab,bj,ia", 2*t2 - t2.swapaxes(2,3), U_H[beta][v_,o_], t1)
+
+                    ######### Test #########
+                    #if orbitals == 'non-canonical' and self.parameters['freeze_core'] == False:
+                    #    # Computing the Hartree-Fock term of the AAT.
+                    #    AAT_HF_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("em,em", U_H[beta][v_, o], U_R[v_, o] + half_S_core[a][o, v_].T)
+
+                    #    # Singles/Refence terms.
+                    #    AAT_S0_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ai", dt1_dR, U_H[beta][v_,o_])
+
+                    #    AAT_S0_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ei,ea", t1, U_H[beta][v_,o_], -0.5*S_core[a][v_,v_] + half_S_core[a][v_,v_].T)
+                    #    AAT_S0_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,am,im", t1, U_H[beta][v_,o], -0.5*S_core[a][o_,o] + half_S_core[a][o,o_].T)
+
+                    #    # Reference/Singles terms.
+                    #    AAT_0S_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ai", dT1_dH[beta], U_R[v_,o_] + half_S_core[a][o_,v_].T)
+
+                    #    # Singles/Singles terms.
+                    #    AAT_SS_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ia", dt1_dR, dT1_dH[beta])
+
+                    #    AAT_SS_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ae,ie", dT1_dH[beta], -0.5*S_core[a][v_,v_] + half_S_core[a][v_,v_].T, t1)
+                    #    AAT_SS_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,mi,ma", dT1_dH[beta], -0.5*S_core[a][o_,o_] + half_S_core[a][o_,o_].T, t1)
+
+                    #    AAT_SS_test[lambda_alpha][beta] += N**2 * 4 * oe.contract("ia,ia,kc,kc", t1, U_H[beta][o_,v_], U_R[o_,v_] + half_S_core[a][v_,o_].T, t1)
+                    #    AAT_SS_test[lambda_alpha][beta] += N**2 * 4 * oe.contract("ia,em,em,ia", t1, U_H[beta][v_,o], U_R[v_,o] + half_S_core[a][o,v_].T, t1)
+                    #    AAT_SS_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,em,ei,ma", t1, U_H[beta][v_,o_], U_R[v_,o_] + half_S_core[a][o_,v_].T, t1)
+                    #    AAT_SS_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,em,am,ie", t1, U_H[beta][v_,o], U_R[v_,o] + half_S_core[a][o,v_].T, t1)
+                    #    AAT_SS_test[lambda_alpha][beta] += N**2 * 4 * oe.contract("ia,em,ai,me", t1, U_H[beta][v_,o_], U_R[v_,o_] + half_S_core[a][o_,v_].T, t1)
+
+                    #    # Doubles/Singles terms.
+                    #    AAT_DS_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,bj,ia", 2*dt2_dR - dt2_dR.swapaxes(2,3), U_H[beta][v_,o_], t1)
+
+                    #    AAT_DS_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,kc,ikac", dT1_dH[beta], U_R[o_,v_] + half_S_core[a][v_,o_].T, 2*t2 - t2.swapaxes(2,3))
+
+                    #    AAT_DS_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,em,km,kiea", t1, U_H[beta][v_,o], -0.5*S_core[a][o_,o] + half_S_core[a][o,o_].T, 2*t2 - t2.swapaxes(2,3))
+                    #    AAT_DS_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,em,ec,imac", t1, U_H[beta][v_,o_], -0.5*S_core[a][v_,v_] + half_S_core[a][v_,v_].T, 2*t2 - t2.swapaxes(2,3))
+
+                    #    # Singles/Doubles terms.
+                    #    AAT_SD_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,kc,ikac", dt1_dR, U_H[beta][o_,v_], 2*t2 - t2.swapaxes(2,3))
+
+                    #    AAT_SD_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,bj,ia", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), U_R[v_,o_] + half_S_core[a][o_,v_].T, t1)
+
+                    #    # Doubles/Doubles terms.
+                    #    AAT_DD_test[lambda_alpha][beta] += N**2 * oe.contract("ijab,ijab", 2*dt2_dR - dt2_dR.swapaxes(2,3), dT2_dH[beta])
+
+                    #    AAT_DD_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ijab,kjab,ki", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, -0.5*S_core[a][o_, o_] + half_S_core[a][o_, o_].T)
+                    #    AAT_DD_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,ijcb,ac", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, -0.5*S_core[a][v_, v_] + half_S_core[a][v_, v_].T)
+
+                    #    AAT_DD_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,ijab,em,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o], U_R[v_, o] + half_S_core[a][o, v_].T)
+                    #    AAT_DD_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ijab,imab,ej,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o_], U_R[v_, o_] + half_S_core[a][o_, v_].T)
+                    #    AAT_DD_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ijab,ijae,bm,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o], U_R[v_, o] + half_S_core[a][o, v_].T)
+
+                    #    # Adding terms for full normalization. 
+                    #    if normalization == 'full':
+                    #        AAT_Norm_test[lambda_alpha][beta] += N * N_R * 1 * oe.contract("ijab,ijab", 2*t2 - t2.swapaxes(2,3), dT2_dH[beta])
+
+                    #        AAT_Norm_test[lambda_alpha][beta] += N * N_R * 4 * oe.contract("ia,ai", t1, U_H[beta][v_, o_]) 
+                    #        AAT_Norm_test[lambda_alpha][beta] += N * N_R * 2 * oe.contract("ia,ia", t1, dT1_dH[beta])
+                    #        AAT_Norm_test[lambda_alpha][beta] += N * N_R * 4 * oe.contract("ijab,bj,ia", 2*t2 - t2.swapaxes(2,3), U_H[beta][v_,o_], t1)
+
+                    #    assert AAT_HF_test.all() == AAT_HF.all()
+                    #    assert AAT_S0_test.all() == AAT_S0.all()
+                    #    assert AAT_0S_test.all() == AAT_0S.all()
+                    #    assert AAT_SS_test.all() == AAT_SS.all()
+                    #    assert AAT_DS_test.all() == AAT_DS.all()
+                    #    assert AAT_SD_test.all() == AAT_SD.all()
+                    #    assert AAT_DD_test.all() == AAT_DD.all()
+                    #    assert AAT_Norm_test.all() == AAT_Norm.all()
+
+                    ########### End ##########
 
         print("Hartree-Fock AAT:")
         print(AAT_HF, "\n")

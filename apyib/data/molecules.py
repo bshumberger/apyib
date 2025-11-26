@@ -66,6 +66,18 @@ no_reorient
 nocom
 """
 
+# Jim's Optimized HF/aug-cc-pVDZ H2O2
+H2O2_opt_hfapvdz = """
+H     -1.76447661     1.36874956     0.89158521
+O     -1.31153953    -0.05309590    -0.09046460
+O      1.31153953     0.05309590    -0.09046460
+H      1.76447661    -1.36874956     0.89158521
+symmetry c1
+units bohr
+no_reorient
+nocom
+"""
+
 # Ethylene oxide: Amos et al., Chem. Phys. Lett. 133, 21-26 (1987)
 etho = """
 O       0.0000000000        0.0000000000        1.6119363900
@@ -136,10 +148,11 @@ no_com
 
 moldict = {}
 moldict["H2O"] = h2o
-moldict["H2O_C4_HF"] =h2o_c4_hf
-moldict["H2O_C4_MP2"] =h2o_c4_mp2
-moldict["H2O_C4_CID"] =h2o_c4_cid
+moldict["H2O_C4_HF"] = h2o_c4_hf
+moldict["H2O_C4_MP2"] = h2o_c4_mp2
+moldict["H2O_C4_CID"] = h2o_c4_cid
 moldict["(H2)_2"] = H2_2
+moldict["H2O2_opt_hfapvdz"] = H2O2_opt_hfapvdz
 moldict["H2O2"] = H2O2
 moldict["Ethylene Oxide"] = etho
 moldict["(S)-dimethylallene"] = sdma
