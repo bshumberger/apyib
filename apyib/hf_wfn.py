@@ -63,6 +63,9 @@ class hf_wfn(object):
             for nu in range(self.nbf):
                 E_SCF += 0.5 * D[mu, nu] * ( H_core[mu, nu] + H_core[mu, nu] )
         E_tot = E_SCF.real + H.E_nuc
+        # Adding nuclear kinetic energy (if required for phase-space).
+        if parameters.get('P_nuc', None) != None:
+            E_tot = E_tot + H.K_nuc
 
         if print_level > 0:
             print("\n Iter      E_elec(real)       E_elec(imaginary)        E(tot)           Delta_E(real)       Delta_E(imaginary)      RMS_D(real)      RMS_D(imaginary)")
@@ -103,6 +106,9 @@ class hf_wfn(object):
                 for nu in range(self.nbf):
                     E_SCF += 0.5 * D[nu, mu] * ( H_core[mu, nu] + F[mu, nu] )
             E_tot = E_SCF + H.E_nuc
+            # Adding nuclear kinetic energy (if required for phase-space).
+            if parameters.get('P_nuc', None) != None:
+                E_tot = E_tot + H.K_nuc
 
             # Compute the energy convergence.
             delta_E = E_SCF - E_old

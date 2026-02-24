@@ -18,7 +18,7 @@ def energy(parameters, print_level=0):
     # Set the Hamiltonian and perform a standard Hartree-Fock calculation.
     H = Hamiltonian(parameters)
     wfn = hf_wfn(H)
-    E_SCF, C = wfn.solve_SCF(parameters)
+    E_SCF, C = wfn.solve_SCF(parameters,print_level)
 
     # Obtaining basis and nuclear repulsion energy.
     basis = H.basis_set
@@ -65,6 +65,7 @@ def energy(parameters, print_level=0):
         print("Electronic Hartree-Fock Energy: ", E_SCF)
         if parameters['method'] != 'RHF':
             print("Electronic Post-Hartree-Fock Energy: ", E)
+        E_tot = E_SCF + E + E_nuc
         print("Total Energy: ", E_tot + E)
 
     return E_list, T_list, C, basis
@@ -75,7 +76,7 @@ def phase_corrected_energy(parameters, unperturbed_basis, unperturbed_C, print_l
     # Set the Hamiltonian and perform a standard Hartree-Fock calculation.
     H = Hamiltonian(parameters)
     wfn = hf_wfn(H)
-    E_SCF, C = wfn.solve_SCF(parameters)
+    E_SCF, C = wfn.solve_SCF(parameters, print_level)
 
     # Obtaining basis and nuclear repulsion energy.
     basis = H.basis_set
@@ -99,10 +100,10 @@ def phase_corrected_energy(parameters, unperturbed_basis, unperturbed_C, print_l
         E, t2 = wfn_MP2.solve_MP2()
     if parameters['method'] == 'CID':
         wfn_cid = ci_wfn(parameters, wfn)
-        E, t2 = wfn_cid.solve_CID()
+        E, t2 = wfn_cid.solve_CID(print_level)
     if parameters['method'] == 'CISD':
         wfn_cisd = ci_wfn(parameters, wfn)
-        E, t1, t2 = wfn_cisd.solve_CISD()
+        E, t1, t2 = wfn_cisd.solve_CISD(print_level)
 
     # Perform calculations for the chosen method if not Hartree-Fock. The wavefunction is returned in the spin-orbital basis.
     if parameters['method'] == 'MP2_SO':
@@ -110,10 +111,10 @@ def phase_corrected_energy(parameters, unperturbed_basis, unperturbed_C, print_l
         E, t2 = wfn_MP2.solve_MP2_SO()
     if parameters['method'] == 'CID_SO':
         wfn_cid = ci_wfn(parameters, wfn)
-        E, t2 = wfn_cid.solve_CID_SO()
+        E, t2 = wfn_cid.solve_CID_SO(print_level)
     if parameters['method'] == 'CISD_SO':
         wfn_cisd = ci_wfn(parameters, wfn)
-        E, t1, t2 = wfn_cisd.solve_CISD_SO()
+        E, t1, t2 = wfn_cisd.solve_CISD_SO(print_level)
 
     # Setting up return lists.
     E_list = [E_SCF, E, E_nuc]
@@ -125,6 +126,7 @@ def phase_corrected_energy(parameters, unperturbed_basis, unperturbed_C, print_l
         print("Electronic Hartree-Fock Energy: ", E_SCF)
         if parameters['method'] != 'RHF':
             print("Electronic Post-Hartree-Fock Energy: ", E)
+        E_tot = E_SCF + E + E_nuc
         print("Total Energy: ", E_tot + E)
 
     return E_list, T_list, wfn.C, basis
