@@ -59,6 +59,9 @@ def energy(parameters, print_level=0):
     E_list = [E_SCF, E, E_nuc]
     T_list = [t0, t1, t2]
 
+    if parameters.get('P_nuc', None) != None:
+        E_list = [E_SCF, E, E_nuc, H.T_nuc]
+
     # Setting up print options.
     if print_level == 2:
         print("Method: ", parameters['method'])
@@ -66,7 +69,10 @@ def energy(parameters, print_level=0):
         if parameters['method'] != 'RHF':
             print("Electronic Post-Hartree-Fock Energy: ", E)
         E_tot = E_SCF + E + E_nuc
-        print("Total Energy: ", E_tot + E)
+        if parameters.get('P_nuc', None) != None:
+            E_tot = E_tot + H.T_nuc
+        print("Total Energy: ", E_tot)
+        print(parameters)
 
     return E_list, T_list, C, basis
 
@@ -118,7 +124,10 @@ def phase_corrected_energy(parameters, unperturbed_basis, unperturbed_C, print_l
 
     # Setting up return lists.
     E_list = [E_SCF, E, E_nuc]
-    T_list = [t0, t1, t2] 
+    T_list = [t0, t1, t2]
+
+    if parameters.get('P_nuc', None) != None:
+        E_list = [E_SCF, E, E_nuc, H.T_nuc] 
 
     # Setting up print options.
     if print_level > 0:
@@ -127,7 +136,9 @@ def phase_corrected_energy(parameters, unperturbed_basis, unperturbed_C, print_l
         if parameters['method'] != 'RHF':
             print("Electronic Post-Hartree-Fock Energy: ", E)
         E_tot = E_SCF + E + E_nuc
-        print("Total Energy: ", E_tot + E)
+        if parameters.get('P_nuc', None) != None:
+            E_tot = E_tot + H.T_nuc
+        print("Total Energy: ", E_tot)
 
     return E_list, T_list, wfn.C, basis
 

@@ -28,7 +28,7 @@ class analytic_derivative(object):
 
 
 
-    def compute_RHF_Hessian(self, orbitals='non-canonical'):
+    def compute_RHF_momentum_Hessian(self, orbitals='non-canonical'):
         # Setting initial variables for readability.
         C = self.C
         nbf = self.wfn.nbf
@@ -65,216 +65,137 @@ class analytic_derivative(object):
         # Compute the Fock matrix in the MO basis.
         F = h + oe.contract('piqi->pq', 2 * ERI[:,o,:,o] - ERI.swapaxes(2,3)[:,o,:,o])
 
+        # Computing the Fock matrix excluding any terms dependent on the second derivative coupling.
+        mints = psi4.core.MintsHelper(self.H.basis_set)
+        V_bare = mints.ao_potential().np
+        F_bare = oe.contract('mp,mn,nq->pq', np.conjugate(C), self.H.T + V_bare,C) + oe.contract('piqi->pq', 2 * ERI[:,o,:,o] - ERI.swapaxes(2,3)[:,o,:,o])
+
+        # Compute Gamma and Gamma tilde in the MO basis.
+        Gamma = oe.contract('mp,abmn,nq->abpq', np.conjugate(C), self.H.G, C)
+        Zeta_tilde = oe.contract('mp,abmn,nq->abpq', np.conjugate(C), self.H.zeta_tilde, C)
+
         # Use the MintsHelper to get the AO integrals from Psi4.
         mints = psi4.core.MintsHelper(self.H.basis_set)
-        N = self.H.molecule.nuclear_repulsion_energy_deriv2().np
 
-        # Set up the Hessian.
-        Hessian = np.zeros((natom * 3, natom * 3))
+        # Set up the momentum Hessian.
+        momentum_Hessian = np.zeros((natom * 3, natom * 3))
 
         # Set up a list of CPHF matrices for each perturbation to keep track of perturbations and avoid duplicate computations.
-        U_R = []
-        U_R_list = []
+        U_P = []
+        U_P_list = []
 
-        # Compute the perturbation-independent A matrix for the CPHF coefficients with real wavefunctions.
-        A = (2 * ERI - ERI.swapaxes(2,3)) + (2 * ERI - ERI.swapaxes(2,3)).swapaxes(1,3)
+        # Compute the perturbation-independent A matrix for the CPHF coefficients with complex wavefunctions.
+        A = -(2 * ERI - ERI.swapaxes(2,3)) + (2 * ERI - ERI.swapaxes(2,3)).swapaxes(1,3)
         A = A.swapaxes(1,2)
         G = oe.contract('ab,ij,aibj->aibj', np.eye(nv), np.eye(no), F[v,v].reshape(nv,1,nv,1) - F[o,o].reshape(1,no,1,no)) + A[v,o,v,o]
         G = np.linalg.inv(G.reshape((nv*no,nv*no)))
 
         for N1 in atoms:
-            # Compute the skeleton (core) first derivative integrals in the MO basis.
-            T_Ra = mints.mo_oei_deriv1('KINETIC', N1, C_p4, C_p4)
-            V_Ra = mints.mo_oei_deriv1('POTENTIAL', N1, C_p4, C_p4)
-            S_Ra = mints.mo_oei_deriv1('OVERLAP', N1, C_p4, C_p4)
-            ERI_Ra = mints.ao_tei_deriv1(N1)
+            for a in range(3):
+                N1a = 3 * N1 + a
+                if N1a in U_P_list:
+                    ind = U_P_list.index(N1a)
+                    U_Pa = U_P[ind]
 
-            for N2 in range(N1, natom):
-                # Compute the skeleton (core) first derivative integrals in the MO basis.
-                T_Rb = mints.mo_oei_deriv1('KINETIC', N2, C_p4, C_p4)
-                V_Rb = mints.mo_oei_deriv1('POTENTIAL', N2, C_p4, C_p4)
-                S_Rb = mints.mo_oei_deriv1('OVERLAP', N2, C_p4, C_p4)
-                ERI_Rb = mints.ao_tei_deriv1(N2)
+                else:
+                    # Compute the perturbation-dependent B matrix for the CPHF coefficients.
+                    B = Gamma[N1][a][v,o] / self.H.M[N1]
 
-                # Compute the nuclear skeleton (core) second derivative integrals in the MO basis.
-                T_RaRb = mints.mo_oei_deriv2('KINETIC', N1, N2, C_p4, C_p4)
-                V_RaRb = mints.mo_oei_deriv2('POTENTIAL', N1, N2, C_p4, C_p4)
-                S_RaRb = mints.mo_oei_deriv2('OVERLAP', N1, N2, C_p4, C_p4)
-                ERI_RaRb = mints.ao_tei_deriv2(N1, N2)
+                    # Solve for the independent-pairs of the CPHF U-coefficient matrix.
+                    U_Pa = np.zeros((nbf,nbf))
+                    U_Pa[v,o] += (G @ B.reshape((nv*no))).reshape(nv,no)
+                    U_Pa[o,v] += U_Pa[v,o].T
 
-                for a in range(3):
-                    N1a = 3 * N1 + a
-                    # Convert the Psi4 matrices to numpy matrices.
-                    if type(T_Ra[a]) == psi4.core.Matrix:
-                        T_Ra[a] = T_Ra[a].np
-                        V_Ra[a] = V_Ra[a].np
-                        S_Ra[a] = S_Ra[a].np
-                        ERI_Ra[a] = ERI_Ra[a].np
+                    # Solve for the dependent-pairs of the CPHF U-coefficient matrix.
+                    if self.parameters['freeze_core'] == True or orbitals == 'canonical':
+                        D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
+                        B = - (Gamma[N1][a][o,o] / self.H.M[N1]) + oe.contract('em,iejm->ij', U_Pa[v,o], A.swapaxes(1,2)[o,v,o,o])
+                        U_Pa[o,o] += B/D
 
-                        # Compute the skeleton (core) two-electron MO integrals.
-                        ERI_Ra[a] = oe.contract('mnlg,gs->mnls', ERI_Ra[a], C)
-                        ERI_Ra[a] = oe.contract('mnls,lr->mnrs', ERI_Ra[a], np.conjugate(C))
-                        ERI_Ra[a] = oe.contract('nq,mnrs->mqrs', C, ERI_Ra[a])
-                        ERI_Ra[a] = oe.contract('mp,mqrs->pqrs', np.conjugate(C), ERI_Ra[a])
-                        ERI_Ra[a] = ERI_Ra[a].swapaxes(1,2)
+                        D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
+                        B = - (Gamma[N1][a][v,v] / self.H.M[N1]) + oe.contract('em,aebm->ab', U_Pa[v,o], A.swapaxes(1,2)[v,v,v,o])
+                        U_Pa[v,v] += B/D
 
-                    # Computing skeleton (core) first derivative integrals.
-                    h_Ra = T_Ra[a] + V_Ra[a]
-                    F_Ra = T_Ra[a] + V_Ra[a] + oe.contract('piqi->pq', 2 * ERI_Ra[a][:,o,:,o] - ERI_Ra[a].swapaxes(2,3)[:,o,:,o])
+                        for j in range(no):
+                            U_Pa[j,j] = 0
+                        for c in range(no,nbf):
+                            U_Pa[c,c] = 0
 
-                    if N1a in U_R_list:
-                        ind = U_R_list.index(N1a)
-                        U_Ra = U_R[ind]
+                    if orbitals == 'non-canonical':
+                        U_Pa[f_,f_] = 0
+                        U_Pa[o_,o_] = 0
+                        U_Pa[v_,v_] = 0
 
-                    else:
-                        # Compute the perturbation-dependent B matrix for the CPHF coefficients.
-                        B = -F_Ra[v,o] + oe.contract('ai,ii->ai', S_Ra[a][v,o], F[o,o]) + 0.5 * oe.contract('mn,amin->ai', S_Ra[a][o,o], A.swapaxes(1,2)[v,o,o,o])
+                    # Appending CPHF matrices to list.
+                    U_P.append(U_Pa)
+                    U_P_list.append(N1a)
 
-                        # Solve for the independent-pairs of the CPHF U-coefficient matrix.
-                        U_Ra = np.zeros((nbf,nbf))
-                        U_Ra[v,o] += (G @ B.reshape((nv*no))).reshape(nv,no)
-                        U_Ra[o,v] -= U_Ra[v,o].T + S_Ra[a][o,v]
-
-                        # Solve for the dependent-pairs of the CPHF U-coefficient matrix.
-                        if self.parameters['freeze_core'] == True or orbitals == 'canonical':
-                            D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
-                            B = F_Ra[o,o].copy() - oe.contract('ij,jj->ij', S_Ra[a][o,o], F[o,o]) + oe.contract('em,iejm->ij', U_Ra[v,o], A.swapaxes(1,2)[o,v,o,o]) - 0.5 * oe.contract('mn,imjn->ij', S_Ra[a][o,o], A.swapaxes(1,2)[o,o,o,o])
-                            U_Ra[o,o] += B/D
-
-                            D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
-                            B = F_Ra[v,v].copy() - oe.contract('ab,bb->ab', S_Ra[a][v,v], F[v,v]) + oe.contract('em,aebm->ab', U_Ra[v,o], A.swapaxes(1,2)[v,v,v,o]) - 0.5 * oe.contract('mn,ambn->ab', S_Ra[a][o,o], A.swapaxes(1,2)[v,o,v,o])
-                            U_Ra[v,v] += B/D
-
-                            for j in range(no):
-                                U_Ra[j,j] = -0.5 * S_Ra[a][j,j]
-                            for c in range(no,nbf):
-                                U_Ra[c,c] = -0.5 * S_Ra[a][c,c]
-
-                        if orbitals == 'non-canonical':
-                            U_Ra[f_,f_] = -0.5 * S_Ra[a][f_,f_]
-                            U_Ra[o_,o_] = -0.5 * S_Ra[a][o_,o_]
-                            U_Ra[v_,v_] = -0.5 * S_Ra[a][v_,v_]
-
-                        # Appending CPHF matrices to list.
-                        U_R.append(U_Ra)
-                        U_R_list.append(N1a)
-
+                for N2 in range(N1, natom):
                     for b in range(3):
                         ab = 3 * a + b 
                         N2b = 3 * N2 + b
                         
                         if N2b < N1a:
-                            Hessian[N1a][N2b] = 0
+                            momentum_Hessian[N1a][N2b] = 0
 
                         elif N2b >= N1a:
-                            # Convert the first derivative Psi4 matrices to numpy matrices.
-                            if type(T_Rb[b]) == psi4.core.Matrix:
-                                T_Rb[b] = T_Rb[b].np
-                                V_Rb[b] = V_Rb[b].np
-                                S_Rb[b] = S_Rb[b].np
-                                ERI_Rb[b] = ERI_Rb[b].np
-        
-                                # Compute the skeleton (core) two-electron MO integrals.
-                                ERI_Rb[b] = oe.contract('mnlg,gs->mnls', ERI_Rb[b], C)
-                                ERI_Rb[b] = oe.contract('mnls,lr->mnrs', ERI_Rb[b], np.conjugate(C))
-                                ERI_Rb[b] = oe.contract('nq,mnrs->mqrs', C, ERI_Rb[b])
-                                ERI_Rb[b] = oe.contract('mp,mqrs->pqrs', np.conjugate(C), ERI_Rb[b])
-                                ERI_Rb[b] = ERI_Rb[b].swapaxes(1,2)
-
-                            # Computing skeleton (core) first derivative integrals.
-                            h_Rb = T_Rb[b] + V_Rb[b]
-                            F_Rb = T_Rb[b] + V_Rb[b] + oe.contract('piqi->pq', 2 * ERI_Rb[b][:,o,:,o] - ERI_Rb[b].swapaxes(2,3)[:,o,:,o])
-
-                            # Convert the second derivative Psi4 matrices to numpy matrices.
-                            if type(T_RaRb[ab]) == psi4.core.Matrix:
-                                T_RaRb[ab] = T_RaRb[ab].np
-                                V_RaRb[ab] = V_RaRb[ab].np
-                                S_RaRb[ab] = S_RaRb[ab].np
-                                ERI_RaRb[ab] = ERI_RaRb[ab].np
-
-                                # Compute the skeleton (core) two-electron MO integrals.
-                                ERI_RaRb[ab] = oe.contract('mnlg,gs->mnls', ERI_RaRb[ab], C)
-                                ERI_RaRb[ab] = oe.contract('mnls,lr->mnrs', ERI_RaRb[ab], np.conjugate(C))
-                                ERI_RaRb[ab] = oe.contract('nq,mnrs->mqrs', C, ERI_RaRb[ab])
-                                ERI_RaRb[ab] = oe.contract('mp,mqrs->pqrs', np.conjugate(C), ERI_RaRb[ab])
-                                ERI_RaRb[ab] = ERI_RaRb[ab].swapaxes(1,2)
-
-                            # Computing skeleton (core) second derivative integral.
-                            h_RaRb = T_RaRb[ab] + V_RaRb[ab]
-
-                            if N2b in U_R_list:
-                                ind = U_R_list.index(N2b)
-                                U_Rb = U_R[ind]
+                            if N2b in U_P_list:
+                                ind = U_P_list.index(N2b)
+                                U_Pb = U_P[ind]
 
                             else:
                                 # Compute the perturbation-dependent B matrix for the CPHF coefficients.
-                                B = -F_Rb[v,o] + oe.contract('ai,ii->ai', S_Rb[b][v,o], F[o,o]) + 0.5 * oe.contract('mn,amin->ai', S_Rb[b][o,o], A.swapaxes(1,2)[v,o,o,o])
+                                B = Gamma[N2][b][v,o] / self.H.M[N2]
 
                                 # Solve for the independent-pairs of the CPHF U-coefficient matrix.
-                                U_Rb = np.zeros((nbf,nbf))
-                                U_Rb[v,o] += (G @ B.reshape((nv*no))).reshape(nv,no)
-                                U_Rb[o,v] -= U_Rb[v,o].T + S_Rb[b][o,v]
+                                U_Pb = np.zeros((nbf,nbf))
+                                U_Pb[v,o] += (G @ B.reshape((nv*no))).reshape(nv,no)
+                                U_Pb[o,v] += U_Pb[v,o].T
 
                                 # Solve for the dependent-pairs of the CPHF U-coefficient matrix.
                                 if self.parameters['freeze_core'] == True or orbitals == 'canonical':
                                     D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
-                                    B = F_Rb[o,o].copy() - oe.contract('ij,jj->ij', S_Rb[b][o,o], F[o,o]) + oe.contract('em,iejm->ij', U_Rb[v,o], A.swapaxes(1,2)[o,v,o,o]) - 0.5 * oe.contract('mn,imjn->ij', S_Rb[b][o,o], A.swapaxes(1,2)[o,o,o,o])
-                                    U_Rb[o,o] += B/D
+                                    B = - (Gamma[N2][b][o,o] / self.H.M[N2]) + oe.contract('em,iejm->ij', U_Pb[v,o], A.swapaxes(1,2)[o,v,o,o])
+                                    U_Pb[o,o] += B/D
 
                                     D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
-                                    B = F_Rb[v,v].copy() - oe.contract('ab,bb->ab', S_Rb[b][v,v], F[v,v]) + oe.contract('em,aebm->ab', U_Rb[v,o], A.swapaxes(1,2)[v,v,v,o]) - 0.5 * oe.contract('mn,ambn->ab', S_Rb[b][o,o], A.swapaxes(1,2)[v,o,v,o])
-                                    U_Rb[v,v] += B/D
+                                    B = - (Gamma[N2][b][v,v] / self.H.M[N2]) + oe.contract('em,aebm->ab', U_Pb[v,o], A.swapaxes(1,2)[v,v,v,o]) 
+                                    U_Pb[v,v] += B/D
 
                                     for j in range(no):
-                                        U_Rb[j,j] = -0.5 * S_Rb[b][j,j]
+                                        U_Pb[j,j] = 0
                                     for c in range(no,nbf):
-                                        U_Rb[c,c] = -0.5 * S_Rb[b][c,c]
+                                        U_Pb[c,c] = 0
 
                                 if orbitals == 'non-canonical':
-                                    U_Rb[f_,f_] = -0.5 * S_Rb[b][f_,f_]
-                                    U_Rb[o_,o_] = -0.5 * S_Rb[b][o_,o_]
-                                    U_Rb[v_,v_] = -0.5 * S_Rb[b][v_,v_]
+                                    U_Pb[f_,f_] = 0
+                                    U_Pb[o_,o_] = 0
+                                    U_Pb[v_,v_] = 0
 
                                 # Appending CPHF matrices to list.
-                                U_R.append(U_Rb)
-                                U_R_list.append(N2b)
+                                U_P.append(U_Pb)
+                                U_P_list.append(N2b)
 
-                            #print("U_R_list:", U_R_list)
+                            # Symmetric approach to momentum Hessian calculation. Note that all the signs on the equations are changed because these are squared
+                            # imaginary quantities.
+                            if N1a == N2b:
+                                momentum_Hessian[N1a][N2b] += 1 / self.H.M[N1]
+                            momentum_Hessian[N1a][N2b] -= (4 / self.H.M[N1]) * oe.contract('pi,pi->', U_Pb[:,o], Gamma[N1][a][:,o])
+                            momentum_Hessian[N1a][N2b] -= (4 / self.H.M[N2]) * oe.contract('pi,pi->', U_Pa[:,o], Gamma[N2][b][:,o])
+                            momentum_Hessian[N1a][N2b] += 4 * oe.contract('pi,qi,c,cgpq->', U_Pa[:,o], U_Pb[:,o], np.reciprocal(2 * self.H.M), Zeta_tilde)
+                            momentum_Hessian[N1a][N2b] += 4 * oe.contract('pi,qi, pq->', U_Pa[:,o], U_Pb[:,o], F_bare[:,:])
+                            momentum_Hessian[N1a][N2b] -= 4 * oe.contract('pi,pi, i->', U_Pa[:,o], U_Pb[:,o], self.wfn.eps[o])
+                            momentum_Hessian[N1a][N2b] -= 4 * oe.contract('pi,qj,pqij->', U_Pa[:,o], U_Pb[:,o], 2 * ERI[:,:,o,o] - 2 * ERI[:,o,o,:].swapaxes(1,3) - ERI[:,:,o,o].swapaxes(2,3) + ERI[:,o,:,o].swapaxes(1,2).swapaxes(2,3))
+                            #momentum_Hessian[N1a][N2b] -= 4 * oe.contract('pi,qj,pqij->', U_Pa[:,o], U_Pb[:,o], - ERI[:,:,o,o].swapaxes(2,3) + ERI[:,o,:,o].swapaxes(1,2).swapaxes(2,3))
+                            # Antisymmetric approach to momentum Hessian calculation.
+                            #if N1a == N2b:
+                            #    momentum_Hessian[N1a][N2b] += 1 / self.H.M[N1]
+                            #momentum_Hessian[N1a][N2b] -= (4 / self.H.M[N1]) * oe.contract('pi,pi->', U_Pb[:,o], Gamma[N1][a][:,o])
 
-                            eta_RR = oe.contract('im,jm->ij', U_Ra[o,:], U_Rb[o,:]) + oe.contract('im,jm->ij', U_Rb[o,:], U_Ra[o,:]) - oe.contract('im,jm->ij', S_Ra[a][o,:], S_Rb[b][o,:]) - oe.contract('im,jm->ij', S_Rb[b][o,:], S_Ra[a][o,:])
+        momentum_Hessian += momentum_Hessian.T
+        momentum_Hessian -= 0.5 * np.eye(3*natom) * momentum_Hessian
 
-                            # Asymmetric approach to Hessian calculation.
-                            #Hessian[N1a][N2b] += 2 * oe.contract('ii->', h_RaRb[o,o])
-                            #Hessian[N1a][N2b] += 1 * oe.contract('ijij->', 2 * ERI_RaRb[ab][o,o,o,o] - ERI_RaRb[ab][o,o,o,o].swapaxes(2,3))
-                            #Hessian[N1a][N2b] += 2 * oe.contract('pi,pi->', U_Rb[:,o], F_Ra[:,o] + F_Ra[o,:].T) 
-                            #Hessian[N1a][N2b] -= 2 * oe.contract('pi,pj,ij->', U_Rb[:,o], S_Ra[a][:,o], F[o,o])
-                            #Hessian[N1a][N2b] -= 2 * oe.contract('pj,ip,ij->', U_Rb[:,o], S_Ra[a][o,:], F[o,o])
-                            #Hessian[N1a][N2b] -= 2 * oe.contract('ij,ij->', S_RaRb[ab][o,o], F[o,o])
-                            #Hessian[N1a][N2b] -= 2 * oe.contract('ij,ij->', S_Ra[a][o,o], F_Rb[o,o])
-                            #Hessian[N1a][N2b] -= 2 * oe.contract('ij,ki,kj->', S_Ra[a][o,o], U_Rb[o,o], F[o,o])
-                            #Hessian[N1a][N2b] -= 2 * oe.contract('ij,kj,ik->', S_Ra[a][o,o], U_Rb[o,o], F[o,o])
-                            #Hessian[N1a][N2b] -= 2 * oe.contract('ij,pk,ipjk->', S_Ra[a][o,o],  U_Rb[:,o], 2 * ERI[o,:,o,o] + 2 * ERI[o,o,o,:].swapaxes(1,3) - ERI[o,:,o,o].swapaxes(2,3) - ERI[o,o,:,o].swapaxes(1,2).swapaxes(2,3))
-
-                            # Symmetric approach to Hessian calculation.
-                            Hessian[N1a][N2b] += 2 * oe.contract('ii->', h_RaRb[o,o])
-                            Hessian[N1a][N2b] += 1 * oe.contract('ijij->', 2 * ERI_RaRb[ab][o,o,o,o] - ERI_RaRb[ab][o,o,o,o].swapaxes(2,3))
-                            Hessian[N1a][N2b] -= 2 * oe.contract('ii,i->', S_RaRb[ab][o,o], self.wfn.eps[o]) 
-                            Hessian[N1a][N2b] -= 2 * oe.contract('ii,i->', eta_RR[o,o], self.wfn.eps[o])
-                            Hessian[N1a][N2b] += 4 * oe.contract('ij,ij->', U_Ra[:,o], F_Rb[:,o]) + 4 * oe.contract('ij,ij->', U_Rb[:,o], F_Ra[:,o])
-                            Hessian[N1a][N2b] += 4 * oe.contract('ij,ij,i->', U_Ra[:,o], U_Rb[:,o], self.wfn.eps[:])
-                            Hessian[N1a][N2b] += 4 * oe.contract('ij,kl,ikjl->', U_Ra[:,o], U_Rb[:,o], 4 * ERI[:,:,o,o] - ERI[:,:,o,o].swapaxes(2,3) - ERI[:,o,:,o].swapaxes(1,2).swapaxes(2,3))
-
-
-        Hessian += Hessian.T
-        Hessian -= 0.5 * np.eye(3*natom) * Hessian
-
-        # Add second derivative of the nuclear repulsion energy.
-        Hessian += N
-
-        return Hessian
-
-
-
+        return momentum_Hessian
 
 
 

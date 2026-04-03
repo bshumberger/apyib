@@ -511,9 +511,229 @@ class finite_difference(object):
 
 
 
+    def compute_momentum_Hessian(self, mom_pert_strength):
+        # Make sure you have specified a phase-space Hamiltonian.
+        assert self.parameters.get('hamiltonian', None) == 'phase-space'
+
+        # Add the nuclear momentum matrix if it isn't already in the dictionary.
+        if self.parameters.get('P_nuc', None) == None:
+            self.parameters['P_nuc'] = [list(range(3)) for i in range(self.natom)]
+            for A in range(self.natom):
+                for alpha in range(3):
+                    self.parameters['P_nuc'][A][alpha] = 0.0
+
+        # Set properties of the finite difference procedure.
+        pos_E = []
+        neg_E = []
+
+        # Computing energies and wavefunctions with positive momentum perturbations.
+        for alpha in range(3*self.natom):
+            # Perturb the momentum.
+            self.parameters['P_nuc'][alpha // 3][alpha % 3] += mom_pert_strength
+
+            pos_e = []
+            neg_e = []
+
+            # Perturb the momentum with another positive displacement.
+            for beta in range(3*self.natom):
+                self.parameters['P_nuc'][beta // 3][beta % 3] += mom_pert_strength
+
+                # Compute energy.
+                E_list, T_list, C, basis = energy(self.parameters)
+                E_tot = E_list[0] + E_list[1] + E_list[2] + E_list[3]
+
+                # Append new energies.
+                pos_e.append(E_tot)
+
+                # Reset the second momentum perturbation.
+                self.parameters['P_nuc'][beta // 3][beta % 3] -= mom_pert_strength
+
+            # Perturb the momentum with a negative displacement.
+            for beta in range(3*self.natom):
+                self.parameters['P_nuc'][beta // 3][beta % 3] -= mom_pert_strength
+
+                # Compute energy.
+                E_list, T_list, C, basis = energy(self.parameters)
+                E_tot = E_list[0] + E_list[1] + E_list[2] + E_list[3]
+
+                # Append new energies.
+                neg_e.append(E_tot)
+
+                # Reset the second momentum perturbation.
+                self.parameters['P_nuc'][beta // 3][beta % 3] += mom_pert_strength
+
+            # Compute and append gradients.
+            for beta in range(len(pos_e)):
+                g = (pos_e[beta] - neg_e[beta]) / (2 * mom_pert_strength)
+                pos_E.append(g)
+
+            # Reset the first momentum perturbation.
+            self.parameters['P_nuc'][alpha // 3][alpha % 3] -= mom_pert_strength
+
+        # Computing energies and wavefunctions with negative momentum perturbations.
+        for alpha in range(3*self.natom):
+            # Perturb the momentum.
+            self.parameters['P_nuc'][alpha // 3][alpha % 3] -= mom_pert_strength
+
+            pos_e = []
+            neg_e = []
+
+            # Perturb the momentum with another positive displacement.
+            for beta in range(3*self.natom):
+                self.parameters['P_nuc'][beta // 3][beta % 3] += mom_pert_strength
+                
+                # Compute energy.
+                E_list, T_list, C, basis = energy(self.parameters)
+                E_tot = E_list[0] + E_list[1] + E_list[2] + E_list[3]
+                
+                # Append new energies.
+                pos_e.append(E_tot)
+                
+                # Reset the second momentum perturbation.
+                self.parameters['P_nuc'][beta // 3][beta % 3] -= mom_pert_strength
+            
+            # Perturb the momentum with a negative displacement.
+            for beta in range(3*self.natom):
+                self.parameters['P_nuc'][beta // 3][beta % 3] -= mom_pert_strength
+
+                # Compute energy.
+                E_list, T_list, C, basis = energy(self.parameters)
+                E_tot = E_list[0] + E_list[1] + E_list[2] + E_list[3]
+            
+                # Append new energies.
+                neg_e.append(E_tot)
+            
+                # Reset the second momentum perturbation.
+                self.parameters['P_nuc'][beta // 3][beta % 3] += mom_pert_strength
+            
+            # Compute and append gradients.
+            for beta in range(len(pos_e)):
+                g = (pos_e[beta] - neg_e[beta]) / (2 * mom_pert_strength)
+                neg_E.append(g)
+            
+            # Reset the first momentum perturbation.
+            self.parameters['P_nuc'][alpha // 3][alpha % 3] += mom_pert_strength
+
+        # Compute the momentum Hessian.
+        pos_E = np.array(pos_E)
+        neg_E = np.array(neg_E)
+        pos_E = pos_E.reshape((3 * self.natom, 3 * self.natom))
+        neg_E = neg_E.reshape((3 * self.natom, 3 * self.natom))
+        momentum_hessian = (pos_E - neg_E) / (2 * mom_pert_strength)
+
+        return momentum_hessian
 
 
 
+    def compute_ps_AAT(self, mag_pert_strength, mom_pert_strength, print_level=0):
+        # Make sure you have specified a phase-space Hamiltonian.
+        assert self.parameters.get('hamiltonian', None) == 'phase-space'
+
+        # Add the nuclear momentum matrix if it isn't already in the dictionary.
+        if self.parameters.get('P_nuc', None) == None:
+            self.parameters['P_nuc'] = [list(range(3)) for i in range(self.natom)]
+            for A in range(self.natom):
+                for alpha in range(3):
+                    self.parameters['P_nuc'][A][alpha] = 0.0
+
+        # Set properties of the finite difference procedure.
+        pos_E = []
+        neg_E = []
+
+        # Perturb the momentum in the positive direction.
+        for alpha in range(3*self.natom):
+            self.parameters['P_nuc'][alpha // 3][alpha % 3] += mom_pert_strength
+
+            pos_e = []
+            neg_e = []
+
+            # Perturb the magnetic field with a positive displacement.
+            for beta in range(3):
+                self.parameters['F_mag'][beta] += mag_pert_strength
+
+                # Compute energy.
+                E_list, T_list, C, basis = energy(self.parameters, print_level)
+                E_tot = E_list[0] + E_list[1] + E_list[2] + E_list[3]
+
+                # Append new energies.
+                pos_e.append(E_tot)
+
+                # Reset the magnetic field perturbation.
+                self.parameters['F_mag'][beta] -= mag_pert_strength
+
+            # Perturb the magnetic field with a negative displacement.
+            for beta in range(3):
+                self.parameters['F_mag'][beta] -= mag_pert_strength
+
+                # Compute energy.
+                E_list, T_list, C, basis = energy(self.parameters, print_level)
+                E_tot = E_list[0] + E_list[1] + E_list[2] + E_list[3]
+
+                # Append new energies.
+                neg_e.append(E_tot)
+
+                # Reset the magnetic field perturbation.
+                self.parameters['F_mag'][beta] += mag_pert_strength
+
+            # Compute and append gradients.
+            for beta in range(len(pos_e)):
+                mu = -(pos_e[beta] - neg_e[beta]) / (2 * mag_pert_strength)
+                pos_E.append(mu)
+
+            # Reset the momentum perturbation.
+            self.parameters['P_nuc'][alpha // 3][alpha % 3] -= mom_pert_strength
+
+        # Perturb the momentum in the negative direction.
+        for alpha in range(3*self.natom):
+            self.parameters['P_nuc'][alpha // 3][alpha % 3] -= mom_pert_strength
+
+            pos_e = []
+            neg_e = []
+
+            # Perturb the magnetic field with a positive displacement.
+            for beta in range(3):
+                self.parameters['F_mag'][beta] += mag_pert_strength
+
+                # Compute energy.
+                E_list, T_list, C, basis = energy(self.parameters, print_level)
+                E_tot = E_list[0] + E_list[1] + E_list[2] + E_list[3]
+
+                # Append new energies.
+                pos_e.append(E_tot)
+
+                # Reset the magnetic field perturbation.
+                self.parameters['F_mag'][beta] -= mag_pert_strength
+
+            # Perturb the magnetic field with a negative displacement.
+            for beta in range(3):
+                self.parameters['F_mag'][beta] -= mag_pert_strength
+
+                # Compute energy.
+                E_list, T_list, C, basis = energy(self.parameters, print_level)
+                E_tot = E_list[0] + E_list[1] + E_list[2] + E_list[3]
+
+                # Append new energies.
+                neg_e.append(E_tot)
+
+                # Reset the magnetic field perturbation.
+                self.parameters['F_mag'][beta] += mag_pert_strength
+
+            # Compute and append gradients.
+            for beta in range(len(pos_e)):
+                mu = -(pos_e[beta] - neg_e[beta]) / (2 * mag_pert_strength)
+                neg_E.append(mu)
+
+            # Reset the momentum perturbation.
+            self.parameters['P_nuc'][alpha // 3][alpha % 3] += mom_pert_strength
+
+        # Compute the phase-space AAT.
+        pos_E = np.array(pos_E)
+        neg_E = np.array(neg_E)
+        pos_E = pos_E.reshape((3 * self.natom, 3))
+        neg_E = neg_E.reshape((3 * self.natom, 3))
+        ps_aat = (pos_E - neg_E) / (2 * mom_pert_strength)
+
+        return ps_aat
 
 
 
