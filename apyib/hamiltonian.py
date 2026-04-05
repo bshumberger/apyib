@@ -105,7 +105,7 @@ class Hamiltonian(object):
             X = np.array(X)
             M = np.array(M / (_me / _u)) # Converting to electron mass.
             self.M = M
-            w = 0.3
+            w = 0.0123
 
             # Compute the locality factor, zeta.
             zeta = np.zeros((natom,nbf,nbf))
@@ -154,9 +154,9 @@ class Hamiltonian(object):
             self.L = mints.ao_angular_momentum()
             self.L = np.array(self.L)
             for A in range(natom):
-                l[A][0] += self.L[0] - (X[A][1] * self.nabla[2] - X[A][2] * self.nabla[1])
-                l[A][1] += self.L[1] - (X[A][2] * self.nabla[0] - X[A][0] * self.nabla[2])
-                l[A][2] += self.L[2] - (X[A][0] * self.nabla[1] - X[A][1] * self.nabla[0])
+                l[A][0] += -self.L[0] - (X[A][1] * self.nabla[2] - X[A][2] * self.nabla[1])
+                l[A][1] += -self.L[1] - (X[A][2] * self.nabla[0] - X[A][0] * self.nabla[2])
+                l[A][2] += -self.L[2] - (X[A][0] * self.nabla[1] - X[A][1] * self.nabla[0])
 
             # Compute the atomic orbital centered angular momentum, J.
             J = np.zeros((3,nbf,nbf))
