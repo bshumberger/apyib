@@ -188,6 +188,8 @@ class frequency(object):
             h_int_eig, L_int = np.linalg.eigh(hessian_int)
             h_int_eig = np.flip(h_int_eig)
             w_int = np.where(h_int_eig >= 0, np.sqrt(h_int_eig), -np.sqrt(-h_int_eig))
+            L1 = (U @ delta_half)[:,0:(3 * self.natom - 6)] @ L_int
+            S1 = np.flip(L1, 1)[:,0:(3 * self.natom - 6)]
             #print("Internal Coordinate Hessian:")
             #print(hessian_int)
             #print("Internal Coordinate Hessian Eigenvalues:")
@@ -198,6 +200,8 @@ class frequency(object):
             h_proj_eig, L_proj = np.linalg.eigh(hessian_proj)
             h_proj_eig = np.flip(h_proj_eig)
             w_proj = np.where(h_proj_eig >= 0, np.sqrt(h_proj_eig), -np.sqrt(-h_proj_eig))
+            L2 = U @ delta_half @ L_proj
+            S2 = np.flip(L2, 1)[:,0:(3 * self.natom - 6)]
             #print("Projected Internal Coordinate Hessian:")
             #print(hessian_proj)
             #print("Projected Internal Coordinate Hessian Eigenvalues:")
@@ -213,7 +217,7 @@ class frequency(object):
                 else:
                     print(f"   {w[i] * conv_freq_au2wavenumber:10.2f} {w_int[i] * conv_freq_au2wavenumber:23.2f} {w_proj[i] * conv_freq_au2wavenumber:25.2f}")
 
-            return w * conv_freq_au2wavenumber, S
+            return w_proj * conv_freq_au2wavenumber, S2
 
         if PS == None:
             # Mass weight the Cartesian coordinate Hessian [E_h / (m_e * a_0**2].
@@ -230,7 +234,6 @@ class frequency(object):
             w_m = np.where(h_mw_eig >= 0, np.sqrt(h_mw_eig), -np.sqrt(-h_mw_eig))
             L = mass_weight @ L_mw
             S = np.flip(L, 1)[:,0:(3 * self.natom - 6)]
-
             #print("Normal Coordinate Hessian:")
             #print(hessian_mw)
             #print("Normal Coordinate Hessian Eigenvalues:")
@@ -241,6 +244,8 @@ class frequency(object):
             h_int_eig, L_int = np.linalg.eigh(hessian_int)
             h_int_eig = np.flip(h_int_eig)
             w_int = np.where(h_int_eig >= 0, np.sqrt(h_int_eig), -np.sqrt(-h_int_eig))
+            L1 = mass_weight[:,0:(3 * self.natom - 6)] @ L_int
+            S1 = np.flip(L1, 1)[:,0:(3 * self.natom - 6)] 
             #print("Internal Coordinate Hessian:")
             #print(hessian_int)
             #print("Internal Coordinate Hessian Eigenvalues:")
@@ -251,6 +256,8 @@ class frequency(object):
             h_proj_eig, L_proj = np.linalg.eigh(hessian_proj)
             h_proj_eig = np.flip(h_proj_eig)
             w_proj = np.where(h_proj_eig >= 0, np.sqrt(h_proj_eig), -np.sqrt(-h_proj_eig))
+            L2 = mass_weight @ L_proj
+            S2 = np.flip(L2, 1)[:,0:(3 * self.natom - 6)] 
             #print("Projected Internal Coordinate Hessian:")
             #print(hessian_proj)
             #print("Projected Internal Coordinate Hessian Eigenvalues:")
@@ -266,7 +273,7 @@ class frequency(object):
                 else:
                     print(f"   {w_m[i] * conv_freq_au2wavenumber:10.2f} {w_int[i] * conv_freq_au2wavenumber:23.2f} {w_proj[i] * conv_freq_au2wavenumber:25.2f}")
 
-            return w_m * conv_freq_au2wavenumber, S
+            return w_proj * conv_freq_au2wavenumber, S2
 
 
 

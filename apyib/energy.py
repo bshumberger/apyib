@@ -14,7 +14,7 @@ from apyib.hf_wfn import hf_wfn
 from apyib.mp2_wfn import mp2_wfn
 from apyib.ci_wfn import ci_wfn
 
-def energy(parameters, print_level=0):
+def energy(parameters, return_H=False, print_level=0):
     # Set the Hamiltonian and perform a standard Hartree-Fock calculation.
     H = Hamiltonian(parameters)
     wfn = hf_wfn(H)
@@ -74,11 +74,14 @@ def energy(parameters, print_level=0):
         print("Total Energy: ", E_tot)
         print(parameters)
 
-    return E_list, T_list, C, basis
+    if return_H == False:
+        return E_list, T_list, C, basis
+
+    if return_H == True:
+        return E_list, T_list, C, basis, H
 
 
-
-def phase_corrected_energy(parameters, unperturbed_basis, unperturbed_C, print_level=0):
+def phase_corrected_energy(parameters, unperturbed_basis, unperturbed_C, return_H=False, print_level=0):
     # Set the Hamiltonian and perform a standard Hartree-Fock calculation.
     H = Hamiltonian(parameters)
     wfn = hf_wfn(H)
@@ -140,7 +143,10 @@ def phase_corrected_energy(parameters, unperturbed_basis, unperturbed_C, print_l
             E_tot = E_tot + H.T_nuc
         print("Total Energy: ", E_tot)
 
-    return E_list, T_list, wfn.C, basis
+    if return_H == False:
+        return E_list, T_list, wfn.C, basis
 
+    if return_H == True:
+        return E_list, T_list, wfn.C, basis, H
 
 
