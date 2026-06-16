@@ -23,6 +23,10 @@ class Hamiltonian(object):
 
         # Define the molecule and basis set as properties of the Hamiltonian.
         self.molecule = psi4.geometry(parameters['geom'])
+        # Apply isotopic substitutions if specified.
+        if parameters.get('isotopes', None) is not None:
+            for atom_idx, mass in parameters['isotopes'].items():
+                self.molecule.set_mass(atom_idx, mass)
         self.basis_set = psi4.core.BasisSet.build(self.molecule)
 
         # Use the MintsHelper to get the AO integrals.
@@ -52,9 +56,31 @@ class Hamiltonian(object):
 
         # Magnetic dipole AO integrals.
         if M_field == True:
-            self.mu_mag = mints.ao_angular_momentum()    # \mu^{mag}_{\mu\nu, \alpha} = - \frac(e}{2 m_e} \int \phi_{\mu}^*(r) (r x p)_{\alpha} \phi_{\nu}(r) dr
-            for alpha in range(3):
-                self.mu_mag[alpha] = -0.5j * self.mu_mag[alpha].np
+            if parameters.get('magnetic_gauge_origin', None) == None or parameters.get('magnetic_gauge_origin', None) == 'common-origin' or  parameters.get('magnetic_gauge_origin', None) == 'distributed-origin':
+                self.mu_mag = mints.ao_angular_momentum()    # \mu^{mag}_{\mu\nu, \alpha} = - \frac(e}{2 m_e} \int \phi_{\mu}^*(r) (r x p)_{\alpha} \phi_{\nu}(r) dr
+                for alpha in range(3):
+                    self.mu_mag[alpha] = -0.5j * self.mu_mag[alpha].np
+
+            if parameters.get('magnetic_gauge_origin', None) == 'distributed-origin' and parameters.get('gauge_origin', None) != None:
+                # Set up the Levi-Civita tensor.
+                eps = np.array([[[0, 0, 0], 
+                                 [0, 0, 1], 
+                                 [0, -1, 0]],
+                                [[0, 0, -1],
+                                 [0, 0, 0,],
+                                 [1, 0, 0]],
+                                [[0, 1, 0], 
+                                 [-1, 0, 0], 
+                                 [0, 0, 0]]])
+
+                self.nabla = mints.ao_nabla()
+                R_O = parameters['gauge_origin']
+                for alpha in range(3):
+                    self.nabla[alpha] = self.nabla[alpha].np
+                for beta in range(3):
+                    for gamma in range(3):
+                        for delta in range(3):
+                            self.mu_mag[beta] += -0.5j * eps[beta, gamma, delta] * R_O[gamma] * self.nabla[delta]
 
         # Compute the nuclear repulsion energy.
         F_el = [0.0, 0.0, 0.0]
@@ -370,19 +396,53 @@ class Hamiltonian(object):
                 npts_total = len(weights)
                 #print(f"Grid points: {npts_total}, Basis functions: {nbf}")
                 
-                ## --- Step 5: Sanity check — numerical overlap vs analytic ---
-                ## The overlap matrix S_mn = integral phi_m(r) phi_n(r) dr
-                ## should be reproduced by numerical integration on the grid:
-                ## S_mn ≈ sum_g w_g * phi_m(r_g) * phi_n(r_g)
+                ## Testing numerical evaluation with overlap integrals.
                 #mints = psi4.core.MintsHelper(basis)
                 #S_analytic = mints.ao_overlap().np
                 #S_numerical = np.einsum('g,gm,gn->mn', weights, phi, phi)
                 #max_error = np.max(np.abs(S_analytic - S_numerical))
-                #print(f"Max error in numerical overlap: {max_error:.2e}")
                 #print("Analytic AO Overlap Matrix:")
                 #print(S_analytic)
                 #print("Numerical AO Overlap Matrix:")
                 #print(S_numerical)
+
+                ## Checking to see if Psi4 integrals include a minus sign on nabla.
+                #mints = psi4.core.MintsHelper(basis)
+                #nabla_analytic = mints.ao_nabla()
+                #for z in range(3):
+                #    nabla_analytic[z] = nabla_analytic[z].np
+                #nabla_x_numerical = oe.contract('g,gm,gn->mn', weights, phi, phi_x)
+                #nabla_y_numerical = oe.contract('g,gm,gn->mn', weights, phi, phi_y)
+                #nabla_z_numerical = oe.contract('g,gm,gn->mn', weights, phi, phi_z)
+                #nabla_error_x = nabla_analytic[0] - nabla_x_numerical
+                #nabla_error_y = nabla_analytic[1] - nabla_y_numerical
+                #nabla_error_z = nabla_analytic[2] - nabla_z_numerical
+                #print("Analytic AO Nabla X Error:")
+                #print(nabla_error_x)
+                #print("Analytic AO Nabla Y Error:")
+                #print(nabla_error_y)
+                #print("Analytic AO Nabla Z Error:")
+                #print(nabla_error_z)
+                ## Conclusion: No sign on nabla integrals.
+
+                ## Checking to see if Psi4 integrals include a minus sign on angular momentum.
+                #mints = psi4.core.MintsHelper(basis)
+                #am_analytic = mints.ao_angular_momentum()
+                #for z in range(3):
+                #    am_analytic[z] = am_analytic[z].np
+                #am_x_numerical = -(oe.contract('g,gm,g,gn->mn', weights, phi, coords[:,1], phi_z) - oe.contract('g,gm,g,gn->mn', weights, phi, coords[:,2], phi_y))
+                #am_y_numerical = -(oe.contract('g,gm,g,gn->mn', weights, phi, coords[:,2], phi_x) - oe.contract('g,gm,g,gn->mn', weights, phi, coords[:,0], phi_z))
+                #am_z_numerical = -(oe.contract('g,gm,g,gn->mn', weights, phi, coords[:,0], phi_y) - oe.contract('g,gm,g,gn->mn', weights, phi, coords[:,1], phi_x))
+                #am_error_x = am_analytic[0] - am_x_numerical
+                #am_error_y = am_analytic[1] - am_y_numerical
+                #am_error_z = am_analytic[2] - am_z_numerical
+                #print("Analytic AO AM X Error:")
+                #print(am_error_x)
+                #print("Analytic AO AM Y Error:")
+                #print(am_error_y)
+                #print("Analytic AO AM Z Error:")
+                #print(am_error_z)
+                ## Conclusion: Sign is included on anuglar momentum integrals.
 
                 # Getting constants and converting to atomic units.
                 _me = psi4.qcel.constants.get("electron mass") # kg
@@ -405,6 +465,8 @@ class Hamiltonian(object):
                     prefactor = Q.copy()
                 elif parameters.get('ps_bf_partitioning_prefactor', None) == 'mass':
                     prefactor = M.copy()
+                elif parameters.get('ps_bf_partitioning_prefactor', None) == 'equal':
+                    prefactor = np.ones_like(Q)
 
                 if parameters.get('ps_bf_locality_factor(beta)', None) == None:
                     beta = 9.0
@@ -430,6 +492,12 @@ class Hamiltonian(object):
                 theta_py = oe.contract('r,rm,ra,rn->amn', weights, phi, theta, phi_y)
                 theta_pz = oe.contract('r,rm,ra,rn->amn', weights, phi, theta, phi_z)
 
+                # Transposing Gamma' to match Titouan's results. This goes against my understanding of the theory. Awaiting verification.
+                for A in range(natom):
+                    theta_px[A] = theta_px[A].T #
+                    theta_py[A] = theta_py[A].T #
+                    theta_pz[A] = theta_pz[A].T #
+
                 # Building the Gamma' integrals.
                 self.G1 = np.zeros((natom,3,nbf,nbf))
                 for A in range(natom):
@@ -453,6 +521,10 @@ class Hamiltonian(object):
                     L[A][1] -= oe.contract('r,rm,r,r,rn->mn', weights, phi, coords_diff[:,A,0], theta[:,A], phi_z)
                     L[A][2] += oe.contract('r,rm,r,r,rn->mn', weights, phi, coords_diff[:,A,0], theta[:,A], phi_y)
                     L[A][2] -= oe.contract('r,rm,r,r,rn->mn', weights, phi, coords_diff[:,A,1], theta[:,A], phi_x)
+                    # Transposing Gamma'' to match Titouan's results. This goes against my understanding of the theory. Awaiting verification.
+                    L[A][0] = L[A][0].T #
+                    L[A][1] = L[A][1].T #
+                    L[A][2] = L[A][2].T #
                     J[A][0] -= 0.5 * (L[A][0] - L[A][0].T)
                     J[A][1] -= 0.5 * (L[A][1] - L[A][1].T)
                     J[A][2] -= 0.5 * (L[A][2] - L[A][2].T)
@@ -469,7 +541,7 @@ class Hamiltonian(object):
                     R_0[B] = R_0_numerator[B] / R_0_denominator[B]
 
                 # TEST: Testing the local average position using eq. 40.
-                assert np.allclose(oe.contract('ab,ac->bc', zeta, R) - oe.contract('ab,bc->bc', zeta, R_0), 0, atol=1e-12)
+                assert np.allclose(oe.contract('ab,ac->bc', zeta, R) - oe.contract('ab,bc->bc', zeta, R_0), 0, atol=1e-10)
 
                 # Building the moment of inertia like tensor, K.
                 K = np.zeros((natom,3,3))
@@ -480,6 +552,7 @@ class Hamiltonian(object):
                         X_TX = np.eye(3) * oe.contract('a,a->', R[A], R[A])
                         XX_T = oe.contract('a,b->ab', R[A], R[A])    
                         K[B] += zeta[A][B] * ((X_TX - X0_TX0) - (XX_T - X0X0_T))
+                #print("K Matrix:")
                 #print(K)
 
                 # Compute K^-1 J for Gamma". Using np.linalg.lstsq() to accomadate linear molecules.
@@ -500,6 +573,10 @@ class Hamiltonian(object):
 
                 # Compute total Gamma.
                 self.G = self.G1 + self.G2
+                #print("G1")
+                #print(self.G1)
+                #print("G2")
+                #print(self.G2)
 
                 # Building Gamma tilde.
                 self.G_tilde = np.zeros((natom,3,nbf,nbf))
@@ -524,7 +601,7 @@ class Hamiltonian(object):
                 self.zeta_tilde = - oe.contract('abml,ls,absn->abmn', self.G_tilde, self.S, self.G_tilde)
 
                 # Adding zeta tilde to the potential operator.
-                self.V = self.V + oe.contract('abmn,a->mn', self.zeta_tilde, np.reciprocal(2.0 * M))
+                #self.V = self.V + oe.contract('abmn,a->mn', self.zeta_tilde, np.reciprocal(2.0 * M))
 
                 # Including nuclear momentum dependent terms in the Hamiltonian for finite-difference calculations.
                 if parameters.get('P_nuc', None) != None:

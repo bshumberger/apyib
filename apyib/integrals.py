@@ -8,8 +8,8 @@ import math
 
 def one_electron_integral(parameters, integral_type = 'overlap', spherical_transform=True):
     # Function for calculating the AO basis overlap integrals.
-    if integral_type != 'overlap' and integral_type != 'dipole' and integral_type != 'nabla' and integral_type != 'angular momentum' and integral_type != 'kinetic':
-        raise Exception("Integral type not supported. Supported one-electron integrals include overlap, dipole, nabla, angular momentum, and kinetic energy integrals.")
+    if integral_type != 'overlap' and integral_type != 'dipole' and integral_type != 'nabla' and integral_type != 'angular momentum' and integral_type != 'kinetic' and integral_type != 'potential':
+        raise Exception("Integral type not supported. Supported one-electron integrals include overlap, dipole, nabla, angular momentum, kinetic, and potentital energy integrals.")
     if spherical_transform == True:
         raise Exception("Spherical transforms are not currently implemented.")
 
@@ -28,7 +28,7 @@ def one_electron_integral(parameters, integral_type = 'overlap', spherical_trans
     nao = basis.nao()
 
     # Starting the loops over shells and primitives.
-    if integral_type == 'overlap':
+    if integral_type == 'overlap' or integral_type == 'potential':
         S = np.zeros((nao, nao))
     elif integral_type == 'dipole' or integral_type == 'kinetic' or integral_type == 'nabla' or integral_type == 'angular momentum':
         S = np.zeros((3, nao, nao))
@@ -69,77 +69,110 @@ def one_electron_integral(parameters, integral_type = 'overlap', spherical_trans
                     R_PA = P - A
                     R_PB = P - B
 
-                    if integral_type == 'overlap':
-                        size_a = ang_a + 1
-                        size_b = ang_b + 1
-                    if integral_type == 'dipole':
-                        size_a = ang_a + 2
-                        size_b = ang_b + 1
-                    if integral_type == 'nabla':
-                        size_a = ang_a + 1
-                        size_b = ang_b + 2
-                    if integral_type == 'angular momentum':
-                        size_a = ang_a + 2
-                        size_b = ang_b + 2
-                    if integral_type == 'kinetic':
-                        size_a = ang_a + 1
-                        size_b = ang_b + 3
-                    #S_ = np.zeros((3, ang_a+1, ang_b+1))
-                    S_ = np.zeros((3, size_a, size_b))
-                    # Looping over cartesian directions.
-                    for alpha in range(3):
-                        # Solving for the initial overlap quantity.
-                        S_[alpha][0][0] = np.sqrt(math.pi / p) * math.exp(-mu * R_AB[alpha]**2)
+                    if integral_type == 'overlap' or integral_type == 'dipole' or integral_type == 'kinetic' or integral_type == 'nabla' or integral_type == 'angular momentum':
+                        if integral_type == 'overlap':
+                            size_a = ang_a + 1
+                            size_b = ang_b + 1
+                        if integral_type == 'dipole':
+                            size_a = ang_a + 2
+                            size_b = ang_b + 1
+                        if integral_type == 'nabla':
+                            size_a = ang_a + 1
+                            size_b = ang_b + 2
+                        if integral_type == 'angular momentum':
+                            size_a = ang_a + 2
+                            size_b = ang_b + 2
+                        if integral_type == 'kinetic':
+                            size_a = ang_a + 1
+                            size_b = ang_b + 3
+                        S_ = np.zeros((3, size_a, size_b))
+                        # Looping over cartesian directions.
+                        for alpha in range(3):
+                            # Solving for the initial overlap quantity.
+                            S_[alpha][0][0] = np.sqrt(math.pi / p) * math.exp(-mu * R_AB[alpha]**2)
 
-                        # Solving the vertical recurrence. Note that if i = 0, the second term is zero by multiplication.
-                        #for i in range(ang_a):
-                        for i in range(size_a-1):
-                            S_[alpha][i+1][0] = R_PA[alpha] * S_[alpha][i][0] + (1 / (2 * p)) * (i * S_[alpha][max(i-1, 0)][0])
+                            # Solving the vertical recurrence. Note that if i = 0, the second term is zero by multiplication.
+                            for i in range(size_a-1):
+                                S_[alpha][i+1][0] = R_PA[alpha] * S_[alpha][i][0] + (1 / (2 * p)) * (i * S_[alpha][max(i-1, 0)][0])
 
-                        # Solving the horizontal recurrence. Note that if i = 0 and/or j = 0, the second and/or third terms zero are zero.
-                        #for i in range(ang_a+1):
-                        #    for j in range(ang_b):
-                        for i in range(size_a):
-                            for j in range(size_b-1):
-                                S_[alpha][i][j+1] = R_PB[alpha] * S_[alpha][i][j] + (1 / (2 * p)) * (i * S_[alpha][i-1][j] + j * S_[alpha][i][j-1])
+                            # Solving the horizontal recurrence. Note that if i = 0 and/or j = 0, the second and/or third terms zero are zero.
+                            for i in range(size_a):
+                                for j in range(size_b-1):
+                                    S_[alpha][i][j+1] = R_PB[alpha] * S_[alpha][i][j] + (1 / (2 * p)) * (i * S_[alpha][i-1][j] + j * S_[alpha][i][j-1])
 
-                    # Looping over angular momenta to deal with the cartesian direction of non-spherical gaussians.
-                    # For example, the d-type orbitals will have xx, xy, xz, yy, yz, and zz where the angular
-                    # momentum is distributed over the different Cartesian directions. The loops over angular
-                    # momenta allow for the different components to be accounted for in the overlap since the
-                    # index function only takes you to the first component in the shell.
-                    count_a = 0
-                    for i_a in range(ang_a+1):
-                        for j_a in range(i_a+1):
-                            x_a = ang_a - i_a
-                            y_a = i_a - j_a
-                            z_a = j_a
-                            count_b = 0
-                            for i_b in range(ang_b+1):
-                                for j_b in range(i_b+1):
-                                    x_b = ang_b - i_b
-                                    y_b = i_b - j_b
-                                    z_b = j_b
-                                    if integral_type == 'overlap':
-                                        S[idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * S_[0][x_a][x_b] * S_[1][y_a][y_b] * S_[2][z_a][z_b]
-                                    if integral_type == 'dipole':
-                                        S[0][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * (S_[0][x_a+1][x_b] + (A[0] - C[0]) * S_[0][x_a][x_b]) * S_[1][y_a][y_b] * S_[2][z_a][z_b]
-                                        S[1][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * S_[0][x_a][x_b] * (S_[1][y_a+1][y_b] + (A[1] - C[1]) * S_[1][y_a][y_b]) * S_[2][z_a][z_b]
-                                        S[2][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * S_[0][x_a][x_b] * S_[1][y_a][y_b] * (S_[2][z_a+1][z_b] + (A[2] - C[2]) * S_[2][z_a][z_b])
-                                    if integral_type == 'nabla':
-                                        S[0][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * (x_b * S_[0][x_a][x_b-1] - 2.0 * exp_b * S_[0][x_a][x_b+1]) * S_[1][y_a][y_b] * S_[2][z_a][z_b]
-                                        S[1][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * S_[0][x_a][x_b] * (y_b * S_[1][y_a][y_b-1] - 2.0 * exp_b * S_[1][y_a][y_b+1]) * S_[2][z_a][z_b]
-                                        S[2][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * S_[0][x_a][x_b] * S_[1][y_a][y_b] * (z_b * S_[2][z_a][z_b-1] - 2.0 * exp_b * S_[2][z_a][z_b+1])
-                                    if integral_type == 'kinetic':
-                                        S[0][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * (x_b * (x_b - 1.0) * S_[0][x_a][x_b-2] - 2.0 * exp_b * x_b * S_[0][x_a][x_b] - 2.0 * exp_b * (x_b + 1) * S_[0][x_a][x_b] + 4.0 * exp_b**2 * S_[0][x_a][x_b+2]) * S_[1][y_a][y_b] * S_[2][z_a][z_b]
-                                        S[1][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * S_[0][x_a][x_b] * (y_b * (y_b - 1) * S_[1][y_a][y_b-2] - 2.0 * exp_b * y_b * S_[1][y_a][y_b] - 2.0 * exp_b * (y_b + 1) * S_[1][y_a][y_b] + 4.0 * exp_b**2 * S_[1][y_a][y_b+2]) * S_[2][z_a][z_b]
-                                        S[2][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * S_[0][x_a][x_b] * S_[1][y_a][y_b] * (z_b * (z_b - 1) * S_[2][z_a][z_b-2] - 2.0 * exp_b * z_b * S_[2][z_a][z_b] - 2.0 * exp_b * (z_b + 1) * S_[2][z_a][z_b] + 4.0 * exp_b**2 * S_[2][z_a][z_b+2])
-                                    if integral_type == 'angular momentum':
-                                        S[0][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * S_[0][x_a][x_b] * ((S_[1][y_a+1][y_b] + (A[1] - C[1]) * S_[1][y_a][y_b]) * (z_b * S_[2][z_a][z_b-1] - 2.0 * exp_b * S_[2][z_a][z_b+1]) - (S_[2][z_a+1][z_b] + (A[2] - C[2]) * S_[2][z_a][z_b]) * (y_b * S_[1][y_a][y_b-1] - 2.0 * exp_b * S_[1][y_a][y_b+1]))
-                                        S[1][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * S_[1][y_a][y_b] * ((S_[2][z_a+1][z_b] + (A[2] - C[2]) * S_[2][z_a][z_b]) * (x_b * S_[0][x_a][x_b-1] - 2.0 * exp_b * S_[0][x_a][x_b+1]) - (S_[0][x_a+1][x_b] + (A[0] - C[0]) * S_[0][x_a][x_b]) * (z_b * S_[2][z_a][z_b-1] - 2.0 * exp_b * S_[2][z_a][z_b+1]))
-                                        S[2][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * S_[2][z_a][z_b] * ((S_[0][x_a+1][x_b] + (A[0] - C[0]) * S_[0][x_a][x_b]) * (y_b * S_[1][y_a][y_b-1] - 2.0 * exp_b * S_[1][y_a][y_b+1]) - (S_[1][y_a+1][y_b] + (A[1] - C[1]) * S_[1][y_a][y_b]) * (x_b * S_[0][x_a][x_b-1] - 2.0 * exp_b * S_[0][x_a][x_b+1]))
-                                    count_b += 1
-                            count_a += 1
+                        # Looping over angular momenta to deal with the cartesian direction of non-spherical gaussians.
+                        # For example, the d-type orbitals will have xx, xy, xz, yy, yz, and zz where the angular
+                        # momentum is distributed over the different Cartesian directions. The loops over angular
+                        # momenta allow for the different components to be accounted for in the overlap since the
+                        # index function only takes you to the first component in the shell.
+                        count_a = 0
+                        for i_a in range(ang_a+1):
+                            for j_a in range(i_a+1):
+                                x_a = ang_a - i_a
+                                y_a = i_a - j_a
+                                z_a = j_a
+                                count_b = 0
+                                for i_b in range(ang_b+1):
+                                    for j_b in range(i_b+1):
+                                        x_b = ang_b - i_b
+                                        y_b = i_b - j_b
+                                        z_b = j_b
+                                        if integral_type == 'overlap':
+                                            S[idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * S_[0][x_a][x_b] * S_[1][y_a][y_b] * S_[2][z_a][z_b]
+                                        if integral_type == 'dipole':
+                                            S[0][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * (S_[0][x_a+1][x_b] + (A[0] - C[0]) * S_[0][x_a][x_b]) * S_[1][y_a][y_b] * S_[2][z_a][z_b]
+                                            S[1][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * S_[0][x_a][x_b] * (S_[1][y_a+1][y_b] + (A[1] - C[1]) * S_[1][y_a][y_b]) * S_[2][z_a][z_b]
+                                            S[2][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * S_[0][x_a][x_b] * S_[1][y_a][y_b] * (S_[2][z_a+1][z_b] + (A[2] - C[2]) * S_[2][z_a][z_b])
+                                        if integral_type == 'nabla':
+                                            S[0][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * (x_b * S_[0][x_a][x_b-1] - 2.0 * exp_b * S_[0][x_a][x_b+1]) * S_[1][y_a][y_b] * S_[2][z_a][z_b]
+                                            S[1][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * S_[0][x_a][x_b] * (y_b * S_[1][y_a][y_b-1] - 2.0 * exp_b * S_[1][y_a][y_b+1]) * S_[2][z_a][z_b]
+                                            S[2][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * S_[0][x_a][x_b] * S_[1][y_a][y_b] * (z_b * S_[2][z_a][z_b-1] - 2.0 * exp_b * S_[2][z_a][z_b+1])
+                                        if integral_type == 'kinetic':
+                                            S[0][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * (x_b * (x_b - 1.0) * S_[0][x_a][x_b-2] - 2.0 * exp_b * x_b * S_[0][x_a][x_b] - 2.0 * exp_b * (x_b + 1) * S_[0][x_a][x_b] + 4.0 * exp_b**2 * S_[0][x_a][x_b+2]) * S_[1][y_a][y_b] * S_[2][z_a][z_b]
+                                            S[1][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * S_[0][x_a][x_b] * (y_b * (y_b - 1) * S_[1][y_a][y_b-2] - 2.0 * exp_b * y_b * S_[1][y_a][y_b] - 2.0 * exp_b * (y_b + 1) * S_[1][y_a][y_b] + 4.0 * exp_b**2 * S_[1][y_a][y_b+2]) * S_[2][z_a][z_b]
+                                            S[2][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * S_[0][x_a][x_b] * S_[1][y_a][y_b] * (z_b * (z_b - 1) * S_[2][z_a][z_b-2] - 2.0 * exp_b * z_b * S_[2][z_a][z_b] - 2.0 * exp_b * (z_b + 1) * S_[2][z_a][z_b] + 4.0 * exp_b**2 * S_[2][z_a][z_b+2])
+                                        if integral_type == 'angular momentum':
+                                            S[0][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * S_[0][x_a][x_b] * ((S_[1][y_a+1][y_b] + (A[1] - C[1]) * S_[1][y_a][y_b]) * (z_b * S_[2][z_a][z_b-1] - 2.0 * exp_b * S_[2][z_a][z_b+1]) - (S_[2][z_a+1][z_b] + (A[2] - C[2]) * S_[2][z_a][z_b]) * (y_b * S_[1][y_a][y_b-1] - 2.0 * exp_b * S_[1][y_a][y_b+1]))
+                                            S[1][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * S_[1][y_a][y_b] * ((S_[2][z_a+1][z_b] + (A[2] - C[2]) * S_[2][z_a][z_b]) * (x_b * S_[0][x_a][x_b-1] - 2.0 * exp_b * S_[0][x_a][x_b+1]) - (S_[0][x_a+1][x_b] + (A[0] - C[0]) * S_[0][x_a][x_b]) * (z_b * S_[2][z_a][z_b-1] - 2.0 * exp_b * S_[2][z_a][z_b+1]))
+                                            S[2][idx_a + count_a][idx_b + count_b] += coeff_a * coeff_b * S_[2][z_a][z_b] * ((S_[0][x_a+1][x_b] + (A[0] - C[0]) * S_[0][x_a][x_b]) * (y_b * S_[1][y_a][y_b-1] - 2.0 * exp_b * S_[1][y_a][y_b+1]) - (S_[1][y_a+1][y_b] + (A[1] - C[1]) * S_[1][y_a][y_b]) * (x_b * S_[0][x_a][x_b-1] - 2.0 * exp_b * S_[0][x_a][x_b+1]))
+                                        count_b += 1
+                                count_a += 1
+
+                    elif integral_type == 'potential':
+                        m_max = ang_a + ang_b
+                        prefactor = (2.0 * math.pi / p) * math.exp(-mu * np.dot(R_AB, R_AB))
+                        for N in range(natom):
+                            Z_C = mol.Z(N)
+                            C = R[N]
+                            R_PC = P - C
+                            T = p * np.dot(R_PC, R_PC)
+                            F = np.zeros(m_max + 1)
+                            if T < 1e-15:
+                                for m in range(m_max + 1):
+                                    F[m] = 1.0 / (2 * m + 1)
+                            else: 
+                                F[0] = math.sqrt(math.pi / T) * math.erf(math.sqrt(T)) / 2.0
+                                exp_T = math.exp(-T)
+                                for m in range(m_max):
+                                    F[m + 1] = ((2 * m + 1) * F[m] - exp_T) / (2 * T)
+                            #print(F)
+
+                            count_a = 0
+                            for i_a in range(ang_a+1):
+                                for j_a in range(i_a+1):
+                                    x_a = ang_a - i_a
+                                    y_a = i_a - j_a
+                                    z_a = j_a
+                                    count_b = 0
+                                    for i_b in range(ang_b+1):
+                                        for j_b in range(i_b+1):
+                                            x_b = ang_b - i_b
+                                            y_b = i_b - j_b
+                                            z_b = j_b
+                                            S[idx_a + count_a][idx_b + count_b] += -Z_C * coeff_a * coeff_b * F[0] * prefactor
+                                            count_b += 1
+                                    count_a += 1
+
     if integral_type == 'dipole' or integral_type == 'angular momentum':
         S *= -1.0
     if integral_type == 'kinetic':

@@ -1917,6 +1917,209 @@ class analytic_derivative(object):
 
 
 
+    def compute_RHF_DO_AATs(self, orbitals='non-canonical'):
+        # Setting initial variables for readability.
+        C = self.C
+        nbf = self.wfn.nbf
+        no = self.wfn.ndocc
+        nv = self.wfn.nbf - self.wfn.ndocc
+
+        # Setting up slices.
+        C_list, I_list = get_slices(self.parameters, self.wfn)
+        f_ = C_list[0]
+        o_ = C_list[1]
+        v_ = C_list[2]
+        t_ = C_list[3]
+
+        o = slice(0, no)
+        v = slice(no, nbf) 
+        t = slice(0, nbf) 
+
+        # Create a Psi4 matrix object for obtaining the perturbed MO basis integrals.
+        C_p4 = psi4.core.Matrix.from_array(C)
+
+        # Set the atom lists for Hessian.
+        natom = self.H.molecule.natom()
+        atoms = np.arange(0, natom)
+
+        # Compute the core Hamiltonian in the MO basis.
+        h = oe.contract('mp,mn,nq->pq', np.conjugate(C), self.H.T + self.H.V, C)
+
+        # Compute the electron repulsion integrals in the MO basis.
+        ERI = oe.contract('mnlg,gs->mnls', self.H.ERI, C)
+        ERI = oe.contract('mnls,lr->mnrs', ERI, np.conjugate(C))
+        ERI = oe.contract('nq,mnrs->mqrs', C, ERI) 
+        ERI = oe.contract('mp,mqrs->pqrs', np.conjugate(C), ERI) 
+
+        # Swap axes for Dirac notation.
+        ERI = ERI.swapaxes(1,2)                 # (pr|qs) -> <pq|rs>
+
+        # Compute the Fock matrix in the MO basis.
+        F = h + oe.contract('piqi->pq', 2 * ERI[:,o,:,o] - ERI.swapaxes(2,3)[:,o,:,o])
+
+        # Use the MintsHelper to get the AO integrals from Psi4.
+        mints = psi4.core.MintsHelper(self.H.basis_set)
+        Nuc_Gradient = self.H.molecule.nuclear_repulsion_energy_deriv1().np
+
+        # Set up the Hessian.
+        Hessian = np.zeros((natom * 3, natom * 3))
+
+        # Set up the atomic axial tensor.
+        AAT = np.zeros((natom * 3, 3))
+
+        # Set up U-coefficient matrices for AAT calculations.
+        U_R = [] 
+        U_H = [] 
+
+        # Compute the perturbation-independent A matrix for the CPHF coefficients with real wavefunctions.
+        A = (2 * ERI - ERI.swapaxes(2,3)) + (2 * ERI - ERI.swapaxes(2,3)).swapaxes(1,3)
+        A = A.swapaxes(1,2)
+        G = oe.contract('ab,ij,aibj->aibj', np.eye(nv), np.eye(no), F[v,v].reshape(nv,1,nv,1) - F[o,o].reshape(1,no,1,no)) + A[v,o,v,o]
+        G = np.linalg.inv(G.reshape((nv*no,nv*no)))
+
+        # First derivative matrices.
+        half_S = [] 
+
+        # Compute and store first derivative integrals.
+        for N1 in atoms:
+            # Compute the skeleton (core) one-electron first derivative integrals in the MO basis.
+            T_d1 = mints.mo_oei_deriv1('KINETIC', N1, C_p4, C_p4)
+            V_d1 = mints.mo_oei_deriv1('POTENTIAL', N1, C_p4, C_p4)
+            S_d1 = mints.mo_oei_deriv1('OVERLAP', N1, C_p4, C_p4)
+
+            # Compute the skeleton (core) two-electron first derivative integrals in the MO basis.
+            ERI_d1 = mints.mo_tei_deriv1(N1, C_p4, C_p4, C_p4, C_p4)
+
+            # Compute the half derivative overlap for AAT calculation.
+            half_S_d1 = mints.mo_overlap_half_deriv1('LEFT', N1, C_p4, C_p4)
+
+            for a in range(3):
+                # Convert the Psi4 matrices to numpy matrices.
+                T_d1[a] = T_d1[a].np
+                V_d1[a] = V_d1[a].np
+                S_d1[a] = S_d1[a].np
+
+                ERI_d1[a] = ERI_d1[a].np
+                ERI_d1[a] = ERI_d1[a].swapaxes(1,2)
+                half_S_d1[a] = half_S_d1[a].np
+
+                # Computing skeleton (core) first derivative integrals.
+                h_d1 = T_d1[a] + V_d1[a]
+                F_d1 = T_d1[a] + V_d1[a] + oe.contract('piqi->pq', 2 * ERI_d1[a][:,o,:,o] - ERI_d1[a].swapaxes(2,3)[:,o,:,o])
+
+                # Compute the perturbation-dependent B matrix for the CPHF coefficients.
+                B = -F_d1[v,o] + oe.contract('ai,ii->ai', S_d1[a][v,o], F[o,o]) + 0.5 * oe.contract('mn,amin->ai', S_d1[a][o,o], A.swapaxes(1,2)[v,o,o,o])
+
+                # Solve for the independent-pairs of the CPHF U-coefficient matrix.
+                U_d1 = np.zeros((nbf,nbf))
+                U_d1[v,o] += (G @ B.reshape((nv*no))).reshape(nv,no)
+                U_d1[o,v] -= U_d1[v,o].T + S_d1[a][o,v]
+
+                # Solve for the dependent-pairs of the CPHF U-coefficient matrix.
+                if self.parameters['freeze_core'] == True or orbitals == 'canonical':
+                    D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
+                    B = F_d1[o,o].copy() - oe.contract('ij,jj->ij', S_d1[a][o,o], F[o,o]) + oe.contract('em,iejm->ij', U_d1[v,o], A.swapaxes(1,2)[o,v,o,o]) - 0.5 * oe.contract('mn,imjn->ij', S_d1[a][o,o], A.swapaxes(1,2)[o,o,o,o])
+                    U_d1[o,o] += B/D
+
+                    D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
+                    B = F_d1[v,v].copy() - oe.contract('ab,bb->ab', S_d1[a][v,v], F[v,v]) + oe.contract('em,aebm->ab', U_d1[v,o], A.swapaxes(1,2)[v,v,v,o]) - 0.5 * oe.contract('mn,ambn->ab', S_d1[a][o,o], A.swapaxes(1,2)[v,o,v,o])
+                    U_d1[v,v] += B/D
+
+                    for j in range(no):
+                        U_d1[j,j] = -0.5 * S_d1[a][j,j]
+                    for b in range(no,nbf):
+                        U_d1[b,b] = -0.5 * S_d1[a][b,b]
+
+                if orbitals == 'non-canonical':
+                    U_d1[f_,f_] = -0.5 * S_d1[a][f_,f_]
+                    U_d1[o_,o_] = -0.5 * S_d1[a][o_,o_]
+                    U_d1[v_,v_] = -0.5 * S_d1[a][v_,v_]
+
+                # Appending to lists.
+                half_S.append(half_S_d1[a])
+                U_R.append(U_d1)
+
+        ###
+        # Compute the perturbation-independent A matrix for the CPHF coefficients with complex wavefunctions.
+        A_mag = -(2 * ERI - ERI.swapaxes(2,3)) + (2 * ERI - ERI.swapaxes(2,3)).swapaxes(1,3)
+        A_mag = A_mag.swapaxes(1,2)
+        G_mag = oe.contract('ab,ij,aibj->aibj', np.eye(nv), np.eye(no), F[v,v].reshape(nv,1,nv,1) - F[o,o].reshape(1,no,1,no)) + A_mag[v,o,v,o]
+        G_mag = np.linalg.inv(G_mag.reshape((nv*no,nv*no)))
+
+        # Get the angular momentum and nabla AO integrals.
+        L_psi4 = [mints.ao_angular_momentum()[i].np for i in range(3)]
+        nabla_AO = [mints.ao_nabla()[i].np for i in range(3)]
+
+        # Levi-Civita tensor.
+        eps_lc = np.zeros((3, 3, 3))
+        eps_lc[0,1,2] = eps_lc[1,2,0] = eps_lc[2,0,1] = 1
+        eps_lc[0,2,1] = eps_lc[2,1,0] = eps_lc[1,0,2] = -1
+
+        # Get geometry for origin shifting.
+        geom_bohr = np.array(self.H.molecule.geometry().np)
+
+        # For each atom, build atom-centered angular momentum integrals
+        # and solve the CPHF for the magnetic field perturbation.
+        # U_H[A][beta] = CPHF solution for atom A, magnetic field component beta.
+        U_H = []
+        for A in range(natom):
+            U_H_A = []
+            for beta in range(3):
+                # Shift angular momentum origin to atom A:
+                # L(R_A) = L(0) - R_A x nabla
+                L_shifted = L_psi4[beta].copy()
+                for gamma in range(3):
+                    for delta in range(3):
+                        #L_shifted -= eps_lc[beta, gamma, delta] * geom_bohr[A, gamma] * nabla_AO[delta]
+                        L_shifted += eps_lc[beta, gamma, delta] * geom_bohr[A, gamma] * nabla_AO[delta]
+
+                # Build atom-centered magnetic dipole integrals in MO basis.
+                mu_mag_shifted = -0.5 * L_shifted
+                mu_mag = oe.contract('mp,mn,nq->pq', np.conjugate(C), mu_mag_shifted, C)
+
+                # Compute the perturbation-dependent B matrix.
+                B = mu_mag[v, o]
+
+                # Solve the CPHF.
+                U_d1 = np.zeros((nbf, nbf))
+                U_d1[v, o] += (G_mag @ B.reshape((nv * no))).reshape(nv, no)
+                U_d1[o, v] += U_d1[v, o].T
+
+                if self.parameters['freeze_core'] == True or orbitals == 'canonical':
+                    D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
+                    B_oo = -mu_mag[o,o].copy() + oe.contract('em,iejm->ij', U_d1[v,o], A_mag.swapaxes(1,2)[o,v,o,o])
+                    U_d1[o,o] += B_oo / D
+
+                    D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
+                    B_vv = -mu_mag[v,v].copy() + oe.contract('em,aebm->ab', U_d1[v,o], A_mag.swapaxes(1,2)[v,v,v,o])
+                    U_d1[v,v] += B_vv / D
+
+                    for j in range(no):
+                        U_d1[j, j] = 0
+                    for b in range(no, nbf):
+                        U_d1[b, b] = 0
+
+                if orbitals == 'non-canonical':
+                    U_d1[f_, f_] = 0
+                    U_d1[o_, o_] = 0
+                    U_d1[v_, v_] = 0
+
+                U_H_A.append(U_d1)
+            U_H.append(U_H_A)
+
+        # Setting up the AATs.
+        AAT_HF = np.zeros((natom * 3, 3))
+
+        # Compute AATs using atom-centered magnetic field solutions.
+        for lambda_alpha in range(3 * natom):
+            A = lambda_alpha // 3  # atom index for this row
+            for beta in range(3):
+                # Use U_H[A][beta] — the CPHF solution with origin at atom A.
+                AAT_HF[lambda_alpha][beta] += 2 * oe.contract("em,em", U_H[A][beta][v_, o], U_R[lambda_alpha][v_, o] + half_S[lambda_alpha][o, v_].T)
+
+        AAT = AAT_HF
+
+        return AAT
 
 
 

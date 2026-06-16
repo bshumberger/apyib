@@ -25,6 +25,10 @@ class frequency(object):
 
         # Set the molecule.
         self.molecule = psi4.geometry(parameters['geom'])
+        # Apply isotopic substitutions if specified.
+        if parameters.get('isotopes', None) is not None:
+            for atom_idx, mass in parameters['isotopes'].items():
+                self.molecule.set_mass(atom_idx, mass)
         self.natom = self.molecule.natom()
 
 
