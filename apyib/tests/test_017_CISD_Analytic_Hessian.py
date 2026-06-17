@@ -3,3 +3,5 @@ import numpy as np
 import apyib
 import pytest
 from ..data.molecules import *
+
+pytestmark = pytest.mark.slow

@@ -18,21 +18,19 @@ classifiers = [
     "License :: OSI Approved :: BSD License",
     "Programming Language :: Python :: 3",
 ]
-requires-python = ">=3.8"
-# Declare any run-time dependencies that should be installed with the package.
-#dependencies = [
-#    "importlib-resources;python_version<'3.10'",
-#]
-
-# Update the urls once the hosting is set up.
-#[project.urls]
-#"Source" = "https://github.com/<username>/apyib/"
-#"Documentation" = "https://apyib.readthedocs.io/"
+requires-python = ">=3.10"
+# psi4 is a required runtime dependency but cannot be declared here because it is
+# only distributed via conda-forge. Install it first: conda install psi4 -c conda-forge
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.7",
+    "opt_einsum>=3.3",
+]
 
 [project.optional-dependencies]
 test = [
-  "pytest>=6.1.2",
-  "pytest-runner"
+  "pytest>=6.1",
+  "pytest-cov",
 ]
 
 [tool.setuptools]
@@ -64,6 +62,11 @@ where = ["."]
 [tool.setuptools.package-data]
 apyib = [
     "py.typed"
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow-running (deselect with '-m \"not slow\"')",
 ]
 
 [tool.versioningit]
