@@ -3,10 +3,8 @@
 import numpy as np
 import psi4
 import opt_einsum as oe
-from apyib.energy import energy
-from apyib.energy import phase_corrected_energy
-#from apyib.rotational_strength import compute_mo_overlap
-#from apyib.rotational_strength import compute_phase
+from apyib.energy import energy, phase_corrected_energy
+from apyib.utils import total_energy
 
 
 class finite_difference(object):
@@ -49,7 +47,7 @@ class finite_difference(object):
 
                 # Compute energy.
                 E_list, T_list, C, basis = energy(self.parameters)
-                E_tot = E_list[0] + E_list[1] + E_list[2]
+                E_tot = total_energy(E_list)
 
                 # Append new energies. 
                 pos_e.append(E_tot)
@@ -66,7 +64,7 @@ class finite_difference(object):
 
                 # Compute energy.
                 E_list, T_list, C, basis = energy(self.parameters)
-                E_tot = E_list[0] + E_list[1] + E_list[2]
+                E_tot = total_energy(E_list)
 
                 # Append new energies. 
                 neg_e.append(E_tot)
@@ -103,7 +101,7 @@ class finite_difference(object):
 
                 # Compute energy.
                 E_list, T_list, C, basis = energy(self.parameters)
-                E_tot = E_list[0] + E_list[1] + E_list[2]
+                E_tot = total_energy(E_list)
 
                 # Append new energies. 
                 pos_e.append(E_tot)
@@ -120,7 +118,7 @@ class finite_difference(object):
 
                 # Compute energy.
                 E_list, T_list, C, basis = energy(self.parameters)
-                E_tot = E_list[0] + E_list[1] + E_list[2]
+                E_tot = total_energy(E_list)
 
                 # Append new energies. 
                 neg_e.append(E_tot)
@@ -172,7 +170,7 @@ class finite_difference(object):
 
                 # Compute energy.
                 E_list, T_list, C, basis = energy(self.parameters)
-                E_tot = E_list[0] + E_list[1] + E_list[2]
+                E_tot = total_energy(E_list)
 
                 # Append the energy based on the perturbation.
                 pos_e.append(E_tot)
@@ -186,7 +184,7 @@ class finite_difference(object):
 
                 # Compute energy.
                 E_list, T_list, C, basis = energy(self.parameters)
-                E_tot = E_list[0] + E_list[1] + E_list[2]
+                E_tot = total_energy(E_list)
 
                 # Append the energy based on the perturbation.
                 neg_e.append(E_tot)
@@ -222,7 +220,7 @@ class finite_difference(object):
 
                 # Compute energy.
                 E_list, T_list, C, basis = energy(self.parameters)
-                E_tot = E_list[0] + E_list[1] + E_list[2]
+                E_tot = total_energy(E_list)
 
                 # Append the energy based on the perturbation.
                 pos_e.append(E_tot)
@@ -236,7 +234,7 @@ class finite_difference(object):
 
                 # Compute energy.
                 E_list, T_list, C, basis = energy(self.parameters)
-                E_tot = E_list[0] + E_list[1] + E_list[2]
+                E_tot = total_energy(E_list)
 
                 # Append the energy based on the perturbation.
                 neg_e.append(E_tot)
@@ -293,7 +291,7 @@ class finite_difference(object):
 
             # Compute energy.
             E_list, T_list, C, basis = phase_corrected_energy(self.parameters, self.unperturbed_basis, self.unperturbed_C)
-            E_tot = E_list[0] + E_list[1] + E_list[2]
+            E_tot = total_energy(E_list)
             #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(basis)).np)
             #print(E_tot)
 
@@ -318,7 +316,7 @@ class finite_difference(object):
 
             # Compute energy.
             E_list, T_list, C, basis = phase_corrected_energy(self.parameters, self.unperturbed_basis, self.unperturbed_C)
-            E_tot = E_list[0] + E_list[1] + E_list[2]
+            E_tot = total_energy(E_list)
             #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(basis)).np)
             #print(E_tot)
 
@@ -337,7 +335,7 @@ class finite_difference(object):
 
             # Compute energy.
             E_list, T_list, C, basis = phase_corrected_energy(self.parameters, self.unperturbed_basis, self.unperturbed_C)
-            E_tot = E_list[0] + E_list[1] + E_list[2]
+            E_tot = total_energy(E_list)
             #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(basis)).np)
             #print(self.parameters['F_mag'])
             #print(E_tot)
@@ -356,7 +354,7 @@ class finite_difference(object):
 
             # Compute energy.
             E_list, T_list, C, basis = phase_corrected_energy(self.parameters, self.unperturbed_basis, self.unperturbed_C)
-            E_tot = E_list[0] + E_list[1] + E_list[2]
+            E_tot = total_energy(E_list)
             #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(basis)).np)
             #print(self.parameters['F_mag'])
             #print(E_tot)
@@ -396,7 +394,7 @@ class finite_difference(object):
 
             # Compute energy.
             E_list, T_list, C, basis = phase_corrected_energy(self.parameters, self.unperturbed_basis, self.unperturbed_C)
-            nuc_pos_E_tot = E_list[0] + E_list[1] + E_list[2]
+            nuc_pos_E_tot = total_energy(E_list)
             #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(basis)).np)
             #print(E_tot)
 
@@ -422,7 +420,7 @@ class finite_difference(object):
 
             # Compute energy.
             E_list, T_list, C, basis = phase_corrected_energy(self.parameters, self.unperturbed_basis, self.unperturbed_C)
-            nuc_neg_E_tot = E_list[0] + E_list[1] + E_list[2]
+            nuc_neg_E_tot = total_energy(E_list)
             #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(basis)).np)
             #print(E_tot)
 
@@ -465,7 +463,7 @@ class finite_difference(object):
 
             # Compute energy.
             E_list, T_list, C, basis = phase_corrected_energy(self.parameters, self.unperturbed_basis, self.unperturbed_C)
-            mag_pos_E_tot = E_list[0] + E_list[1] + E_list[2]
+            mag_pos_E_tot = total_energy(E_list)
             #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(basis)).np)
             #print(self.parameters['F_mag'])
             #print(E_tot)
@@ -485,7 +483,7 @@ class finite_difference(object):
 
             # Compute energy.
             E_list, T_list, C, basis = phase_corrected_energy(self.parameters, self.unperturbed_basis, self.unperturbed_C)
-            mag_neg_E_tot = E_list[0] + E_list[1] + E_list[2]
+            mag_neg_E_tot = total_energy(E_list)
             #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(basis)).np)
             #print(self.parameters['F_mag'])
             #print(E_tot)
@@ -540,7 +538,7 @@ class finite_difference(object):
 
                 # Compute energy.
                 E_list, T_list, C, basis = energy(self.parameters)
-                E_tot = E_list[0] + E_list[1] + E_list[2] + E_list[3]
+                E_tot = total_energy(E_list)
 
                 # Append new energies.
                 pos_e.append(E_tot)
@@ -554,7 +552,7 @@ class finite_difference(object):
 
                 # Compute energy.
                 E_list, T_list, C, basis = energy(self.parameters)
-                E_tot = E_list[0] + E_list[1] + E_list[2] + E_list[3]
+                E_tot = total_energy(E_list)
 
                 # Append new energies.
                 neg_e.append(E_tot)
@@ -584,7 +582,7 @@ class finite_difference(object):
                 
                 # Compute energy.
                 E_list, T_list, C, basis = energy(self.parameters)
-                E_tot = E_list[0] + E_list[1] + E_list[2] + E_list[3]
+                E_tot = total_energy(E_list)
                 
                 # Append new energies.
                 pos_e.append(E_tot)
@@ -598,7 +596,7 @@ class finite_difference(object):
 
                 # Compute energy.
                 E_list, T_list, C, basis = energy(self.parameters)
-                E_tot = E_list[0] + E_list[1] + E_list[2] + E_list[3]
+                E_tot = total_energy(E_list)
             
                 # Append new energies.
                 neg_e.append(E_tot)
@@ -653,7 +651,7 @@ class finite_difference(object):
 
                 # Compute energy.
                 E_list, T_list, C, basis = energy(self.parameters, print_level)
-                E_tot = E_list[0] + E_list[1] + E_list[2] + E_list[3]
+                E_tot = total_energy(E_list)
 
                 # Append new energies.
                 pos_e.append(E_tot)
@@ -667,7 +665,7 @@ class finite_difference(object):
 
                 # Compute energy.
                 E_list, T_list, C, basis = energy(self.parameters, print_level)
-                E_tot = E_list[0] + E_list[1] + E_list[2] + E_list[3]
+                E_tot = total_energy(E_list)
 
                 # Append new energies.
                 neg_e.append(E_tot)
@@ -696,7 +694,7 @@ class finite_difference(object):
 
                 # Compute energy.
                 E_list, T_list, C, basis = energy(self.parameters, print_level)
-                E_tot = E_list[0] + E_list[1] + E_list[2] + E_list[3]
+                E_tot = total_energy(E_list)
 
                 # Append new energies.
                 pos_e.append(E_tot)
@@ -710,7 +708,7 @@ class finite_difference(object):
 
                 # Compute energy.
                 E_list, T_list, C, basis = energy(self.parameters, print_level)
-                E_tot = E_list[0] + E_list[1] + E_list[2] + E_list[3]
+                E_tot = total_energy(E_list)
 
                 # Append new energies.
                 neg_e.append(E_tot)
@@ -773,7 +771,7 @@ class finite_difference(object):
 
                 # Compute energy.
                 E_list, T_list, C, basis = energy(self.parameters, print_level)
-                E_tot = E_list[0] + E_list[1] + E_list[2] + E_list[3]
+                E_tot = total_energy(E_list)
 
                 # Append new energies.
                 pos_e.append(E_tot)
@@ -787,7 +785,7 @@ class finite_difference(object):
 
                 # Compute energy.
                 E_list, T_list, C, basis = energy(self.parameters, print_level)
-                E_tot = E_list[0] + E_list[1] + E_list[2] + E_list[3]
+                E_tot = total_energy(E_list)
 
                 # Append new energies.
                 neg_e.append(E_tot)
@@ -821,7 +819,7 @@ class finite_difference(object):
 
                 # Compute energy.
                 E_list, T_list, C, basis = energy(self.parameters, print_level)
-                E_tot = E_list[0] + E_list[1] + E_list[2] + E_list[3]
+                E_tot = total_energy(E_list)
 
                 # Append new energies.
                 pos_e.append(E_tot)
@@ -835,7 +833,7 @@ class finite_difference(object):
 
                 # Compute energy.
                 E_list, T_list, C, basis = energy(self.parameters, print_level)
-                E_tot = E_list[0] + E_list[1] + E_list[2] + E_list[3]
+                E_tot = total_energy(E_list)
 
                 # Append new energies.
                 neg_e.append(E_tot)
