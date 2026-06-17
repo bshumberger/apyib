@@ -8,14 +8,16 @@
 
 # -- Path setup --------------------------------------------------------------
 
-# If extensions (or modules to document with autodoc) are in another directory,
-# add these directories to sys.path here. If the directory is relative to the
-# documentation root, use os.path.abspath to make it absolute, like shown here.
-
-# Incase the project was not installed
 import os
 import sys
+from unittest.mock import MagicMock
+
 sys.path.insert(0, os.path.abspath('..'))
+
+# Psi4 is conda-only and unavailable on Read the Docs; mock it so Sphinx can
+# import apyib and generate API docs without a Psi4 installation.
+sys.modules['psi4'] = MagicMock()
+sys.modules['psi4.core'] = MagicMock()
 
 import apyib
 
@@ -23,14 +25,11 @@ import apyib
 # -- Project information -----------------------------------------------------
 
 project = 'apyib'
-copyright = ("2023, Brendan M. Shumberger. Project structure based on the "
-             "Computational Molecular Science Python Cookiecutter version 1.1")
+copyright = '2023, Brendan M. Shumberger'
 author = 'Brendan M. Shumberger'
 
-# The short X.Y version
-version = ''
-# The full version, including alpha/beta/rc tags
-release = ''
+version = apyib.__version__
+release = apyib.__version__
 
 
 # -- General configuration ---------------------------------------------------
@@ -53,6 +52,7 @@ extensions = [
 ]
 
 autosummary_generate = True
+autodoc_mock_imports = ['psi4']
 napoleon_google_docstring = False
 napoleon_use_param = False
 napoleon_use_ivar = True
@@ -74,7 +74,7 @@ master_doc = 'index'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = 'en'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
