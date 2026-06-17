@@ -1,11 +1,13 @@
 name: docs
 channels:
+  - conda-forge
+  - nodefaults
 dependencies:
-    # Base depends
-  - python
+  - python>=3.10
   - pip
-
-
-  # Pip-only installs
   - pip:
-
+    - numpy>=1.26
+    - scipy>=1.7
+    - opt_einsum>=3.3
+    - sphinx
+    - sphinx-rtd-theme
