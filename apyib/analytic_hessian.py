@@ -4,72 +4,22 @@ import numpy as np
 import psi4
 import gc
 import opt_einsum as oe
-from apyib.hamiltonian import Hamiltonian
-from apyib.hf_wfn import hf_wfn
-from apyib.mp2_wfn import mp2_wfn
-from apyib.ci_wfn import ci_wfn
-from apyib.utils import get_slices
+from apyib.analytic_base import AnalyticDerivative
 from apyib.utils import compute_ERI_MO
 from apyib.utils import solve_general_DIIS
 
-class analytic_derivative(object):
-    """ 
-    Analytic derivative object.
-    """
-    # Defines the integrals associated with the analytic evaluation of the energy.
-    def __init__(self, parameters):
-        # Set calculation parameters.
-        self.parameters = parameters
 
-        # Perform RHF energy calculation.
-        self.H = Hamiltonian(self.parameters)
-        self.wfn = hf_wfn(self.H)
-        E_SCF, self.C = self.wfn.solve_SCF(self.parameters)
-
-
+class analytic_derivative(AnalyticDerivative):
+    """Analytic nuclear Hessian for RHF wavefunctions."""
 
     def compute_RHF_Hessian(self, orbitals='non-canonical'):
-        # Setting initial variables for readability.
-        C = self.C
-        nbf = self.wfn.nbf
-        no = self.wfn.ndocc
-        nv = self.wfn.nbf - self.wfn.ndocc
+        m = self._setup_mo_basis()
+        C, nbf, no, nv = m.C, m.nbf, m.no, m.nv
+        f_, o_, v_, t_ = m.f_, m.o_, m.v_, m.t_
+        o, v, t = m.o, m.v, m.t
+        C_p4, natom, atoms = m.C_p4, m.natom, m.atoms
+        h, ERI, F, mints = m.h, m.ERI, m.F, m.mints
 
-        # Setting up slices.
-        C_list, I_list = get_slices(self.parameters, self.wfn)
-        f_ = C_list[0]
-        o_ = C_list[1]
-        v_ = C_list[2]
-        t_ = C_list[3]
-
-        o = slice(0, no)
-        v = slice(no, nbf)
-        t = slice(0, nbf)
-
-        # Create a Psi4 matrix object for obtaining the perturbed MO basis integrals.
-        C_p4 = psi4.core.Matrix.from_array(C)
-
-        # Set the atom lists for Hessian.
-        natom = self.H.molecule.natom()
-        atoms = np.arange(0, natom)
-
-        # Compute the core Hamiltonian in the MO basis.
-        h = oe.contract('mp,mn,nq->pq', np.conjugate(C), self.H.T + self.H.V, C)
-
-        # Compute the electron repulsion integrals in the MO basis.
-        ERI = oe.contract('mnlg,gs->mnls', self.H.ERI, C)
-        ERI = oe.contract('mnls,lr->mnrs', ERI, np.conjugate(C))
-        ERI = oe.contract('nq,mnrs->mqrs', C, ERI)
-        ERI = oe.contract('mp,mqrs->pqrs', np.conjugate(C), ERI)
-
-        # Swap axes for Dirac notation.
-        ERI = ERI.swapaxes(1,2)                 # (pr|qs) -> <pq|rs>
-
-        # Compute the Fock matrix in the MO basis.
-        F = h + oe.contract('piqi->pq', 2 * ERI[:,o,:,o] - ERI.swapaxes(2,3)[:,o,:,o])
-
-        # Use the MintsHelper to get the AO integrals from Psi4.
-        mints = psi4.core.MintsHelper(self.H.basis_set)
         N = self.H.molecule.nuclear_repulsion_energy_deriv2().np
 
         # Set up the Hessian.
@@ -82,11 +32,7 @@ class analytic_derivative(object):
         S_R = []
         F_R = []
 
-        # Compute the perturbation-independent A matrix for the CPHF coefficients with real wavefunctions.
-        A = (2 * ERI - ERI.swapaxes(2,3)) + (2 * ERI - ERI.swapaxes(2,3)).swapaxes(1,3)
-        A = A.swapaxes(1,2)
-        G = oe.contract('ab,ij,aibj->aibj', np.eye(nv), np.eye(no), F[v,v].reshape(nv,1,nv,1) - F[o,o].reshape(1,no,1,no)) + A[v,o,v,o]
-        G = np.linalg.inv(G.reshape((nv*no,nv*no)))
+        A, G = self._build_cphf_A(ERI, F, no, nv, o, v, sign=+1)
 
         # Compute and store first derivative integrals.
         for N1 in atoms:
@@ -202,44 +148,18 @@ class analytic_derivative(object):
 
 
     def compute_RHF_Hessian_opt(self, orbitals='non-canonical'):
-        # Setting initial variables for readability.
-        C = self.C
-        nbf = self.wfn.nbf
-        no = self.wfn.ndocc
-        nv = self.wfn.nbf - self.wfn.ndocc
+        m = self._setup_mo_basis()
+        C, nbf, no, nv = m.C, m.nbf, m.no, m.nv
+        f_, o_, v_, t_ = m.f_, m.o_, m.v_, m.t_
+        o, v, t = m.o, m.v, m.t
+        C_p4, natom, atoms = m.C_p4, m.natom, m.atoms
+        h, mints = m.h, m.mints
 
-        # Setting up slices.
-        C_list, I_list = get_slices(self.parameters, self.wfn)
-        f_ = C_list[0]
-        o_ = C_list[1]
-        v_ = C_list[2]
-        t_ = C_list[3]
+        # Use the frozen-core-aware ERI transform for the optimised variant.
+        ERI = compute_ERI_MO(self.parameters, self.wfn, m.C_list)
+        ERI = ERI.swapaxes(1, 2)  # (pr|qs) -> <pq|rs>
+        F = h + oe.contract('piqi->pq', 2 * ERI[:, o, :, o] - ERI.swapaxes(2, 3)[:, o, :, o])
 
-        o = slice(0, no) 
-        v = slice(no, nbf)
-        t = slice(0, nbf)
-
-        # Create a Psi4 matrix object for obtaining the perturbed MO basis integrals.
-        C_p4 = psi4.core.Matrix.from_array(C)
-
-        # Set the atom lists for Hessian.
-        natom = self.H.molecule.natom()
-        atoms = np.arange(0, natom)
-
-        # Compute the core Hamiltonian in the MO basis.
-        h = oe.contract('mp,mn,nq->pq', np.conjugate(C), self.H.T + self.H.V, C)
-
-        # Compute the electron repulsion integrals in the MO basis.
-        ERI = compute_ERI_MO(self.parameters, self.wfn, C_list)
-
-        # Swap axes for Dirac notation.
-        ERI = ERI.swapaxes(1,2)                 # (pr|qs) -> <pq|rs>
-
-        # Compute the Fock matrix in the MO basis.
-        F = h + oe.contract('piqi->pq', 2 * ERI[:,o,:,o] - ERI.swapaxes(2,3)[:,o,:,o])
-
-        # Use the MintsHelper to get the AO integrals from Psi4.
-        mints = psi4.core.MintsHelper(self.H.basis_set)
         N = self.H.molecule.nuclear_repulsion_energy_deriv2().np
 
         # Set up the Hessian.
@@ -249,11 +169,7 @@ class analytic_derivative(object):
         U_R = []
         U_R_list = []
 
-        # Compute the perturbation-independent A matrix for the CPHF coefficients with real wavefunctions.
-        A = (2 * ERI - ERI.swapaxes(2,3)) + (2 * ERI - ERI.swapaxes(2,3)).swapaxes(1,3)
-        A = A.swapaxes(1,2)
-        G = oe.contract('ab,ij,aibj->aibj', np.eye(nv), np.eye(no), F[v,v].reshape(nv,1,nv,1) - F[o,o].reshape(1,no,1,no)) + A[v,o,v,o]
-        G = np.linalg.inv(G.reshape((nv*no,nv*no)))
+        A, G = self._build_cphf_A(ERI, F, no, nv, o, v, sign=+1)
 
         for N1 in atoms:
             # Compute the skeleton (core) first derivative integrals in the MO basis.
