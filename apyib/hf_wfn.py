@@ -1,5 +1,6 @@
 """Contains the Hartree-Fock wavefunction object."""
 
+import warnings
 import psi4
 import numpy as np
 import scipy.linalg as la
@@ -129,8 +130,12 @@ class hf_wfn(object):
                     break
             if i == parameters['max_iterations']:
                 if abs(delta_E) > parameters['e_convergence'] or rms_D > parameters['d_convergence']:
-                    if print_level > 0:
-                        print("Not converged.")
+                    warnings.warn(
+                        f"SCF did not converge in {parameters['max_iterations']} iterations. "
+                        f"|ΔE| = {abs(delta_E):.2e}, RMS(D) = {float(rms_D.real):.2e}",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
     
             i += 1
 

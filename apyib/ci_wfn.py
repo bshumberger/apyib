@@ -1,5 +1,6 @@
 """Contains the configuration interaction doubles (CID) wavefunction object."""
 
+import warnings
 import psi4
 import numpy as np
 import scipy.linalg as la
@@ -126,7 +127,12 @@ class ci_wfn(object):
                     break
             if iteration == self.parameters['max_iterations']:
                 if abs(delta_E) > self.parameters['e_convergence'] or rms_t2 > self.parameters['d_convergence']:
-                    print("Not converged.")
+                    warnings.warn(
+                        f"CID did not converge in {self.parameters['max_iterations']} iterations. "
+                        f"|ΔE| = {abs(delta_E):.2e}, RMS(T2) = {float(rms_t2.real):.2e}",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
             iteration += 1
 
         print("t-Amplitude Data:")
@@ -253,7 +259,12 @@ class ci_wfn(object):
                     break
             if iteration == self.parameters['max_iterations']:
                 if abs(delta_E) > self.parameters['e_convergence'] or rms_t2 > self.parameters['d_convergence']:
-                    print("Not converged.")
+                    warnings.warn(
+                        f"CID (SO) did not converge in {self.parameters['max_iterations']} iterations. "
+                        f"|ΔE| = {abs(delta_E):.2e}, RMS(T2) = {float(rms_t2.real):.2e}",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
             iteration += 1
 
         return E_CID, t2
@@ -374,7 +385,12 @@ class ci_wfn(object):
                     break
             if iteration == self.parameters['max_iterations']:
                 if abs(delta_E) > self.parameters['e_convergence'] or rms_t2 > self.parameters['d_convergence']:
-                    print("Not converged.")
+                    warnings.warn(
+                        f"CISD (SO) did not converge in {self.parameters['max_iterations']} iterations. "
+                        f"|ΔE| = {abs(delta_E):.2e}, RMS(T2) = {float(rms_t2.real):.2e}",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
             iteration += 1
 
         #### Testing adjoint formulation of CISD equations. ####
@@ -523,7 +539,12 @@ class ci_wfn(object):
                     break
             if iteration == self.parameters['max_iterations']:
                 if abs(delta_E) > self.parameters['e_convergence'] or rms_t2 > self.parameters['d_convergence']:
-                    print("Not converged.")
+                    warnings.warn(
+                        f"CISD did not converge in {self.parameters['max_iterations']} iterations. "
+                        f"|ΔE| = {abs(delta_E):.2e}, RMS(T2) = {float(rms_t2.real):.2e}",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
             iteration += 1
 
         print("t-Amplitude Data:")

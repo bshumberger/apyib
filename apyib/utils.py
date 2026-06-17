@@ -447,6 +447,24 @@ def compute_phase(ndocc, nbf, unperturbed_basis, unperturbed_wfn, ket_basis, ket
 
 
 
+def total_energy(E_list):
+    """Return the sum of all energy components in an energy list.
+
+    Parameters
+    ----------
+    E_list : list
+        Energy list returned by :func:`apyib.energy.energy`. For standard
+        calculations this is ``[E_SCF, E_corr, E_nuc]``; for phase-space
+        calculations a fourth element ``T_nuc`` is appended.
+
+    Returns
+    -------
+    float or complex
+        Sum of all energy components in ``E_list``.
+    """
+    return sum(E_list)
+
+
 def line_shape(frequency, intensity, fwhm, number_of_points, min_freq, max_freq):
     """
     Fits the VCD rotatory strengths to a line shape function.
