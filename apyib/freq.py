@@ -19,7 +19,14 @@ class frequency(object):
     Combines the functions for the momentum Hessian and position Hessian for calculations of phase-space vibrational frequencies.
     """
     def __init__(self, parameters):
+        """Initialise the frequency driver.
 
+        Parameters
+        ----------
+        parameters : dict
+            Calculation parameters.  Required keys: ``'geom'``.  Optional
+            key: ``'isotopes'`` for isotopic substitution.
+        """
         # Define the calculation parameters.
         self.parameters = parameters
 

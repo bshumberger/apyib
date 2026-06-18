@@ -23,7 +23,15 @@ class ci_wfn(object):
     """
     # Define the specific properties of the CI wavefunction.
     def __init__(self, parameters, wfn):
+        """Initialise the CI wavefunction from a converged RHF wavefunction.
 
+        Parameters
+        ----------
+        parameters : dict
+            Calculation parameters.
+        wfn : hf_wfn
+            Converged RHF wavefunction.
+        """
         # Define the Hamiltonian and the Hartree-Fock reference energy and wavefunction.
         self.parameters = parameters
         self.H = wfn.H

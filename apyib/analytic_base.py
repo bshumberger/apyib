@@ -114,6 +114,13 @@ class AnalyticDerivative:
     """
 
     def __init__(self, parameters):
+        """Run a single RHF SCF and store the converged wavefunction.
+
+        Parameters
+        ----------
+        parameters : dict
+            Calculation parameters (see :func:`apyib.energy.energy`).
+        """
         self.parameters = parameters
         self.H = Hamiltonian(parameters)
         self.wfn = hf_wfn(self.H)

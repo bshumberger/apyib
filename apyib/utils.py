@@ -182,6 +182,25 @@ def solve_general_DIIS(parameters, res_vec, t_vec, e_iter, t_iter, iteration, mi
 
 
 def get_slices(parameters, wfn):
+    """Return orbital index slices for MO coefficient and integral arrays.
+
+    Parameters
+    ----------
+    parameters : dict
+        Calculation parameters; ``'method'`` and ``'freeze_core'`` are used.
+    wfn : hf_wfn
+        Converged RHF wavefunction.
+
+    Returns
+    -------
+    C_list : list of slice
+        ``[frozen-core, occupied, virtual, total-active]`` slices into the
+        full MO coefficient matrix (size ``nbf``).
+    I_list : list of slice
+        ``[frozen-core, occupied, virtual, total-active]`` slices into the
+        MO/SO integral arrays (size ``nbf - nfzc`` for spatial, ``2*(nbf -
+        nfzc)`` for spin-orbital methods).
+    """
     # Define the number of occupied and virtual orbitals.
     nfzc = wfn.H.basis_set.n_frozen_core()
     nbf = wfn.nbf
@@ -368,6 +387,25 @@ def compute_ERI_SO(wfn, ERI_MO):
 
 # Computes the molecular orbital overlap between two wavefunctions.
 def compute_mo_overlap(ndocc, nbf, bra_basis, bra_wfn, ket_basis, ket_wfn):
+    """Compute the MO overlap matrix between two wavefunctions.
+
+    Parameters
+    ----------
+    ndocc : int
+        Number of doubly occupied orbitals.
+    nbf : int
+        Number of basis functions.
+    bra_basis, ket_basis : psi4.core.BasisSet
+        Basis sets for the bra and ket wavefunctions (may differ for
+        displaced geometries).
+    bra_wfn, ket_wfn : ndarray, shape (nbf, nbf)
+        MO coefficient matrices.
+
+    Returns
+    -------
+    mo_overlap : ndarray, shape (nbf, nbf)
+        MO overlap matrix ``<bra|ket>``.
+    """
     mints = psi4.core.MintsHelper(bra_basis)
 
     if bra_basis == ket_basis:
@@ -425,6 +463,31 @@ def compute_so_overlap(nbf, mo_overlap):
 
 # Compute MO-level phase correction.
 def compute_phase(ndocc, nbf, unperturbed_basis, unperturbed_wfn, ket_basis, ket_wfn):
+    """Phase-correct ket MO coefficients relative to an unperturbed reference.
+
+    Aligns the sign of each MO in ``ket_wfn`` to match the reference by
+    dividing out the complex phase factor from the MO overlap diagonal.
+
+    Parameters
+    ----------
+    ndocc : int
+        Number of doubly occupied orbitals.
+    nbf : int
+        Number of basis functions.
+    unperturbed_basis : psi4.core.BasisSet
+        Basis set of the reference (unperturbed) geometry.
+    unperturbed_wfn : ndarray, shape (nbf, nbf)
+        MO coefficients of the reference geometry.
+    ket_basis : psi4.core.BasisSet
+        Basis set of the displaced geometry.
+    ket_wfn : ndarray, shape (nbf, nbf)
+        MO coefficients to be phase-corrected.
+
+    Returns
+    -------
+    new_ket_wfn : ndarray, shape (nbf, nbf)
+        Phase-corrected MO coefficients.
+    """
     # Compute MO overlaps.
     mo_overlap1 = compute_mo_overlap(ndocc, nbf, unperturbed_basis, unperturbed_wfn, ket_basis, ket_wfn)
     mo_overlap2 = np.conjugate(np.transpose(mo_overlap1))

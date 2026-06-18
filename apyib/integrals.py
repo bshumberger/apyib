@@ -7,6 +7,29 @@ import scipy.linalg as la
 import math
 
 def one_electron_integral(parameters, integral_type = 'overlap', spherical_transform=True):
+    """Compute a one-electron AO integral from scratch (without Psi4 MintsHelper).
+
+    Parameters
+    ----------
+    parameters : dict
+        Calculation parameters; must include ``'geom'`` and ``'basis'``.
+    integral_type : {'overlap', 'dipole', 'nabla', 'angular momentum', 'kinetic', 'potential'}
+        Type of integral to compute.
+    spherical_transform : bool
+        Spherical-harmonic transform flag.  Currently only ``False`` is
+        supported (Cartesian Gaussians only).
+
+    Returns
+    -------
+    ndarray
+        AO integral matrix (or list of matrices for vector integrals).
+
+    Raises
+    ------
+    Exception
+        If ``integral_type`` is not recognised or spherical transforms are
+        requested.
+    """
     # Function for calculating the AO basis overlap integrals.
     if integral_type != 'overlap' and integral_type != 'dipole' and integral_type != 'nabla' and integral_type != 'angular momentum' and integral_type != 'kinetic' and integral_type != 'potential':
         raise Exception("Integral type not supported. Supported one-electron integrals include overlap, dipole, nabla, angular momentum, kinetic, and potentital energy integrals.")

@@ -11,6 +11,17 @@ class finite_difference(object):
     """Finite difference driver for numerical Hessian, APT, and AAT computations."""
 
     def __init__(self, parameters, unperturbed_basis, unperturbed_C):
+        """Store reference geometry data needed for displaced-geometry calculations.
+
+        Parameters
+        ----------
+        parameters : dict
+            Calculation parameters.
+        unperturbed_basis : psi4.core.BasisSet
+            Basis set at the reference (unperturbed) geometry.
+        unperturbed_C : ndarray
+            MO coefficient matrix at the reference geometry.
+        """
         self.parameters = parameters
         self.molecule = psi4.geometry(self.parameters['geom'])
         self.geom = self.molecule.geometry().np
@@ -381,6 +392,20 @@ class finite_difference(object):
         return gradient, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T
 
     def compute_momentum_Hessian(self, mom_pert_strength):
+        """Compute the phase-space momentum Hessian by central finite difference.
+
+        Requires ``parameters['hamiltonian'] == 'phase-space'``.
+
+        Parameters
+        ----------
+        mom_pert_strength : float
+            Step size for nuclear momentum perturbations (a.u.).
+
+        Returns
+        -------
+        mom_Hessian : ndarray, shape (3*natom, 3*natom)
+            Second derivative of total energy w.r.t. nuclear momenta [E_h / (m_e a_0 / hbar)^2].
+        """
         # Make sure you have specified a phase-space Hamiltonian.
         assert self.parameters.get('hamiltonian', None) == 'phase-space'
 
@@ -493,6 +518,24 @@ class finite_difference(object):
         return momentum_hessian
 
     def compute_ps_AAT(self, mag_pert_strength, mom_pert_strength, print_level=0):
+        """Compute phase-space AATs by finite difference w.r.t. magnetic field and nuclear momentum.
+
+        Requires ``parameters['hamiltonian'] == 'phase-space'``.
+
+        Parameters
+        ----------
+        mag_pert_strength : float
+            Step size for magnetic field perturbations (a.u.).
+        mom_pert_strength : float
+            Step size for nuclear momentum perturbations (a.u.).
+        print_level : int, optional
+            Verbosity level (default 0).
+
+        Returns
+        -------
+        ps_AAT : ndarray, shape (3*natom, 3)
+            Phase-space atomic axial tensor.
+        """
         # Make sure you have specified a phase-space Hamiltonian.
         assert self.parameters.get('hamiltonian', None) == 'phase-space'
 
@@ -603,6 +646,24 @@ class finite_difference(object):
         return ps_aat
 
     def compute_ps_DO_AAT(self, mag_pert_strength, mom_pert_strength, print_level=0):
+        """Compute phase-space AATs using the distributed-origin magnetic gauge.
+
+        Requires ``parameters['hamiltonian'] == 'phase-space'``.
+
+        Parameters
+        ----------
+        mag_pert_strength : float
+            Step size for magnetic field perturbations (a.u.).
+        mom_pert_strength : float
+            Step size for nuclear momentum perturbations (a.u.).
+        print_level : int, optional
+            Verbosity level (default 0).
+
+        Returns
+        -------
+        ps_AAT : ndarray, shape (3*natom, 3)
+            Distributed-origin phase-space atomic axial tensor.
+        """
         # Make sure you have specified a phase-space Hamiltonian.
         assert self.parameters.get('hamiltonian', None) == 'phase-space'
 

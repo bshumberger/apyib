@@ -11,7 +11,29 @@ class Hamiltonian(object):
     """
     # Define the specific properties of the Hamiltonian which is dependent on the molecule.
     def __init__(self, parameters):
+        """Build AO integrals for the given molecular geometry and basis set.
 
+        Parameters
+        ----------
+        parameters : dict
+            Calculation parameters.  Required keys: ``'geom'``, ``'basis'``,
+            ``'freeze_core'``, ``'F_el'``, ``'F_mag'``.  Optional keys:
+            ``'isotopes'``, ``'magnetic_gauge_origin'``, ``'gauge_origin'``,
+            ``'P_nuc'`` (phase-space nuclear momentum).
+
+        Attributes
+        ----------
+        molecule : psi4.core.Molecule
+        basis_set : psi4.core.BasisSet
+        T, V, S, ERI : ndarray
+            AO kinetic, potential, overlap, and electron-repulsion integrals.
+        E_nuc : float
+            Nuclear repulsion energy.
+        mu_el : list of ndarray
+            AO electric-dipole integrals (only when an electric field is set).
+        mu_mag : list of complex ndarray
+            AO magnetic-dipole integrals (only when a magnetic field is set).
+        """
         # Clear previous options incase of serial calculations.
         psi4.core.clean_options()
 

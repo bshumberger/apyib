@@ -19,7 +19,15 @@ class mp2_wfn(object):
     """
     # Define the specific properties of the MP2 wavefunction.
     def __init__(self, parameters, wfn):
+        """Initialise the MP2 wavefunction from a converged RHF wavefunction.
 
+        Parameters
+        ----------
+        parameters : dict
+            Calculation parameters.
+        wfn : hf_wfn
+            Converged RHF wavefunction.
+        """
         # Define the Hamiltonian and the Hartree-Fock reference energy and wavefunction.
         self.parameters = parameters
         self.H = wfn.H
@@ -40,6 +48,15 @@ class mp2_wfn(object):
 
     # Compute the MP2 wavefunction and energy.
     def solve_MP2(self):
+        """Compute the MP2 correlation energy and T2 amplitudes (spatial orbitals).
+
+        Returns
+        -------
+        E_MP2 : float
+            MP2 correlation energy.
+        t2 : ndarray, shape (no, no, nv, nv)
+            MP2 T2 amplitudes.
+        """
         # Setting up slice options for the MO integrals.
         o_ = self.I_list[1]
         v_ = self.I_list[2]
@@ -62,6 +79,15 @@ class mp2_wfn(object):
 
     # Compute the MP2 wavefunction and energy from spin-orbital expressions.
     def solve_MP2_SO(self):
+        """Compute the MP2 correlation energy and T2 amplitudes (spin orbitals).
+
+        Returns
+        -------
+        E_MP2 : float
+            MP2 correlation energy.
+        t2 : ndarray, shape (no_so, no_so, nv_so, nv_so)
+            MP2 T2 amplitudes in the spin-orbital basis.
+        """
         # Build energy denominators in the spin orbital basis.
         eps_o = np.repeat(self.eps_o, 2)
         eps_v = np.repeat(self.eps_v, 2)
