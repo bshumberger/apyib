@@ -1,4 +1,4 @@
-"""This script contains a set of streamlined functions for finite difference procedures."""
+"""Contains streamlined functions for finite difference procedures."""
 
 import numpy as np
 import psi4
@@ -8,10 +8,8 @@ from apyib.utils import total_energy
 
 
 class finite_difference(object):
-    """
-    Finite difference object.
-    """
-    # Defines the properties of the finite difference procedure.
+    """Finite difference driver for numerical Hessian, APT, and AAT computations."""
+
     def __init__(self, parameters, unperturbed_basis, unperturbed_C):
         self.parameters = parameters
         self.molecule = psi4.geometry(self.parameters['geom'])
@@ -20,494 +18,367 @@ class finite_difference(object):
         self.unperturbed_basis = unperturbed_basis
         self.unperturbed_C = unperturbed_C
 
-
-
     def compute_Hessian(self, nuc_pert_strength):
-        # Set properties of the finite difference procedure.
-        pos_E = []
-        neg_E = []
+        """Compute the nuclear Hessian by central finite difference.
 
-        # Computing energies and wavefunctions with positive displacements.
-        for alpha in range(3*self.natom):
+        Parameters
+        ----------
+        nuc_pert_strength : float
+            Step size for nuclear coordinate displacements (Bohr).
+
+        Returns
+        -------
+        hessian : ndarray, shape (3*natom, 3*natom)
+            Second derivative of total energy w.r.t. nuclear coordinates [E_h / a_0^2].
+        """
+        # Hessian via double central difference:
+        #   H[alpha, beta] = (dE/dbeta at +alpha  -  dE/dbeta at -alpha) / 2h
+        # where each inner gradient uses a central difference in beta.
+        # alpha and beta index the 3N Cartesian coordinates; alpha//3 is the
+        # atom index and alpha%3 is the x/y/z component.
+        n = 3 * self.natom
+        h = nuc_pert_strength
+        # pos_E[alpha, beta] = dE/dbeta evaluated at +alpha displacement
+        # neg_E[alpha, beta] = dE/dbeta evaluated at -alpha displacement
+        pos_E = np.zeros((n, n))
+        neg_E = np.zeros((n, n))
+
+        # Outer loop: positive alpha displacements.
+        for alpha in range(n):
             pert_geom = np.copy(self.geom)
-
-            # Perturb the geometry.
-            pert_geom[alpha // 3][alpha % 3] += nuc_pert_strength
+            pert_geom[alpha // 3][alpha % 3] += h
             pert_geom_alpha = np.copy(pert_geom)
 
-            pos_e = []
-            neg_e = []
+            pos_e = np.zeros(n)   # E(+alpha, +beta)
+            neg_e = np.zeros(n)   # E(+alpha, -beta)
 
-            # Perturb the geometry with another positive displacement.
-            for beta in range(3*self.natom):
-                pert_geom_alpha[beta // 3][beta % 3] += nuc_pert_strength
-                pert_geom_alpha_beta = psi4.core.Matrix.from_array(pert_geom_alpha)
-                self.molecule.set_geometry(pert_geom_alpha_beta)
+            for beta in range(n):
+                pert_geom_alpha[beta // 3][beta % 3] += h
+                self.molecule.set_geometry(psi4.core.Matrix.from_array(pert_geom_alpha))
                 self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
-
-                # Compute energy.
-                E_list, T_list, C, basis = energy(self.parameters)
-                E_tot = total_energy(E_list)
-
-                # Append new energies. 
-                pos_e.append(E_tot)
-
-                # Reset the second geometric perturbation.
+                E_list, _, _, _ = energy(self.parameters)
+                pos_e[beta] = total_energy(E_list)
                 pert_geom_alpha = np.copy(pert_geom)
 
-            # Perturb the geometry with a negative displacement.
-            for beta in range(3*self.natom):
-                pert_geom_alpha[beta // 3][beta % 3] -= nuc_pert_strength
-                pert_geom_alpha_beta = psi4.core.Matrix.from_array(pert_geom_alpha)
-                self.molecule.set_geometry(pert_geom_alpha_beta)
+            for beta in range(n):
+                pert_geom_alpha[beta // 3][beta % 3] -= h
+                self.molecule.set_geometry(psi4.core.Matrix.from_array(pert_geom_alpha))
                 self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
-
-                # Compute energy.
-                E_list, T_list, C, basis = energy(self.parameters)
-                E_tot = total_energy(E_list)
-
-                # Append new energies. 
-                neg_e.append(E_tot)
-
-                # Reset the second geometric perturbation.
+                E_list, _, _, _ = energy(self.parameters)
+                neg_e[beta] = total_energy(E_list)
                 pert_geom_alpha = np.copy(pert_geom)
 
-            # Compute and append gradients.
-            for beta in range(len(pos_e)):
-                g = (pos_e[beta] - neg_e[beta]) / (2 * nuc_pert_strength)
-                pos_E.append(g)
-
-            # Reset the geometry.
+            # Central difference in beta gives the gradient at +alpha.
+            pos_E[alpha] = (pos_e - neg_e) / (2 * h)
             self.molecule.set_geometry(psi4.core.Matrix.from_array(self.geom))
             self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
 
-        # Computing energies and wavefunctions with negative displacements.
-        for alpha in range(3*self.natom):
+        # Outer loop: negative alpha displacements.
+        for alpha in range(n):
             pert_geom = np.copy(self.geom)
-
-            # Perturb the geometry.
-            pert_geom[alpha // 3][alpha % 3] -= nuc_pert_strength
+            pert_geom[alpha // 3][alpha % 3] -= h
             pert_geom_alpha = np.copy(pert_geom)
 
-            pos_e = []
-            neg_e = []
+            pos_e = np.zeros(n)   # E(-alpha, +beta)
+            neg_e = np.zeros(n)   # E(-alpha, -beta)
 
-            # Perturb the geometry with another positive displacement.
-            for beta in range(3*self.natom):
-                pert_geom_alpha[beta // 3][beta % 3] += nuc_pert_strength
-                pert_geom_alpha_beta = psi4.core.Matrix.from_array(pert_geom_alpha)
-                self.molecule.set_geometry(pert_geom_alpha_beta)
+            for beta in range(n):
+                pert_geom_alpha[beta // 3][beta % 3] += h
+                self.molecule.set_geometry(psi4.core.Matrix.from_array(pert_geom_alpha))
                 self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
-
-                # Compute energy.
-                E_list, T_list, C, basis = energy(self.parameters)
-                E_tot = total_energy(E_list)
-
-                # Append new energies. 
-                pos_e.append(E_tot)
-
-                # Reset the second geometric perturbation.
+                E_list, _, _, _ = energy(self.parameters)
+                pos_e[beta] = total_energy(E_list)
                 pert_geom_alpha = np.copy(pert_geom)
 
-            # Perturb the geometry with a negative displacement.
-            for beta in range(3*self.natom):
-                pert_geom_alpha[beta // 3][beta % 3] -= nuc_pert_strength
-                pert_geom_alpha_beta = psi4.core.Matrix.from_array(pert_geom_alpha)
-                self.molecule.set_geometry(pert_geom_alpha_beta)
+            for beta in range(n):
+                pert_geom_alpha[beta // 3][beta % 3] -= h
+                self.molecule.set_geometry(psi4.core.Matrix.from_array(pert_geom_alpha))
                 self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
-
-                # Compute energy.
-                E_list, T_list, C, basis = energy(self.parameters)
-                E_tot = total_energy(E_list)
-
-                # Append new energies. 
-                neg_e.append(E_tot)
-
-                # Reset the second geometric perturbation.
+                E_list, _, _, _ = energy(self.parameters)
+                neg_e[beta] = total_energy(E_list)
                 pert_geom_alpha = np.copy(pert_geom)
 
-            # Compute and append gradients.
-            for beta in range(len(pos_e)):
-                g = (pos_e[beta] - neg_e[beta]) / (2 * nuc_pert_strength)
-                neg_E.append(g)
-
-            # Reset the geometry.
+            # Central difference in beta gives the gradient at -alpha.
+            neg_E[alpha] = (pos_e - neg_e) / (2 * h)
             self.molecule.set_geometry(psi4.core.Matrix.from_array(self.geom))
             self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
 
-        # Compute the Hessian [E_h / a_0**2].
-        pos_E = np.array(pos_E)
-        neg_E = np.array(neg_E)
-        pos_E = pos_E.reshape((3 * self.natom, 3 * self.natom))
-        neg_E = neg_E.reshape((3 * self.natom, 3 * self.natom))
-        hessian = (pos_E - neg_E) / (2 * nuc_pert_strength)
-
-        return hessian
-
-
+        # Final central difference in alpha gives the Hessian.
+        return (pos_E - neg_E) / (2 * h)
 
     def compute_APT(self, nuc_pert_strength, elec_pert_strength):
-        # Set properties of the finite difference procedure.
-        pos_mu = [] 
-        neg_mu = [] 
+        """Compute the atomic polar tensor by central finite difference.
 
-        # Computing energies and wavefunctions with positive nuclear displacements.
-        for alpha in range(3*self.natom):
+        Parameters
+        ----------
+        nuc_pert_strength : float
+            Step size for nuclear coordinate displacements (Bohr).
+        elec_pert_strength : float
+            Step size for electric field perturbations (a.u.).
+
+        Returns
+        -------
+        P : ndarray, shape (3*natom, 3)
+            Atomic polar tensor.
+        """
+        # APT via mixed nuclear/electric central difference:
+        #   P[alpha, beta] = -d^2E / (dR_alpha dF_beta)
+        # The electric dipole mu_beta = -dE/dF_beta is computed by central
+        # difference in the field at each nuclear displacement, then the
+        # nuclear central difference gives the APT.
+        n = 3 * self.natom
+        h_nuc = nuc_pert_strength
+        h_elec = elec_pert_strength
+        # pos_mu[alpha, beta] = mu_beta at +alpha nuclear displacement
+        # neg_mu[alpha, beta] = mu_beta at -alpha nuclear displacement
+        pos_mu = np.zeros((n, 3))
+        neg_mu = np.zeros((n, 3))
+
+        # Positive nuclear displacements.
+        for alpha in range(n):
             pert_geom = np.copy(self.geom)
-
-            # Perturb the geometry.
-            pert_geom[alpha // 3][alpha % 3] += nuc_pert_strength
-            pert_geom = psi4.core.Matrix.from_array(pert_geom)
-            self.molecule.set_geometry(pert_geom)
+            pert_geom[alpha // 3][alpha % 3] += h_nuc
+            self.molecule.set_geometry(psi4.core.Matrix.from_array(pert_geom))
             self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
 
-            pos_e = [] 
-            neg_e = [] 
+            pos_e = np.zeros(3)   # E(+alpha, +F_beta)
+            neg_e = np.zeros(3)   # E(+alpha, -F_beta)
 
-            # Perturb the electric field in the positive direction.
             for beta in range(3):
-                self.parameters['F_el'][beta] += elec_pert_strength
+                self.parameters['F_el'][beta] += h_elec
+                E_list, _, _, _ = energy(self.parameters)
+                pos_e[beta] = total_energy(E_list)
+                self.parameters['F_el'][beta] -= h_elec
 
-                # Compute energy.
-                E_list, T_list, C, basis = energy(self.parameters)
-                E_tot = total_energy(E_list)
-
-                # Append the energy based on the perturbation.
-                pos_e.append(E_tot)
-
-                # Reset the field.
-                self.parameters['F_el'][beta] -= elec_pert_strength
-
-            # Perturb the electric field in the negative direction.
             for beta in range(3):
-                self.parameters['F_el'][beta] -= elec_pert_strength
+                self.parameters['F_el'][beta] -= h_elec
+                E_list, _, _, _ = energy(self.parameters)
+                neg_e[beta] = total_energy(E_list)
+                self.parameters['F_el'][beta] += h_elec
 
-                # Compute energy.
-                E_list, T_list, C, basis = energy(self.parameters)
-                E_tot = total_energy(E_list)
-
-                # Append the energy based on the perturbation.
-                neg_e.append(E_tot)
-
-                # Reset the field.
-                self.parameters['F_el'][beta] += elec_pert_strength
-
-            # Compute and append electric dipoles.
-            for beta in range(3):
-                mu = -(pos_e[beta] - neg_e[beta]) / (2 * elec_pert_strength)
-                pos_mu.append(mu)
-
-            # Reset the geometry.
+            # mu = -dE/dF (minus sign: dipole from energy derivative)
+            pos_mu[alpha] = -(pos_e - neg_e) / (2 * h_elec)
             self.molecule.set_geometry(psi4.core.Matrix.from_array(self.geom))
             self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
 
-        # Computing energies and wavefunctions with negative nuclear displacements.
-        for alpha in range(3*self.natom):
+        # Negative nuclear displacements.
+        for alpha in range(n):
             pert_geom = np.copy(self.geom)
-
-            # Perturb the geometry.
-            pert_geom[alpha // 3][alpha % 3] -= nuc_pert_strength
-            pert_geom = psi4.core.Matrix.from_array(pert_geom)
-            self.molecule.set_geometry(pert_geom)
+            pert_geom[alpha // 3][alpha % 3] -= h_nuc
+            self.molecule.set_geometry(psi4.core.Matrix.from_array(pert_geom))
             self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
 
-            pos_e = []
-            neg_e = []
+            pos_e = np.zeros(3)   # E(-alpha, +F_beta)
+            neg_e = np.zeros(3)   # E(-alpha, -F_beta)
 
-            # Perturb the electric field in the positive direction.
             for beta in range(3):
-                self.parameters['F_el'][beta] += elec_pert_strength
+                self.parameters['F_el'][beta] += h_elec
+                E_list, _, _, _ = energy(self.parameters)
+                pos_e[beta] = total_energy(E_list)
+                self.parameters['F_el'][beta] -= h_elec
 
-                # Compute energy.
-                E_list, T_list, C, basis = energy(self.parameters)
-                E_tot = total_energy(E_list)
-
-                # Append the energy based on the perturbation.
-                pos_e.append(E_tot)
-
-                # Reset the field.
-                self.parameters['F_el'][beta] -= elec_pert_strength
-
-            # Perturb the electric field in the negative direction.
             for beta in range(3):
-                self.parameters['F_el'][beta] -= elec_pert_strength
+                self.parameters['F_el'][beta] -= h_elec
+                E_list, _, _, _ = energy(self.parameters)
+                neg_e[beta] = total_energy(E_list)
+                self.parameters['F_el'][beta] += h_elec
 
-                # Compute energy.
-                E_list, T_list, C, basis = energy(self.parameters)
-                E_tot = total_energy(E_list)
-
-                # Append the energy based on the perturbation.
-                neg_e.append(E_tot)
-
-                # Reset the field.
-                self.parameters['F_el'][beta] += elec_pert_strength
-
-            # Compute and append electric dipoles.
-            for beta in range(3):
-                mu = -(pos_e[beta] - neg_e[beta]) / (2 * elec_pert_strength)
-                neg_mu.append(mu)
-
-            # Reset the geometry.
+            neg_mu[alpha] = -(pos_e - neg_e) / (2 * h_elec)
             self.molecule.set_geometry(psi4.core.Matrix.from_array(self.geom))
             self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
 
-        # Compute the APTs.
-        pos_mu = np.array(pos_mu)
-        neg_mu = np.array(neg_mu)
-        pos_mu = pos_mu.reshape((3 * self.natom, 3)) 
-        neg_mu = neg_mu.reshape((3 * self.natom, 3)) 
-        P = (pos_mu - neg_mu) / (2 * nuc_pert_strength)
-
-        return P
-
-
+        # Central difference in nuclear coordinate gives the APT.
+        return (pos_mu - neg_mu) / (2 * h_nuc)
 
     def compute_AAT(self, nuc_pert_strength, mag_pert_strength):
-        # Set properties of the nuclear finite difference procedure.
-        nuc_pos_C = []
-        nuc_neg_C = []
-        nuc_pos_basis = []
-        nuc_neg_basis = []
-        nuc_pos_T = []
-        nuc_neg_T = []
+        """Compute displaced wavefunctions for AAT finite-difference evaluation.
 
-        # Set properties of the magnetic field finite difference procedure.
-        mag_pos_C = []
-        mag_neg_C = []
-        mag_pos_basis = []
-        mag_neg_basis = []
-        mag_pos_T = []
-        mag_neg_T = []
+        Parameters
+        ----------
+        nuc_pert_strength : float
+            Step size for nuclear coordinate displacements (Bohr).
+        mag_pert_strength : float
+            Step size for magnetic field perturbations (a.u.).
 
-        # Computing energies and wavefunctions with positive displacements.
-        for alpha in range(3*self.natom):
+        Returns
+        -------
+        Twelve lists of displaced MO coefficients, amplitude lists, and basis sets
+        (nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T,
+        mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T).
+        """
+        # AAT via mixed nuclear/magnetic central difference:
+        #   I[alpha, beta] = Im{ d<Psi|d/dB_beta|Psi> / dR_alpha }
+        # The displaced wavefunctions (C, T amplitudes, basis) are collected
+        # here so that the AAT tensor contractions in aats.py can be
+        # parallelized over (alpha, beta) pairs (see parallel.py).
+        # phase_corrected_energy aligns MO phase across displaced geometries.
+        n = 3 * self.natom
+        nuc_pos_C = [None] * n       # MO coefficients at +R_alpha
+        nuc_neg_C = [None] * n       # MO coefficients at -R_alpha
+        nuc_pos_basis = [None] * n   # Psi4 BasisSet at +R_alpha
+        nuc_neg_basis = [None] * n   # Psi4 BasisSet at -R_alpha
+        nuc_pos_T = [None] * n       # CI/MP2 amplitudes at +R_alpha
+        nuc_neg_T = [None] * n       # CI/MP2 amplitudes at -R_alpha
+        mag_pos_C = [None] * 3       # MO coefficients at +B_beta
+        mag_neg_C = [None] * 3       # MO coefficients at -B_beta
+        mag_pos_basis = [None] * 3
+        mag_neg_basis = [None] * 3
+        mag_pos_T = [None] * 3
+        mag_neg_T = [None] * 3
+
+        for alpha in range(n):
             pert_geom = np.copy(self.geom)
-
-            # Perturb the geometry.
             pert_geom[alpha // 3][alpha % 3] += nuc_pert_strength
-            pert_geom = psi4.core.Matrix.from_array(pert_geom)
-            self.molecule.set_geometry(pert_geom)
+            self.molecule.set_geometry(psi4.core.Matrix.from_array(pert_geom))
             self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
-
-            # Compute energy.
-            E_list, T_list, C, basis = phase_corrected_energy(self.parameters, self.unperturbed_basis, self.unperturbed_C)
-            E_tot = total_energy(E_list)
-            #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(basis)).np)
-            #print(E_tot)
-
-            # Append new wavefunction coefficients, amplitudes, and basis set. 
-            nuc_pos_C.append(C)
-            nuc_pos_T.append(T_list)
-            nuc_pos_basis.append(basis)
-
-            # Reset the geometry.
+            _, T_list, C, basis = phase_corrected_energy(
+                self.parameters, self.unperturbed_basis, self.unperturbed_C)
+            nuc_pos_C[alpha] = C
+            nuc_pos_T[alpha] = T_list
+            nuc_pos_basis[alpha] = basis
             self.molecule.set_geometry(psi4.core.Matrix.from_array(self.geom))
             self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
 
-        # Computing energies and wavefunctions with negative displacements.
-        for alpha in range(3*self.natom):
+        for alpha in range(n):
             pert_geom = np.copy(self.geom)
-
-            # Perturb the geometry.
             pert_geom[alpha // 3][alpha % 3] -= nuc_pert_strength
-            pert_geom = psi4.core.Matrix.from_array(pert_geom)
-            self.molecule.set_geometry(pert_geom)
+            self.molecule.set_geometry(psi4.core.Matrix.from_array(pert_geom))
             self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
-
-            # Compute energy.
-            E_list, T_list, C, basis = phase_corrected_energy(self.parameters, self.unperturbed_basis, self.unperturbed_C)
-            E_tot = total_energy(E_list)
-            #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(basis)).np)
-            #print(E_tot)
-
-            # Append new wavefunction coefficients, amplitudes, and basis set. 
-            nuc_neg_C.append(C)
-            nuc_neg_T.append(T_list)
-            nuc_neg_basis.append(basis)
-
-            # Reset the geometry.
+            _, T_list, C, basis = phase_corrected_energy(
+                self.parameters, self.unperturbed_basis, self.unperturbed_C)
+            nuc_neg_C[alpha] = C
+            nuc_neg_T[alpha] = T_list
+            nuc_neg_basis[alpha] = basis
             self.molecule.set_geometry(psi4.core.Matrix.from_array(self.geom))
             self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
 
-        # Perturb the magnetic field in the positive direction.
         for beta in range(3):
             self.parameters['F_mag'][beta] += mag_pert_strength
-
-            # Compute energy.
-            E_list, T_list, C, basis = phase_corrected_energy(self.parameters, self.unperturbed_basis, self.unperturbed_C)
-            E_tot = total_energy(E_list)
-            #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(basis)).np)
-            #print(self.parameters['F_mag'])
-            #print(E_tot)
-
-            # Append new wavefunction coefficients, amplitudes, and basis set. 
-            mag_pos_C.append(C)
-            mag_pos_T.append(T_list)
-            mag_pos_basis.append(basis)
-
-            # Reset the field.
+            _, T_list, C, basis = phase_corrected_energy(
+                self.parameters, self.unperturbed_basis, self.unperturbed_C)
+            mag_pos_C[beta] = C
+            mag_pos_T[beta] = T_list
+            mag_pos_basis[beta] = basis
             self.parameters['F_mag'][beta] -= mag_pert_strength
 
-        # Perturb the magnetic field in the negative direction.
         for beta in range(3):
             self.parameters['F_mag'][beta] -= mag_pert_strength
-
-            # Compute energy.
-            E_list, T_list, C, basis = phase_corrected_energy(self.parameters, self.unperturbed_basis, self.unperturbed_C)
-            E_tot = total_energy(E_list)
-            #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(basis)).np)
-            #print(self.parameters['F_mag'])
-            #print(E_tot)
-
-            # Append new wavefunction coefficients, amplitudes, and basis set. 
-            mag_neg_C.append(C)
-            mag_neg_T.append(T_list)
-            mag_neg_basis.append(basis)
-
-            # Reset the field.
+            _, T_list, C, basis = phase_corrected_energy(
+                self.parameters, self.unperturbed_basis, self.unperturbed_C)
+            mag_neg_C[beta] = C
+            mag_neg_T[beta] = T_list
+            mag_neg_basis[beta] = basis
             self.parameters['F_mag'][beta] += mag_pert_strength
 
-        return nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T
-
-
+        return (nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T,
+                mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T)
 
     def compute_Nuclear_Gradient(self, nuc_pert_strength):
-        # Set properties of the nuclear finite difference procedure.
-        nuc_pos_E = []
-        nuc_neg_E = []
-        nuc_pos_C = []
-        nuc_neg_C = []
-        nuc_pos_basis = []
-        nuc_neg_basis = []
-        nuc_pos_T = []
-        nuc_neg_T = []        
+        """Compute the nuclear energy gradient by central finite difference.
 
-        # Computing energies and wavefunctions with positive displacements.
-        for alpha in range(3*self.natom):
+        Parameters
+        ----------
+        nuc_pert_strength : float
+            Step size for nuclear coordinate displacements (Bohr).
+
+        Returns
+        -------
+        gradient : ndarray, shape (natom, 3)
+            First derivative of total energy w.r.t. nuclear coordinates [E_h / a_0].
+        nuc_pos_C, nuc_neg_C : list of ndarray
+            Displaced MO coefficient matrices.
+        nuc_pos_basis, nuc_neg_basis : list
+            Displaced Psi4 basis set objects.
+        nuc_pos_T, nuc_neg_T : list
+            Displaced amplitude lists.
+        """
+        n = 3 * self.natom
+        nuc_pos_E = np.zeros(n)
+        nuc_neg_E = np.zeros(n)
+        nuc_pos_C = [None] * n
+        nuc_neg_C = [None] * n
+        nuc_pos_basis = [None] * n
+        nuc_neg_basis = [None] * n
+        nuc_pos_T = [None] * n
+        nuc_neg_T = [None] * n
+
+        for alpha in range(n):
             pert_geom = np.copy(self.geom)
-
-            # Perturb the geometry.
             pert_geom[alpha // 3][alpha % 3] += nuc_pert_strength
-            pert_geom = psi4.core.Matrix.from_array(pert_geom)
-            self.molecule.set_geometry(pert_geom)
+            self.molecule.set_geometry(psi4.core.Matrix.from_array(pert_geom))
             self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
-
-            # Compute energy.
-            E_list, T_list, C, basis = phase_corrected_energy(self.parameters, self.unperturbed_basis, self.unperturbed_C)
-            nuc_pos_E_tot = total_energy(E_list)
-            #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(basis)).np)
-            #print(E_tot)
-
-            # Append new wavefunction coefficients, amplitudes, and basis set. 
-            nuc_pos_C.append(C)
-            nuc_pos_T.append(T_list)
-            nuc_pos_basis.append(basis)
-            nuc_pos_E.append(nuc_pos_E_tot)
-
-            # Reset the geometry.
+            E_list, T_list, C, basis = phase_corrected_energy(
+                self.parameters, self.unperturbed_basis, self.unperturbed_C)
+            nuc_pos_C[alpha] = C
+            nuc_pos_T[alpha] = T_list
+            nuc_pos_basis[alpha] = basis
+            nuc_pos_E[alpha] = total_energy(E_list)
             self.molecule.set_geometry(psi4.core.Matrix.from_array(self.geom))
             self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
 
-        # Computing energies and wavefunctions with negative displacements.
-        for alpha in range(3*self.natom):
+        for alpha in range(n):
             pert_geom = np.copy(self.geom)
-
-            # Perturb the geometry.
             pert_geom[alpha // 3][alpha % 3] -= nuc_pert_strength
-            pert_geom = psi4.core.Matrix.from_array(pert_geom)
-            self.molecule.set_geometry(pert_geom)
+            self.molecule.set_geometry(psi4.core.Matrix.from_array(pert_geom))
             self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
-
-            # Compute energy.
-            E_list, T_list, C, basis = phase_corrected_energy(self.parameters, self.unperturbed_basis, self.unperturbed_C)
-            nuc_neg_E_tot = total_energy(E_list)
-            #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(basis)).np)
-            #print(E_tot)
-
-            # Append new wavefunction coefficients, amplitudes, and basis set. 
-            nuc_neg_C.append(C)
-            nuc_neg_T.append(T_list)
-            nuc_neg_basis.append(basis)
-            nuc_neg_E.append(nuc_neg_E_tot)
-
-            # Reset the geometry.
+            E_list, T_list, C, basis = phase_corrected_energy(
+                self.parameters, self.unperturbed_basis, self.unperturbed_C)
+            nuc_neg_C[alpha] = C
+            nuc_neg_T[alpha] = T_list
+            nuc_neg_basis[alpha] = basis
+            nuc_neg_E[alpha] = total_energy(E_list)
             self.molecule.set_geometry(psi4.core.Matrix.from_array(self.geom))
             self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
 
-        # Compute gradient.
-        gradient = np.zeros((3 * self.natom))
-        for ab in range(3 * self.natom):
-            gradient[ab] = (nuc_pos_E[ab] - nuc_neg_E[ab]) / (2 * nuc_pert_strength)
-
-        gradient = gradient.reshape(self.natom, 3)
-        #print(gradient)
-
+        gradient = ((nuc_pos_E - nuc_neg_E) / (2 * nuc_pert_strength)).reshape(self.natom, 3)
         return gradient, nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T
 
-
-
     def compute_Magnetic_Field_Gradient(self, mag_pert_strength):
-        # Set properties of the magnetic field finite difference procedure.
-        mag_pos_E = []
-        mag_neg_E = []
-        mag_pos_C = []
-        mag_neg_C = []
-        mag_pos_basis = []
-        mag_neg_basis = []
-        mag_pos_T = []
-        mag_neg_T = []
+        """Compute the magnetic field energy gradient by central finite difference.
 
-        # Perturb the magnetic field in the positive direction.
+        Parameters
+        ----------
+        mag_pert_strength : float
+            Step size for magnetic field perturbations (a.u.).
+
+        Returns
+        -------
+        gradient : ndarray, shape (3,)
+        mag_pos_C, mag_neg_C : list of ndarray
+        mag_pos_basis, mag_neg_basis : list
+        mag_pos_T, mag_neg_T : list
+        """
+        mag_pos_E = np.zeros(3)
+        mag_neg_E = np.zeros(3)
+        mag_pos_C = [None] * 3
+        mag_neg_C = [None] * 3
+        mag_pos_basis = [None] * 3
+        mag_neg_basis = [None] * 3
+        mag_pos_T = [None] * 3
+        mag_neg_T = [None] * 3
+
         for beta in range(3):
             self.parameters['F_mag'][beta] += mag_pert_strength
-
-            # Compute energy.
-            E_list, T_list, C, basis = phase_corrected_energy(self.parameters, self.unperturbed_basis, self.unperturbed_C)
-            mag_pos_E_tot = total_energy(E_list)
-            #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(basis)).np)
-            #print(self.parameters['F_mag'])
-            #print(E_tot)
-
-            # Append new wavefunction coefficients, amplitudes, and basis set. 
-            mag_pos_C.append(C)
-            mag_pos_T.append(T_list)
-            mag_pos_basis.append(basis)
-            mag_pos_E.append(mag_pos_E_tot)
-
-            # Reset the field.
+            E_list, T_list, C, basis = phase_corrected_energy(
+                self.parameters, self.unperturbed_basis, self.unperturbed_C)
+            mag_pos_C[beta] = C
+            mag_pos_T[beta] = T_list
+            mag_pos_basis[beta] = basis
+            mag_pos_E[beta] = total_energy(E_list)
             self.parameters['F_mag'][beta] -= mag_pert_strength
 
-        # Perturb the magnetic field in the negative direction.
         for beta in range(3):
             self.parameters['F_mag'][beta] -= mag_pert_strength
-
-            # Compute energy.
-            E_list, T_list, C, basis = phase_corrected_energy(self.parameters, self.unperturbed_basis, self.unperturbed_C)
-            mag_neg_E_tot = total_energy(E_list)
-            #print(psi4.core.Molecule.geometry(psi4.core.BasisSet.molecule(basis)).np)
-            #print(self.parameters['F_mag'])
-            #print(E_tot)
-
-            # Append new wavefunction coefficients, amplitudes, and basis set. 
-            mag_neg_C.append(C)
-            mag_neg_T.append(T_list)
-            mag_neg_basis.append(basis)
-            mag_neg_E.append(mag_neg_E_tot)
-
-            # Reset the field.
+            E_list, T_list, C, basis = phase_corrected_energy(
+                self.parameters, self.unperturbed_basis, self.unperturbed_C)
+            mag_neg_C[beta] = C
+            mag_neg_T[beta] = T_list
+            mag_neg_basis[beta] = basis
+            mag_neg_E[beta] = total_energy(E_list)
             self.parameters['F_mag'][beta] += mag_pert_strength
 
-        # Compute gradient.
-        gradient = np.zeros((3))
-        print(np.shape(gradient))
-        for beta in range(3):
-            gradient[beta] = (mag_pos_E[beta] - mag_neg_E[beta]) / (2 * mag_pert_strength)
-
-        print(gradient)
-
+        gradient = (mag_pos_E - mag_neg_E) / (2 * mag_pert_strength)
         return gradient, mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T
-
-
 
     def compute_momentum_Hessian(self, mom_pert_strength):
         # Make sure you have specified a phase-space Hamiltonian.
@@ -579,17 +450,17 @@ class finite_difference(object):
             # Perturb the momentum with another positive displacement.
             for beta in range(3*self.natom):
                 self.parameters['P_nuc'][beta // 3][beta % 3] += mom_pert_strength
-                
+
                 # Compute energy.
                 E_list, T_list, C, basis = energy(self.parameters)
                 E_tot = total_energy(E_list)
-                
+
                 # Append new energies.
                 pos_e.append(E_tot)
-                
+
                 # Reset the second momentum perturbation.
                 self.parameters['P_nuc'][beta // 3][beta % 3] -= mom_pert_strength
-            
+
             # Perturb the momentum with a negative displacement.
             for beta in range(3*self.natom):
                 self.parameters['P_nuc'][beta // 3][beta % 3] -= mom_pert_strength
@@ -597,18 +468,18 @@ class finite_difference(object):
                 # Compute energy.
                 E_list, T_list, C, basis = energy(self.parameters)
                 E_tot = total_energy(E_list)
-            
+
                 # Append new energies.
                 neg_e.append(E_tot)
-            
+
                 # Reset the second momentum perturbation.
                 self.parameters['P_nuc'][beta // 3][beta % 3] += mom_pert_strength
-            
+
             # Compute and append gradients.
             for beta in range(len(pos_e)):
                 g = (pos_e[beta] - neg_e[beta]) / (2 * mom_pert_strength)
                 neg_E.append(g)
-            
+
             # Reset the first momentum perturbation.
             self.parameters['P_nuc'][alpha // 3][alpha % 3] += mom_pert_strength
 
@@ -620,8 +491,6 @@ class finite_difference(object):
         momentum_hessian = (pos_E - neg_E) / (2 * mom_pert_strength)
 
         return momentum_hessian
-
-
 
     def compute_ps_AAT(self, mag_pert_strength, mom_pert_strength, print_level=0):
         # Make sure you have specified a phase-space Hamiltonian.
@@ -732,8 +601,6 @@ class finite_difference(object):
         ps_aat = (pos_E - neg_E) / (2 * mom_pert_strength)
 
         return ps_aat
-
-
 
     def compute_ps_DO_AAT(self, mag_pert_strength, mom_pert_strength, print_level=0):
         # Make sure you have specified a phase-space Hamiltonian.
@@ -860,26 +727,3 @@ class finite_difference(object):
         ps_aat = (pos_E - neg_E) / (2 * mom_pert_strength)
 
         return ps_aat
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
