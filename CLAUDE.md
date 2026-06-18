@@ -57,15 +57,16 @@ parameters = {
 | `energy.py` | `energy()` | Unified entry point: builds `Hamiltonian`, runs SCF, dispatches to post-HF; returns `(E_list, T_list, C, basis)` |
 | `fin_diff.py` | `finite_difference` | Numerical Hessian, APTs, AATs via central differences |
 | `aats.py` | `AAT` | Finite-difference atomic axial tensors; handles phase alignment between displaced wavefunctions |
-| `parallel.py` | `compute_parallel_aats()` | Parallelizes AAT computation over atoms/directions using `multiprocessing` |
-| `analytic_hessian.py` | `analytic_derivative` | Analytic nuclear Hessian for RHF, MP2, CID, CISD |
-| `analytic_aats.py` | `analytic_derivative` | Analytic atomic axial tensors (magnetic field response) |
-| `analytic_apts.py` | `analytic_derivative` | Analytic atomic polar tensors in length gauge (LG) and velocity gauge (VG) |
+| `parallel.py` | `compute_parallel_hessian()`, `compute_parallel_apt()`, `compute_parallel_aats()` | Parallelizes finite-difference property computations using `multiprocessing`; Hessian/APT use spawned worker processes returning scalars; AAT runs SCF serially then distributes tensor contractions |
+| `analytic_base.py` | `AnalyticDerivative` | Base class for all analytic derivative objects: runs one RHF SCF on construction, provides `_setup_mo_basis()`, `_build_cphf_A()`, and `_solve_cphf()` (vectorized batched CPHF solve for all perturbation directions at once) |
+| `analytic_hessian.py` | `analytic_derivative(AnalyticDerivative)` | Analytic nuclear Hessian for RHF, MP2, CID, CISD |
+| `analytic_aats.py` | `analytic_derivative(AnalyticDerivative)` | Analytic atomic axial tensors (magnetic field response) for RHF, MP2, CID, CISD |
+| `analytic_apts.py` | `analytic_derivative(AnalyticDerivative)` | Analytic atomic polar tensors in length gauge (LG) and velocity gauge (VG) for RHF, MP2, CID, CISD |
 | `ps_analytic_hessian.py` | `analytic_derivative` | Phase-space momentum Hessian for kinetic-energy-weighted frequencies |
 | `freq.py` | `frequency` | Computes vibrational frequencies from position and/or momentum Hessians |
 | `vcd.py` | `vcd` | Combines Hessian + APTs + AATs to produce VCD spectral intensities |
 | `integrals.py` | `one_electron_integral()` | Manual (non-Psi4) computation of AO integrals (overlap, dipole, nabla, angular momentum, kinetic, potential) |
-| `utils.py` | — | DIIS solvers, MO/SO integral transforms (`compute_F_MO`, `compute_ERI_MO`, `compute_F_SO`, `compute_ERI_SO`), MO overlap and phase correction for finite differences |
+| `utils.py` | — | DIIS solvers, MO/SO integral transforms (`compute_F_MO`, `compute_ERI_MO`, `compute_F_SO`, `compute_ERI_SO`), MO overlap and phase correction for finite differences, `total_energy()`, `get_slices()` |
 
 ### Typical VCD Calculation Flow
 
