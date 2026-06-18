@@ -22,143 +22,73 @@ class analytic_derivative(AnalyticDerivative):
         o, v, t = m.o, m.v, m.t
         C_p4, natom, atoms = m.C_p4, m.natom, m.atoms
         h, ERI, F, mints = m.h, m.ERI, m.F, m.mints
-        Nuc_Gradient = self.H.molecule.nuclear_repulsion_energy_deriv1().np
-
-        # Set up the Hessian.
-        Hessian = np.zeros((natom * 3, natom * 3))
-
-        # Set up the atomic axial tensor.
-        AAT = np.zeros((natom * 3, 3))
-
-        # Set up U-coefficient matrices for AAT calculations.
-        U_R = [] 
-        U_H = [] 
 
         A, G = self._build_cphf_A(ERI, F, no, nv, o, v, sign=+1)
 
-        # First derivative matrices.
-        half_S = [] 
+        npert_nuc = 3 * natom
+        B_nuc = np.zeros((nv * no, npert_nuc))
+        S_nuc = np.zeros((npert_nuc, nbf, nbf))
+        h_dep_nuc = np.zeros((npert_nuc, nbf, nbf))
+        half_S = []
 
-        # Compute and store first derivative integrals.
         for N1 in atoms:
-            # Compute the skeleton (core) one-electron first derivative integrals in the MO basis.
             T_d1 = mints.mo_oei_deriv1('KINETIC', N1, C_p4, C_p4)
             V_d1 = mints.mo_oei_deriv1('POTENTIAL', N1, C_p4, C_p4)
             S_d1 = mints.mo_oei_deriv1('OVERLAP', N1, C_p4, C_p4)
-
-            # Compute the skeleton (core) two-electron first derivative integrals in the MO basis.
             ERI_d1 = mints.mo_tei_deriv1(N1, C_p4, C_p4, C_p4, C_p4)
-
-            # Compute the half derivative overlap for AAT calculation.
             half_S_d1 = mints.mo_overlap_half_deriv1('LEFT', N1, C_p4, C_p4)
 
             for a in range(3):
-                # Convert the Psi4 matrices to numpy matrices.
                 T_d1[a] = T_d1[a].np
                 V_d1[a] = V_d1[a].np
                 S_d1[a] = S_d1[a].np
-
                 ERI_d1[a] = ERI_d1[a].np
-                ERI_d1[a] = ERI_d1[a].swapaxes(1,2)
+                ERI_d1[a] = ERI_d1[a].swapaxes(1, 2)
                 half_S_d1[a] = half_S_d1[a].np
 
-                # Computing skeleton (core) first derivative integrals.
                 h_d1 = T_d1[a] + V_d1[a]
-                F_d1 = T_d1[a] + V_d1[a] + oe.contract('piqi->pq', 2 * ERI_d1[a][:,o,:,o] - ERI_d1[a].swapaxes(2,3)[:,o,:,o])
+                F_d1 = h_d1 + oe.contract('piqi->pq', 2 * ERI_d1[a][:, o, :, o] - ERI_d1[a].swapaxes(2, 3)[:, o, :, o])
 
-                # Compute the perturbation-dependent B matrix for the CPHF coefficients.
-                B = -F_d1[v,o] + oe.contract('ai,ii->ai', S_d1[a][v,o], F[o,o]) + 0.5 * oe.contract('mn,amin->ai', S_d1[a][o,o], A.swapaxes(1,2)[v,o,o,o])
-
-                # Solve for the independent-pairs of the CPHF U-coefficient matrix.
-                U_d1 = np.zeros((nbf,nbf))
-                U_d1[v,o] += (G @ B.reshape((nv*no))).reshape(nv,no)
-                U_d1[o,v] -= U_d1[v,o].T + S_d1[a][o,v]
-
-                # Solve for the dependent-pairs of the CPHF U-coefficient matrix.
-                if self.parameters['freeze_core'] == True or orbitals == 'canonical':
-                    D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
-                    B = F_d1[o,o].copy() - oe.contract('ij,jj->ij', S_d1[a][o,o], F[o,o]) + oe.contract('em,iejm->ij', U_d1[v,o], A.swapaxes(1,2)[o,v,o,o]) - 0.5 * oe.contract('mn,imjn->ij', S_d1[a][o,o], A.swapaxes(1,2)[o,o,o,o])
-                    U_d1[o,o] += B/D
-
-                    D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
-                    B = F_d1[v,v].copy() - oe.contract('ab,bb->ab', S_d1[a][v,v], F[v,v]) + oe.contract('em,aebm->ab', U_d1[v,o], A.swapaxes(1,2)[v,v,v,o]) - 0.5 * oe.contract('mn,ambn->ab', S_d1[a][o,o], A.swapaxes(1,2)[v,o,v,o])
-                    U_d1[v,v] += B/D
-
-                    for j in range(no):
-                        U_d1[j,j] = -0.5 * S_d1[a][j,j]
-                    for b in range(no,nbf):
-                        U_d1[b,b] = -0.5 * S_d1[a][b,b]
-
-                if orbitals == 'non-canonical':
-                    U_d1[f_,f_] = -0.5 * S_d1[a][f_,f_]
-                    U_d1[o_,o_] = -0.5 * S_d1[a][o_,o_]
-                    U_d1[v_,v_] = -0.5 * S_d1[a][v_,v_]
-
-                # Appending to lists.
+                k = 3 * N1 + a
+                B_nuc[:, k] = (-F_d1[v, o]
+                                + oe.contract('ai,ii->ai', S_d1[a][v, o], F[o, o])
+                                + 0.5 * oe.contract('mn,amin->ai', S_d1[a][o, o], A.swapaxes(1, 2)[v, o, o, o])
+                                ).reshape(nv * no)
+                S_nuc[k] = S_d1[a]
+                h_dep_nuc[k] = F_d1
                 half_S.append(half_S_d1[a])
-                U_R.append(U_d1)
+
+        # Nuclear CPHF: real perturbation, ov_sign=-1, dep_sign=+1.
+        U_R = self._solve_cphf(G, A, B_nuc, nbf, no, nv, o, v, F, orbitals, f_, o_, v_,
+                                ov_sign=-1, S_all=S_nuc, h_dep_all=h_dep_nuc, dep_sign=+1)
 
         A_mag, G_mag = self._build_cphf_A(ERI, F, no, nv, o, v, sign=-1)
 
-        # Get the magnetic dipole AO integrals and transform into the MO basis.
         mu_mag_AO = mints.ao_angular_momentum()
+        B_mag = np.zeros((nv * no, 3))
+        h_dep_mag = np.zeros((3, nbf, nbf))
         for a in range(3):
             mu_mag_AO[a] = -0.5 * mu_mag_AO[a].np
             mu_mag = oe.contract('mp,mn,nq->pq', np.conjugate(C), mu_mag_AO[a], C)
+            B_mag[:, a] = mu_mag[v, o].reshape(nv * no)
+            h_dep_mag[a] = mu_mag
 
-            # Computing skeleton (core) first derivative integrals.
-            h_d1 = mu_mag
+        # Magnetic CPHF: imaginary perturbation, ov_sign=+1, dep_sign=-1.
+        U_H = self._solve_cphf(G_mag, A_mag, B_mag, nbf, no, nv, o, v, F, orbitals, f_, o_, v_,
+                                ov_sign=+1, h_dep_all=h_dep_mag, dep_sign=-1)
 
-            # Compute the perturbation-dependent B matrix for the CPHF coefficients with respect to a magnetic field.
-            B = h_d1[v,o]
-
-            # Solve for the independent-pairs of the CPHF U-coefficient matrix with respect to a magnetic field.
-            U_d1 = np.zeros((nbf,nbf))
-            U_d1[v,o] += (G_mag @ B.reshape((nv*no))).reshape(nv,no)
-            U_d1[o,v] += U_d1[v,o].T
-
-            # Solve for the dependent-pairs of the CPHF U-coefficient matrix with respect to a magnetic field.
-            if self.parameters['freeze_core'] == True or orbitals == 'canonical':
-                D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
-                B = - h_d1[o,o].copy() + oe.contract('em,iejm->ij', U_d1[v,o], A_mag.swapaxes(1,2)[o,v,o,o])
-                U_d1[o,o] += B/D
-
-                D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
-                B = - h_d1[v,v].copy() + oe.contract('em,aebm->ab', U_d1[v,o], A_mag.swapaxes(1,2)[v,v,v,o])
-                U_d1[v,v] += B/D
-
-                for j in range(no):
-                    U_d1[j,j] = 0
-                for b in range(no,nbf):
-                    U_d1[b,b] = 0
-
-            if orbitals == 'non-canonical':
-                U_d1[f_,f_] = 0
-                U_d1[o_,o_] = 0
-                U_d1[v_,v_] = 0
-
-            U_H.append(U_d1)
-
-        # Setting up different components of the AATs.
         AAT_HF = np.zeros((natom * 3, 3))
-
-        # Compute AATs.
         for lambda_alpha in range(3 * natom):
             for beta in range(3):
-                # Computing the Hartree-Fock term of the AAT.
-                AAT_HF[lambda_alpha][beta] += 2 * oe.contract("em,em", U_H[beta][v_, o], U_R[lambda_alpha][v_, o] + half_S[lambda_alpha][o, v_].T)
+                AAT_HF[lambda_alpha][beta] += 2 * oe.contract("em,em", U_H[beta][v_, o],
+                                                               U_R[lambda_alpha][v_, o]
+                                                               + half_S[lambda_alpha][o, v_].T)
 
-        #print("Hartree-Fock AAT:")
-        #print(AAT_HF, "\n")
-
-        AAT = AAT_HF
-
-        return AAT
+        return AAT_HF
 
 
 
     def compute_MP2_AATs(self, normalization='full', orbitals='non-canonical'):
-        # Compute T2 amplitudes and MP2 energy.
         wfn_MP2 = mp2_wfn(self.parameters, self.wfn)
         E_MP2, t2 = wfn_MP2.solve_MP2()
 
@@ -169,10 +99,6 @@ class analytic_derivative(AnalyticDerivative):
         C_p4, natom, atoms = m.C_p4, m.natom, m.atoms
         h, ERI, F, mints = m.h, m.ERI, m.F, m.mints
 
-        # Set up the atomic axial tensor.
-        AAT = np.zeros((natom * 3, 3))
-
-        # Setting up different components of the AATs.
         AAT_HF = np.zeros((natom * 3, 3))
         AAT_1 = np.zeros((natom * 3, 3))
         AAT_2 = np.zeros((natom * 3, 3))
@@ -180,275 +106,196 @@ class analytic_derivative(AnalyticDerivative):
         AAT_4 = np.zeros((natom * 3, 3))
         AAT_Norm = np.zeros((natom * 3, 3))
 
-        # Compute normalization factor.
         if normalization == 'intermediate':
             N = 1
         elif normalization == 'full':
-            N = 1 / np.sqrt(1 + oe.contract('ijab,ijab', t2, 2*t2 - t2.swapaxes(2,3)))
+            N = 1 / np.sqrt(1 + oe.contract('ijab,ijab', t2, 2 * t2 - t2.swapaxes(2, 3)))
 
-        # Setting up lists for magnetic field dependent terms.
-        U_H = []
-        dT2_dH = []
-
+        # ------------------------------------------------------------------ #
+        # Magnetic CPHF: vectorized over 3 field directions.                 #
+        # ------------------------------------------------------------------ #
         A_mag, G_mag = self._build_cphf_A(ERI, F, no, nv, o, v, sign=-1)
 
-        # Get the magnetic dipole AO integrals and transform into the MO basis.
         mu_mag_AO = mints.ao_angular_momentum()
+        B_mag = np.zeros((nv * no, 3))
+        h_dep_mag = np.zeros((3, nbf, nbf))
         for b in range(3):
             mu_mag_AO[b] = -0.5 * mu_mag_AO[b].np
             mu_mag = oe.contract('mp,mn,nq->pq', C, mu_mag_AO[b], C)
+            B_mag[:, b] = mu_mag[v, o].reshape(nv * no)
+            h_dep_mag[b] = mu_mag
 
-            # Computing skeleton (core) first derivative integrals.
-            h_core = mu_mag
+        # Magnetic CPHF: imaginary perturbation, ov_sign=+1, dep_sign=-1.
+        U_H = self._solve_cphf(G_mag, A_mag, B_mag, nbf, no, nv, o, v, F, orbitals, f_, o_, v_,
+                                ov_sign=+1, h_dep_all=h_dep_mag, dep_sign=-1)
 
-            # Compute the perturbation-dependent B matrix for the CPHF coefficients with respect to a magnetic field.
-            B = h_core[v,o]
+        # Post-CPHF magnetic processing: df_dH, dERI_dH, dt2_dH per direction.
+        dT2_dH = []
+        for b in range(3):
+            U_h = U_H[b]
+            h_core = h_dep_mag[b]
 
-            # Solve for the independent-pairs of the CPHF U-coefficient matrix with respect to a magnetic field.
-            U_h = np.zeros((nbf,nbf))
-            U_h[v,o] += (G_mag @ B.reshape((nv*no))).reshape(nv,no)
-            U_h[o,v] += U_h[v,o].T
+            df_dH = np.zeros((nbf, nbf))
+            df_dH[o, o] -= h_core[o, o].copy()
+            df_dH[o, o] += U_h[o, o] * self.wfn.eps[o].reshape(-1, 1) - U_h[o, o].swapaxes(0, 1) * self.wfn.eps[o]
+            df_dH[o, o] += oe.contract('em,iejm->ij', U_h[v, o], A_mag.swapaxes(1, 2)[o, v, o, o])
+            df_dH[v, v] -= h_core[v, v].copy()
+            df_dH[v, v] += U_h[v, v] * self.wfn.eps[v].reshape(-1, 1) - U_h[v, v].swapaxes(0, 1) * self.wfn.eps[v]
+            df_dH[v, v] += oe.contract('em,aebm->ab', U_h[v, o], A_mag.swapaxes(1, 2)[v, v, v, o])
 
-            # Solve for the dependent-pairs of the CPHF U-coefficient matrix with respect to a magnetic field.
-            if self.parameters['freeze_core'] == True or orbitals == 'canonical':
-                D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
-                B = - h_core[o,o].copy() + oe.contract('em,iejm->ij', U_h[v,o], A_mag.swapaxes(1,2)[o,v,o,o])
-                U_h[o,o] += B/D
+            dERI_dH  = oe.contract('tr,pqts->pqrs', U_h[:, t], ERI[t, t, :, t])
+            dERI_dH += oe.contract('ts,pqrt->pqrs', U_h[:, t], ERI[t, t, t, :])
+            dERI_dH -= oe.contract('tp,tqrs->pqrs', U_h[:, t], ERI[:, t, t, t])
+            dERI_dH -= oe.contract('tq,ptrs->pqrs', U_h[:, t], ERI[t, :, t, t])
 
-                D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
-                B = - h_core[v,v].copy() + oe.contract('em,aebm->ab', U_h[v,o], A_mag.swapaxes(1,2)[v,v,v,o])
-                U_h[v,v] += B/D
+            dt2_dH = dERI_dH.copy().swapaxes(0, 2).swapaxes(1, 3)[o_, o_, v_, v_]
+            dt2_dH += oe.contract('ac,ijcb->ijab', df_dH[v_, v_], t2)
+            dt2_dH += oe.contract('bc,ijac->ijab', df_dH[v_, v_], t2)
+            dt2_dH -= oe.contract('ki,kjab->ijab', df_dH[o_, o_], t2)
+            dt2_dH -= oe.contract('kj,ikab->ijab', df_dH[o_, o_], t2)
+            dt2_dH /= wfn_MP2.D_ijab
 
-                for j in range(no):
-                    U_h[j,j] = 0
-                for c in range(no,nbf):
-                    U_h[c,c] = 0
-
-            if orbitals == 'non-canonical':
-                U_h[f_,f_] = 0
-                U_h[o_,o_] = 0
-                U_h[v_,v_] = 0
-
-            # Computing the gradient of the Fock matrix with respect to a magnetic field.
-            df_dH = np.zeros((nbf,nbf))
-
-            df_dH[o,o] -= h_core[o,o].copy()
-            df_dH[o,o] += U_h[o,o] * self.wfn.eps[o].reshape(-1,1) - U_h[o,o].swapaxes(0,1) * self.wfn.eps[o]
-            df_dH[o,o] += oe.contract('em,iejm->ij', U_h[v,o], A_mag.swapaxes(1,2)[o,v,o,o])
-
-            df_dH[v,v] -= h_core[v,v].copy()
-            df_dH[v,v] += U_h[v,v] * self.wfn.eps[v].reshape(-1,1) - U_h[v,v].swapaxes(0,1) * self.wfn.eps[v]
-            df_dH[v,v] += oe.contract('em,aebm->ab', U_h[v,o], A_mag.swapaxes(1,2)[v,v,v,o])
-
-            #print("Magnetic Field Perturbed Fock Matrix:")
-            #print(df_dH)
-
-            # Computing the gradient of the ERIs with respect to a magnetic field. # Swapaxes on these elements
-            dERI_dH =  oe.contract('tr,pqts->pqrs', U_h[:,t], ERI[t,t,:,t])
-            dERI_dH += oe.contract('ts,pqrt->pqrs', U_h[:,t], ERI[t,t,t,:])
-            dERI_dH -= oe.contract('tp,tqrs->pqrs', U_h[:,t], ERI[:,t,t,t])
-            dERI_dH -= oe.contract('tq,ptrs->pqrs', U_h[:,t], ERI[t,:,t,t])
-
-            # Computing t-amplitude derivatives with respect to a magnetic field.
-            dt2_dH = dERI_dH.copy().swapaxes(0,2).swapaxes(1,3)[o_,o_,v_,v_]
-            dt2_dH += oe.contract('ac,ijcb->ijab', df_dH[v_,v_], t2)
-            dt2_dH += oe.contract('bc,ijac->ijab', df_dH[v_,v_], t2)
-            dt2_dH -= oe.contract('ki,kjab->ijab', df_dH[o_,o_], t2)
-            dt2_dH -= oe.contract('kj,ikab->ijab', df_dH[o_,o_], t2)
-            dt2_dH /= (wfn_MP2.D_ijab)
-
-            U_H.append(U_h)
             dT2_dH.append(dt2_dH)
-
             print("\nMagnetic Field Perturbtion Data:")
             print("Cartesian: ", b)
             print("Maximum dt2/dH: ", np.max(dt2_dH))
 
+        # ------------------------------------------------------------------ #
+        # Nuclear CPHF: vectorized over all 3*natom displacements.           #
+        # ------------------------------------------------------------------ #
         A, G = self._build_cphf_A(ERI, F, no, nv, o, v, sign=+1)
 
-        # Compute and store first derivative integrals.
+        npert_nuc = 3 * natom
+        B_nuc = np.zeros((nv * no, npert_nuc))
+        S_nuc = np.zeros((npert_nuc, nbf, nbf))
+        h_dep_nuc = np.zeros((npert_nuc, nbf, nbf))
+        h_core_nuc = []
+        ERI_core_nuc = []
+        half_S = []
+
         for N1 in atoms:
-            # Compute the skeleton (core) one-electron first derivative integrals in the MO basis.
             T_core = mints.mo_oei_deriv1('KINETIC', N1, C_p4, C_p4)
             V_core = mints.mo_oei_deriv1('POTENTIAL', N1, C_p4, C_p4)
             S_core = mints.mo_oei_deriv1('OVERLAP', N1, C_p4, C_p4)
-
-            # Compute the skeleton (core) two-electron first derivative integrals in the MO basis.
             ERI_core = mints.mo_tei_deriv1(N1, C_p4, C_p4, C_p4, C_p4)
-
-            # Compute the half derivative overlap for AAT calculation.
             half_S_core = mints.mo_overlap_half_deriv1('LEFT', N1, C_p4, C_p4)
 
             for a in range(3):
-                # Convert the Psi4 matrices to numpy matrices.
                 T_core[a] = T_core[a].np
                 V_core[a] = V_core[a].np
                 S_core[a] = S_core[a].np
-
                 ERI_core[a] = ERI_core[a].np
-                ERI_core[a] = ERI_core[a].swapaxes(1,2)
+                ERI_core[a] = ERI_core[a].swapaxes(1, 2)
                 half_S_core[a] = half_S_core[a].np
 
-                # Computing skeleton (core) first derivative integrals.
                 h_core = T_core[a] + V_core[a]
-                F_core = T_core[a] + V_core[a] + oe.contract('piqi->pq', 2 * ERI_core[a][:,o,:,o] - ERI_core[a].swapaxes(2,3)[:,o,:,o])
+                F_core = h_core + oe.contract('piqi->pq', 2 * ERI_core[a][:, o, :, o] - ERI_core[a].swapaxes(2, 3)[:, o, :, o])
 
-                # Compute the perturbation-dependent B matrix for the CPHF coefficients.
-                B = -F_core[v,o] + oe.contract('ai,ii->ai', S_core[a][v,o], F[o,o]) + 0.5 * oe.contract('mn,amin->ai', S_core[a][o,o], A.swapaxes(1,2)[v,o,o,o])
+                k = 3 * N1 + a
+                B_nuc[:, k] = (-F_core[v, o]
+                                + oe.contract('ai,ii->ai', S_core[a][v, o], F[o, o])
+                                + 0.5 * oe.contract('mn,amin->ai', S_core[a][o, o], A.swapaxes(1, 2)[v, o, o, o])
+                                ).reshape(nv * no)
+                S_nuc[k] = S_core[a]
+                h_dep_nuc[k] = F_core
+                h_core_nuc.append(h_core)
+                ERI_core_nuc.append(ERI_core[a])
+                half_S.append(half_S_core[a])
 
-                # Solve for the independent-pairs of the CPHF U-coefficient matrix.
-                U_R = np.zeros((nbf,nbf))
-                U_R[v,o] += (G @ B.reshape((nv*no))).reshape(nv,no)
-                U_R[o,v] -= U_R[v,o].T + S_core[a][o,v]
+        # Nuclear CPHF: real perturbation, ov_sign=-1, dep_sign=+1.
+        U_R_list = self._solve_cphf(G, A, B_nuc, nbf, no, nv, o, v, F, orbitals, f_, o_, v_,
+                                     ov_sign=-1, S_all=S_nuc, h_dep_all=h_dep_nuc, dep_sign=+1)
 
-                # Solve for the dependent-pairs of the CPHF U-coefficient matrix.
-                if self.parameters['freeze_core'] == True or orbitals == 'canonical':
-                    D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
-                    B = F_core[o,o].copy() - oe.contract('ij,jj->ij', S_core[a][o,o], F[o,o]) + oe.contract('em,iejm->ij', U_R[v,o], A.swapaxes(1,2)[o,v,o,o]) - 0.5 * oe.contract('mn,imjn->ij', S_core[a][o,o], A.swapaxes(1,2)[o,o,o,o])
-                    U_R[o,o] += B/D
+        # Post-CPHF nuclear processing: df_dR, dERI_dR, dt2_dR, AAT contractions.
+        for N1 in atoms:
+            for a in range(3):
+                k = 3 * N1 + a
+                U_R = U_R_list[k]
+                F_core = h_dep_nuc[k]
+                S_core_a = S_nuc[k]
+                ERI_core_a = ERI_core_nuc[k]
+                half_S_core_a = half_S[k]
+                lambda_alpha = k
 
-                    D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
-                    B = F_core[v,v].copy() - oe.contract('ab,bb->ab', S_core[a][v,v], F[v,v]) + oe.contract('em,aebm->ab', U_R[v,o], A.swapaxes(1,2)[v,v,v,o]) - 0.5 * oe.contract('mn,ambn->ab', S_core[a][o,o], A.swapaxes(1,2)[v,o,v,o])
-                    U_R[v,v] += B/D
+                df_dR = np.zeros((nbf, nbf))
+                df_dR[o, o] += F_core[o, o].copy()
+                df_dR[o, o] += U_R[o, o] * self.wfn.eps[o].reshape(-1, 1) + U_R[o, o].swapaxes(0, 1) * self.wfn.eps[o]
+                df_dR[o, o] += oe.contract('em,iejm->ij', U_R[v, o], A.swapaxes(1, 2)[o, v, o, o])
+                df_dR[o, o] -= 0.5 * oe.contract('mn,imjn->ij', S_core_a[o, o], A.swapaxes(1, 2)[o, o, o, o])
+                df_dR[v, v] += F_core[v, v].copy()
+                df_dR[v, v] += U_R[v, v] * self.wfn.eps[v].reshape(-1, 1) + U_R[v, v].swapaxes(0, 1) * self.wfn.eps[v]
+                df_dR[v, v] += oe.contract('em,aebm->ab', U_R[v, o], A.swapaxes(1, 2)[v, v, v, o])
+                df_dR[v, v] -= 0.5 * oe.contract('mn,ambn->ab', S_core_a[o, o], A.swapaxes(1, 2)[v, o, v, o])
 
-                    for j in range(no):
-                        U_R[j,j] = -0.5 * S_core[a][j,j]
-                    for b in range(no,nbf):
-                        U_R[b,b] = -0.5 * S_core[a][b,b]
+                dERI_dR = ERI_core_a.copy()
+                dERI_dR += oe.contract('tp,tqrs->pqrs', U_R[:, t], ERI[:, t, t, t])
+                dERI_dR += oe.contract('tq,ptrs->pqrs', U_R[:, t], ERI[t, :, t, t])
+                dERI_dR += oe.contract('tr,pqts->pqrs', U_R[:, t], ERI[t, t, :, t])
+                dERI_dR += oe.contract('ts,pqrt->pqrs', U_R[:, t], ERI[t, t, t, :])
 
-                if orbitals == 'non-canonical':
-                    U_R[f_,f_] = -0.5 * S_core[a][f_,f_]
-                    U_R[o_,o_] = -0.5 * S_core[a][o_,o_]
-                    U_R[v_,v_] = -0.5 * S_core[a][v_,v_]
-
-                # Computing the gradient of the Fock matrix.
-                df_dR = np.zeros((nbf,nbf))
-
-                df_dR[o,o] += F_core[o,o].copy()
-                df_dR[o,o] += U_R[o,o] * self.wfn.eps[o].reshape(-1,1) + U_R[o,o].swapaxes(0,1) * self.wfn.eps[o]
-                df_dR[o,o] += oe.contract('em,iejm->ij', U_R[v,o], A.swapaxes(1,2)[o,v,o,o])
-                df_dR[o,o] -= 0.5 * oe.contract('mn,imjn->ij', S_core[a][o,o], A.swapaxes(1,2)[o,o,o,o])
-
-                df_dR[v,v] += F_core[v,v].copy()
-                df_dR[v,v] += U_R[v,v] * self.wfn.eps[v].reshape(-1,1) + U_R[v,v].swapaxes(0,1) * self.wfn.eps[v]
-                df_dR[v,v] += oe.contract('em,aebm->ab', U_R[v,o], A.swapaxes(1,2)[v,v,v,o])
-                df_dR[v,v] -= 0.5 * oe.contract('mn,ambn->ab', S_core[a][o,o], A.swapaxes(1,2)[v,o,v,o])
-
-                #print("Nuclear Displaced Perturbed Fock Matrix:")
-                #print(df_dR)
-
-                # Computing the gradient of the ERIs.
-                dERI_dR = ERI_core[a].copy()
-                dERI_dR += oe.contract('tp,tqrs->pqrs', U_R[:,t], ERI[:,t,t,t])
-                dERI_dR += oe.contract('tq,ptrs->pqrs', U_R[:,t], ERI[t,:,t,t])
-                dERI_dR += oe.contract('tr,pqts->pqrs', U_R[:,t], ERI[t,t,:,t])
-                dERI_dR += oe.contract('ts,pqrt->pqrs', U_R[:,t], ERI[t,t,t,:])
-
-                # Computing t-amplitude derivatives.
-                dt2_dR = dERI_dR.copy()[o_,o_,v_,v_]
-                dt2_dR -= oe.contract('kjab,ik->ijab', t2, df_dR[o_,o_])
-                dt2_dR -= oe.contract('ikab,kj->ijab', t2, df_dR[o_,o_])
-                dt2_dR += oe.contract('ijcb,ac->ijab', t2, df_dR[v_,v_])
-                dt2_dR += oe.contract('ijac,cb->ijab', t2, df_dR[v_,v_])
-                dt2_dR /= (wfn_MP2.D_ijab)
+                dt2_dR = dERI_dR.copy()[o_, o_, v_, v_]
+                dt2_dR -= oe.contract('kjab,ik->ijab', t2, df_dR[o_, o_])
+                dt2_dR -= oe.contract('ikab,kj->ijab', t2, df_dR[o_, o_])
+                dt2_dR += oe.contract('ijcb,ac->ijab', t2, df_dR[v_, v_])
+                dt2_dR += oe.contract('ijac,cb->ijab', t2, df_dR[v_, v_])
+                dt2_dR /= wfn_MP2.D_ijab
 
                 print("\nNuclear Perturbation Data:")
                 print("Atom: ", N1)
                 print("Cartesian: ", a)
                 print("Maximum dt2/dR: ", np.max(dt2_dR))
 
-                # Compute derivative of the normalization factor.
-                N_R = - (1 / np.sqrt((1 + oe.contract('ijab,ijab', np.conjugate(t2), 2*t2 - t2.swapaxes(2,3)))**3))
-                N_R *= 0.5 * (oe.contract('ijab,ijab', np.conjugate(dt2_dR), 2*t2 - t2.swapaxes(2,3)) + oe.contract('ijab,ijab', dt2_dR, np.conjugate(2*t2 - t2.swapaxes(2,3))))
+                N_R = -(1 / np.sqrt((1 + oe.contract('ijab,ijab', np.conjugate(t2), 2 * t2 - t2.swapaxes(2, 3)))**3))
+                N_R *= 0.5 * (oe.contract('ijab,ijab', np.conjugate(dt2_dR), 2 * t2 - t2.swapaxes(2, 3))
+                              + oe.contract('ijab,ijab', dt2_dR, np.conjugate(2 * t2 - t2.swapaxes(2, 3))))
 
-                for beta in range(0,3):
-                    #Setting up AAT indexing.
-                    lambda_alpha = 3 * N1 + a
-
+                for beta in range(3):
                     if orbitals == 'canonical':
-                        # Computing the Hartree-Fock term of the AAT.
-                        AAT_HF[lambda_alpha][beta] += N**2 * 2 * oe.contract("em,em", U_H[beta][v_, o], U_R[v_, o] + half_S_core[a][o, v_].T)
+                        AAT_HF[lambda_alpha][beta] += N**2 * 2 * oe.contract("em,em", U_H[beta][v_, o], U_R[v_, o] + half_S_core_a[o, v_].T)
 
-                        # Computing first terms of the AATs.
-                        AAT_1[lambda_alpha][beta] += N**2 * oe.contract("ijab,ijab", 2*dt2_dR - dt2_dR.swapaxes(2,3), dT2_dH[beta])
+                        AAT_1[lambda_alpha][beta] += N**2 * oe.contract("ijab,ijab", 2 * dt2_dR - dt2_dR.swapaxes(2, 3), dT2_dH[beta])
 
-                        # Computing the second term of the AATs.
-                        AAT_2[lambda_alpha][beta] -= N**2 * 2.0 * oe.contract("ijab,kjab,ki", 2*dt2_dR - dt2_dR.swapaxes(2,3), t2, U_H[beta][o_, o_]) # Canonical
-                        AAT_2[lambda_alpha][beta] += N**2 * 2.0 * oe.contract("ijab,ijcb,ac", 2*dt2_dR - dt2_dR.swapaxes(2,3), t2, U_H[beta][v_, v_]) # Canonical
+                        AAT_2[lambda_alpha][beta] -= N**2 * 2.0 * oe.contract("ijab,kjab,ki", 2 * dt2_dR - dt2_dR.swapaxes(2, 3), t2, U_H[beta][o_, o_])
+                        AAT_2[lambda_alpha][beta] += N**2 * 2.0 * oe.contract("ijab,ijcb,ac", 2 * dt2_dR - dt2_dR.swapaxes(2, 3), t2, U_H[beta][v_, v_])
 
-                        # Computing the third term of the AATs.
-                        AAT_3[lambda_alpha][beta] -= N**2 * 2.0 * oe.contract("klcd,mlcd,mk", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[o_, o_] + half_S_core[a][o_, o_].T)
-                        AAT_3[lambda_alpha][beta] += N**2 * 2.0 * oe.contract("klcd,kled,ce", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[v_, v_] + half_S_core[a][v_, v_].T)
+                        AAT_3[lambda_alpha][beta] -= N**2 * 2.0 * oe.contract("klcd,mlcd,mk", 2 * dT2_dH[beta] - dT2_dH[beta].swapaxes(2, 3), t2, U_R[o_, o_] + half_S_core_a[o_, o_].T)
+                        AAT_3[lambda_alpha][beta] += N**2 * 2.0 * oe.contract("klcd,kled,ce", 2 * dT2_dH[beta] - dT2_dH[beta].swapaxes(2, 3), t2, U_R[v_, v_] + half_S_core_a[v_, v_].T)
 
-                        # Computing the fourth term of the AATs.
-                        AAT_4[lambda_alpha][beta] += N**2 * 2.0 * oe.contract("ijab,kjab,km,im", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][o_, o], U_R[o_, o] + half_S_core[a][o, o_].T)
-                        AAT_4[lambda_alpha][beta] += N**2 * 2.0 * oe.contract("ijab,ijcb,ec,ea", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, v_], U_R[v_, v_] + half_S_core[a][v_, v_].T) # Canonical
+                        AAT_4[lambda_alpha][beta] += N**2 * 2.0 * oe.contract("ijab,kjab,km,im", t2, 2 * t2 - t2.swapaxes(2, 3), U_H[beta][o_, o], U_R[o_, o] + half_S_core_a[o, o_].T)
+                        AAT_4[lambda_alpha][beta] += N**2 * 2.0 * oe.contract("ijab,ijcb,ec,ea", t2, 2 * t2 - t2.swapaxes(2, 3), U_H[beta][v_, v_], U_R[v_, v_] + half_S_core_a[v_, v_].T)
+                        AAT_4[lambda_alpha][beta] += N**2 * 2.0 * oe.contract("ijab,ijab,em,em", t2, 2 * t2 - t2.swapaxes(2, 3), U_H[beta][v_, o], U_R[v_, o] + half_S_core_a[o, v_].T)
+                        AAT_4[lambda_alpha][beta] -= N**2 * 2.0 * oe.contract("ijab,imab,ej,em", t2, 2 * t2 - t2.swapaxes(2, 3), U_H[beta][v_, o_], U_R[v_, o_] + half_S_core_a[o_, v_].T)
+                        AAT_4[lambda_alpha][beta] -= N**2 * 2.0 * oe.contract("ijab,ijae,bm,em", t2, 2 * t2 - t2.swapaxes(2, 3), U_H[beta][v_, o], U_R[v_, o] + half_S_core_a[o, v_].T)
 
-                        AAT_4[lambda_alpha][beta] += N**2 * 2.0 * oe.contract("ijab,ijab,em,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o], U_R[v_, o] + half_S_core[a][o, v_].T)
-                        AAT_4[lambda_alpha][beta] -= N**2 * 2.0 * oe.contract("ijab,imab,ej,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o_], U_R[v_, o_] + half_S_core[a][o_, v_].T)
-                        AAT_4[lambda_alpha][beta] -= N**2 * 2.0 * oe.contract("ijab,ijae,bm,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o], U_R[v_, o] + half_S_core[a][o, v_].T)
-
-                        # Adding terms for full normalization.
                         if normalization == 'full':
-                            AAT_Norm[lambda_alpha][beta] -= N * N_R * 2.0 * oe.contract("ijab,kjab,ki", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][o_, o_]) # Canonical
-                            AAT_Norm[lambda_alpha][beta] += N * N_R * 2.0 * oe.contract("ijab,ijcb,ac", 2*t2 - t2.swapaxes(2,3), t2, U_H[beta][v_, v_]) # Canonical
-                            AAT_Norm[lambda_alpha][beta] += N * N_R * 1.0 * oe.contract("ijab,ijab", 2*t2 - t2.swapaxes(2,3), dT2_dH[beta])
+                            AAT_Norm[lambda_alpha][beta] -= N * N_R * 2.0 * oe.contract("ijab,kjab,ki", 2 * t2 - t2.swapaxes(2, 3), t2, U_H[beta][o_, o_])
+                            AAT_Norm[lambda_alpha][beta] += N * N_R * 2.0 * oe.contract("ijab,ijcb,ac", 2 * t2 - t2.swapaxes(2, 3), t2, U_H[beta][v_, v_])
+                            AAT_Norm[lambda_alpha][beta] += N * N_R * 1.0 * oe.contract("ijab,ijab", 2 * t2 - t2.swapaxes(2, 3), dT2_dH[beta])
 
                     if orbitals == 'non-canonical':
-                        # Computing the Hartree-Fock term of the AAT.
-                        AAT_HF[lambda_alpha][beta] += N**2 * 2 * oe.contract("em,em", U_H[beta][v_, o], U_R[v_, o] + half_S_core[a][o, v_].T)
+                        AAT_HF[lambda_alpha][beta] += N**2 * 2 * oe.contract("em,em", U_H[beta][v_, o], U_R[v_, o] + half_S_core_a[o, v_].T)
 
-                        # Computing first terms of the AATs.
-                        AAT_1[lambda_alpha][beta] += N**2 * oe.contract("ijab,ijab", 2*dt2_dR - dt2_dR.swapaxes(2,3), dT2_dH[beta])
+                        AAT_1[lambda_alpha][beta] += N**2 * oe.contract("ijab,ijab", 2 * dt2_dR - dt2_dR.swapaxes(2, 3), dT2_dH[beta])
 
-                        # Computing the second term of the AATs.
                         AAT_2[lambda_alpha][beta] += 0
 
-                        # Computing the third term of the AATs.
-                        AAT_3[lambda_alpha][beta] -= N**2 * 2.0 * oe.contract("ijab,kjab,ki", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[o_, o_] + half_S_core[a][o_, o_].T)
-                        AAT_3[lambda_alpha][beta] += N**2 * 2.0 * oe.contract("ijab,ijcb,ac", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[v_, v_] + half_S_core[a][v_, v_].T)
+                        AAT_3[lambda_alpha][beta] -= N**2 * 2.0 * oe.contract("ijab,kjab,ki", 2 * dT2_dH[beta] - dT2_dH[beta].swapaxes(2, 3), t2, U_R[o_, o_] + half_S_core_a[o_, o_].T)
+                        AAT_3[lambda_alpha][beta] += N**2 * 2.0 * oe.contract("ijab,ijcb,ac", 2 * dT2_dH[beta] - dT2_dH[beta].swapaxes(2, 3), t2, U_R[v_, v_] + half_S_core_a[v_, v_].T)
 
-                        # Computing the fourth term of the AATs.
-                        AAT_4[lambda_alpha][beta] += N**2 * 2.0 * oe.contract("ijab,kjab,km,im", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][o_, o], U_R[o_, o] + half_S_core[a][o, o_].T)
-                        #I = oe.contract("kjab,km->mjab", 2*t2 - t2.swapaxes(2,3), U_H[beta][o_, o])
-                        #I = oe.contract("mjab,im->ijab", I, U_R[o_, o] + half_S_core[a][o, o_].T)
-                        #AAT_4[lambda_alpha][beta] += N**2 * 2.0 * oe.contract("ijab,ijab", t2, I)
+                        AAT_4[lambda_alpha][beta] += N**2 * 2.0 * oe.contract("ijab,kjab,km,im", t2, 2 * t2 - t2.swapaxes(2, 3), U_H[beta][o_, o], U_R[o_, o] + half_S_core_a[o, o_].T)
+                        AAT_4[lambda_alpha][beta] += N**2 * 2.0 * oe.contract("ijab,ijab,em,em", t2, 2 * t2 - t2.swapaxes(2, 3), U_H[beta][v_, o], U_R[v_, o] + half_S_core_a[o, v_].T)
+                        AAT_4[lambda_alpha][beta] -= N**2 * 2.0 * oe.contract("ijab,imab,ej,em", t2, 2 * t2 - t2.swapaxes(2, 3), U_H[beta][v_, o_], U_R[v_, o_] + half_S_core_a[o_, v_].T)
+                        AAT_4[lambda_alpha][beta] -= N**2 * 2.0 * oe.contract("ijab,ijae,bm,em", t2, 2 * t2 - t2.swapaxes(2, 3), U_H[beta][v_, o], U_R[v_, o] + half_S_core_a[o, v_].T)
 
-                        AAT_4[lambda_alpha][beta] += N**2 * 2.0 * oe.contract("ijab,ijab,em,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o], U_R[v_, o] + half_S_core[a][o, v_].T)
-                        #I = oe.contract("em,em", U_H[beta][v_, o], U_R[v_, o] + half_S_core[a][o, v_].T)
-                        #AAT_4[lambda_alpha][beta] += N**2 * 2.0 * oe.contract("ijab,ijab", t2, 2*t2 - t2.swapaxes(2,3)) * I
-                        AAT_4[lambda_alpha][beta] -= N**2 * 2.0 * oe.contract("ijab,imab,ej,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o_], U_R[v_, o_] + half_S_core[a][o_, v_].T)
-                        #I = oe.contract("imab,em->ieab", 2*t2 - t2.swapaxes(2,3), U_R[v_, o_] + half_S_core[a][o_, v_].T)
-                        #I = oe.contract("ieab,ej->ijab", I, U_H[beta][v_, o_])
-                        #AAT_4[lambda_alpha][beta] -= N**2 * 2.0 * oe.contract("ijab,ijab", t2, I)
-                        AAT_4[lambda_alpha][beta] -= N**2 * 2.0 * oe.contract("ijab,ijae,bm,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o], U_R[v_, o] + half_S_core[a][o, v_].T)
-                        #I = oe.contract("ijae,em->ijam", 2*t2 - t2.swapaxes(2,3), U_R[v_, o] + half_S_core[a][o, v_].T)
-                        #I = oe.contract("ijam,bm->ijab", I, U_H[beta][v_, o])
-                        #AAT_4[lambda_alpha][beta] -= N**2 * 2.0 * oe.contract("ijab,ijab", t2, I)
-
-                        # Adding terms for full normalization.
                         if normalization == 'full':
-                            AAT_Norm[lambda_alpha][beta] += N * N_R * 1.0 * oe.contract("ijab,ijab", 2*t2 - t2.swapaxes(2,3), dT2_dH[beta])
-
-        #print("Hartree-Fock AAT:")
-        #print(AAT_HF, "\n")
-        #print("AAT Term 1:")
-        #print(AAT_1, "\n")
-        #print("AAT Term 2:")
-        #print(AAT_2, "\n")
-        #print("AAT Term 3:")
-        #print(AAT_3, "\n")
-        #print("AAT Term 4:")
-        #print(AAT_4, "\n")
+                            AAT_Norm[lambda_alpha][beta] += N * N_R * 1.0 * oe.contract("ijab,ijab", 2 * t2 - t2.swapaxes(2, 3), dT2_dH[beta])
 
         print("\nHartree-Fock AAT:")
         print(AAT_HF, "\n")
         print("Doubles/Doubles:")
         print(AAT_1 + AAT_2 + AAT_3 + AAT_4, "\n")
 
-        AAT = AAT_HF + AAT_1 + AAT_2 + AAT_3 + AAT_4 + AAT_Norm
-
-        return AAT
+        return AAT_HF + AAT_1 + AAT_2 + AAT_3 + AAT_4 + AAT_Norm
 
 
 
@@ -541,42 +388,24 @@ class analytic_derivative(AnalyticDerivative):
 
         A_mag, G_mag = self._build_cphf_A(ERI, F, no, nv, o, v, sign=-1)
 
-        # Get the magnetic dipole AO integrals and transform into the MO basis.
+        # Collect magnetic B vectors and perturbation operators for vectorized CPHF solve.
         mu_mag_AO = mints.ao_angular_momentum()
+        B_mag = np.zeros((nv * no, 3))
+        h_dep_mag = np.zeros((3, nbf, nbf))
         for a in range(3):
             mu_mag_AO[a] = -0.5 * mu_mag_AO[a].np
             mu_mag = oe.contract('mp,mn,nq->pq', np.conjugate(C), mu_mag_AO[a], C)
+            B_mag[:, a] = mu_mag[v, o].reshape(nv * no)
+            h_dep_mag[a] = mu_mag
 
-            # Computing skeleton (core) first derivative integrals.
-            h_core = mu_mag
+        # Vectorized magnetic CPHF solve (all 3 directions at once).
+        U_H = self._solve_cphf(G_mag, A_mag, B_mag, nbf, no, nv, o, v, F, orbitals, f_, o_, v_,
+                                ov_sign=+1, h_dep_all=h_dep_mag, dep_sign=-1)
 
-            # Compute the perturbation-dependent B matrix for the CPHF coefficients with respect to a magnetic field.
-            B = h_core[v,o]
-
-            # Solve for the independent-pairs of the CPHF U-coefficient matrix with respect to a magnetic field.
-            U_h = np.zeros((nbf,nbf))
-            U_h[v,o] += (G_mag @ B.reshape((nv*no))).reshape(nv,no)
-            U_h[o,v] += U_h[v,o].T
-
-            # Solve for the dependent-pairs of the CPHF U-coefficient matrix with respect to a magnetic field.
-            if self.parameters['freeze_core'] == True or orbitals == 'canonical':
-                D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
-                B = - h_core[o,o].copy() + oe.contract('em,iejm->ij', U_h[v,o], A_mag.swapaxes(1,2)[o,v,o,o])
-                U_h[o,o] += B/D
-
-                D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
-                B = - h_core[v,v].copy() + oe.contract('em,aebm->ab', U_h[v,o], A_mag.swapaxes(1,2)[v,v,v,o])
-                U_h[v,v] += B/D
-
-                for j in range(no):
-                    U_h[j,j] = 0
-                for c in range(no,nbf):
-                    U_h[c,c] = 0
-
-            if orbitals == 'non-canonical':
-                U_h[f_,f_] = 0
-                U_h[o_,o_] = 0
-                U_h[v_,v_] = 0
+        # Per-direction DIIS post-processing for magnetic amplitude derivatives.
+        for a in range(3):
+            h_core = h_dep_mag[a]
+            U_h = U_H[a]
 
             # Computing the gradient of the Fock matrix with respect to a magnetic field.
             df_dH = np.zeros((nbf,nbf))
@@ -602,8 +431,8 @@ class analytic_derivative(AnalyticDerivative):
             dE_dH_HF = 2 * oe.contract('ii->', h_core[o,o])
             dE_dH_tot = dE_dH + dE_dH_HF
 
-            # Compute dT1_dR guess amplitudes.
-            dt1_dH = -dE_dH * t1 
+            # Compute dT1_dH guess amplitudes.
+            dt1_dH = -dE_dH * t1
             dt1_dH -= oe.contract('ji,ja->ia', df_dH[o_,o_], t1)
             dt1_dH += oe.contract('ab,ib->ia', df_dH[v_,v_], t1)
             dt1_dH += oe.contract('jabi,jb->ia', 2.0 * dERI_dH[o_,v_,v_,o_] - dERI_dH.swapaxes(2,3)[o_,v_,v_,o_], t1)
@@ -612,8 +441,8 @@ class analytic_derivative(AnalyticDerivative):
             dt1_dH -= oe.contract('kjib,kjab->ia', 2.0 * dERI_dH[o_,o_,o_,v_] - dERI_dH.swapaxes(2,3)[o_,o_,o_,v_], t2)
             dt1_dH /= wfn_CISD.D_ia
 
-            # Compute dT2_dR guess amplitudes.
-            dt2_dH = -dE_dH * t2 
+            # Compute dT2_dH guess amplitudes.
+            dt2_dH = -dE_dH * t2
             dt2_dH += oe.contract('abcj,ic->ijab', dERI_dH[v_,v_,v_,o_], t1)
             dt2_dH += oe.contract('abic,jc->ijab', dERI_dH[v_,v_,o_,v_], t1)
             dt2_dH -= oe.contract('kbij,ka->ijab', dERI_dH[o_,v_,o_,o_], t1)
@@ -754,70 +583,63 @@ class analytic_derivative(AnalyticDerivative):
 
             dT1_dH.append(dt1_dH)
             dT2_dH.append(dt2_dH)
-            U_H.append(U_h)
-
-        # Delete excess variables.
-        #del dERI_dH; del dt1_dH; del dt2_dH; del dRt1_dH; del dRt2_dH; del dt1_dH_old; del dt2_dH_old
-        #del df_dH; del h_core; del B; del U_h; del A_mag; del G_mag
-        #gc.collect()
 
 
         A, G = self._build_cphf_A(ERI, F, no, nv, o, v, sign=+1)
 
-        # Compute and store first derivative integrals.
+        # First pass: collect nuclear perturbation integrals and B vectors.
+        npert_nuc = 3 * natom
+        B_nuc = np.zeros((nv * no, npert_nuc))
+        S_nuc = np.zeros((npert_nuc, nbf, nbf))
+        h_dep_nuc = np.zeros((npert_nuc, nbf, nbf))
+        h_core_store = []
+        ERI_core_store = []
+        half_S_core_store = []
+
         for N1 in atoms:
-            # Compute the skeleton (core) one-electron first derivative integrals in the MO basis.
             T_core = mints.mo_oei_deriv1('KINETIC', N1, C_p4, C_p4)
             V_core = mints.mo_oei_deriv1('POTENTIAL', N1, C_p4, C_p4)
-            S_core = mints.mo_oei_deriv1('OVERLAP', N1, C_p4, C_p4)
-
-            # Compute the skeleton (core) two-electron first derivative integrals in the MO basis.
-            ERI_core = mints.mo_tei_deriv1(N1, C_p4, C_p4, C_p4, C_p4)
-
-            # Compute the half derivative overlap for AAT calculation.
-            half_S_core = mints.mo_overlap_half_deriv1('LEFT', N1, C_p4, C_p4)
+            S_arr = mints.mo_oei_deriv1('OVERLAP', N1, C_p4, C_p4)
+            ERI_arr = mints.mo_tei_deriv1(N1, C_p4, C_p4, C_p4, C_p4)
+            half_S_arr = mints.mo_overlap_half_deriv1('LEFT', N1, C_p4, C_p4)
 
             for a in range(3):
-                # Convert the Psi4 matrices to numpy matrices.
+                k = 3 * N1 + a
                 T_core[a] = T_core[a].np
                 V_core[a] = V_core[a].np
-                S_core[a] = S_core[a].np
+                S_arr[a] = S_arr[a].np
+                ERI_arr[a] = ERI_arr[a].np
+                ERI_arr[a] = ERI_arr[a].swapaxes(1, 2)
+                half_S_arr[a] = half_S_arr[a].np
 
-                ERI_core[a] = ERI_core[a].np
-                ERI_core[a] = ERI_core[a].swapaxes(1,2)
-                half_S_core[a] = half_S_core[a].np
-
-                # Computing skeleton (core) first derivative integrals.
                 h_core = T_core[a] + V_core[a]
-                F_core = T_core[a] + V_core[a] + oe.contract('piqi->pq', 2 * ERI_core[a][:,o,:,o] - ERI_core[a].swapaxes(2,3)[:,o,:,o])
+                F_core = h_core + oe.contract('piqi->pq', 2 * ERI_arr[a][:,o,:,o] - ERI_arr[a].swapaxes(2,3)[:,o,:,o])
 
-                # Compute the perturbation-dependent B matrix for the CPHF coefficients.
-                B = -F_core[v,o] + oe.contract('ai,ii->ai', S_core[a][v,o], F[o,o]) + 0.5 * oe.contract('mn,amin->ai', S_core[a][o,o], A.swapaxes(1,2)[v,o,o,o])
+                B_nuc[:, k] = (-F_core[v,o]
+                               + oe.contract('ai,ii->ai', S_arr[a][v,o], F[o,o])
+                               + 0.5 * oe.contract('mn,amin->ai', S_arr[a][o,o], A.swapaxes(1,2)[v,o,o,o])
+                               ).reshape(nv * no)
+                S_nuc[k] = S_arr[a]
+                h_dep_nuc[k] = F_core
 
-                # Solve for the independent-pairs of the CPHF U-coefficient matrix.
-                U_R = np.zeros((nbf,nbf))
-                U_R[v,o] += (G @ B.reshape((nv*no))).reshape(nv,no)
-                U_R[o,v] -= U_R[v,o].T + S_core[a][o,v]
+                h_core_store.append(h_core)
+                ERI_core_store.append(ERI_arr[a].copy())
+                half_S_core_store.append(half_S_arr[a])
 
-                # Solve for the dependent-pairs of the CPHF U-coefficient matrix.
-                if self.parameters['freeze_core'] == True or orbitals == 'canonical':
-                    D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
-                    B = F_core[o,o].copy() - oe.contract('ij,jj->ij', S_core[a][o,o], F[o,o]) + oe.contract('em,iejm->ij', U_R[v,o], A.swapaxes(1,2)[o,v,o,o]) - 0.5 * oe.contract('mn,imjn->ij', S_core[a][o,o], A.swapaxes(1,2)[o,o,o,o])
-                    U_R[o,o] += B/D
+        # Vectorized nuclear CPHF solve (all 3*natom directions at once).
+        U_R_list = self._solve_cphf(G, A, B_nuc, nbf, no, nv, o, v, F, orbitals, f_, o_, v_,
+                                     ov_sign=-1, S_all=S_nuc, h_dep_all=h_dep_nuc, dep_sign=+1)
 
-                    D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
-                    B = F_core[v,v].copy() - oe.contract('ab,bb->ab', S_core[a][v,v], F[v,v]) + oe.contract('em,aebm->ab', U_R[v,o], A.swapaxes(1,2)[v,v,v,o]) - 0.5 * oe.contract('mn,ambn->ab', S_core[a][o,o], A.swapaxes(1,2)[v,o,v,o])
-                    U_R[v,v] += B/D
-
-                    for j in range(no):
-                        U_R[j,j] = -0.5 * S_core[a][j,j]
-                    for c in range(no,nbf):
-                        U_R[c,c] = -0.5 * S_core[a][c,c]
-
-                if orbitals == 'non-canonical':
-                    U_R[f_,f_] = -0.5 * S_core[a][f_,f_]
-                    U_R[o_,o_] = -0.5 * S_core[a][o_,o_]
-                    U_R[v_,v_] = -0.5 * S_core[a][v_,v_]
+        # Second pass: DIIS for amplitude derivatives and AAT contractions.
+        for N1 in atoms:
+            for a in range(3):
+                k = 3 * N1 + a
+                U_R = U_R_list[k]
+                h_core = h_core_store[k]
+                F_core = h_dep_nuc[k]
+                S_core_a = S_nuc[k]
+                ERI_core_a = ERI_core_store[k]
+                half_S_core_a = half_S_core_store[k]
 
                 # Computing the gradient of the Fock matrix.
                 df_dR = np.zeros((nbf,nbf))
@@ -825,15 +647,15 @@ class analytic_derivative(AnalyticDerivative):
                 df_dR[o,o] += F_core[o,o].copy()
                 df_dR[o,o] += U_R[o,o] * self.wfn.eps[o].reshape(-1,1) + U_R[o,o].swapaxes(0,1) * self.wfn.eps[o]
                 df_dR[o,o] += oe.contract('em,iejm->ij', U_R[v,o], A.swapaxes(1,2)[o,v,o,o])
-                df_dR[o,o] -= 0.5 * oe.contract('mn,imjn->ij', S_core[a][o,o], A.swapaxes(1,2)[o,o,o,o])
+                df_dR[o,o] -= 0.5 * oe.contract('mn,imjn->ij', S_core_a[o,o], A.swapaxes(1,2)[o,o,o,o])
 
                 df_dR[v,v] += F_core[v,v].copy()
                 df_dR[v,v] += U_R[v,v] * self.wfn.eps[v].reshape(-1,1) + U_R[v,v].swapaxes(0,1) * self.wfn.eps[v]
                 df_dR[v,v] += oe.contract('em,aebm->ab', U_R[v,o], A.swapaxes(1,2)[v,v,v,o])
-                df_dR[v,v] -= 0.5 * oe.contract('mn,ambn->ab', S_core[a][o,o], A.swapaxes(1,2)[v,o,v,o])
+                df_dR[v,v] -= 0.5 * oe.contract('mn,ambn->ab', S_core_a[o,o], A.swapaxes(1,2)[v,o,v,o])
 
                 # Computing the gradient of the ERIs.
-                dERI_dR = ERI_core[a].copy()
+                dERI_dR = ERI_core_a.copy()
                 dERI_dR += oe.contract('tp,tqrs->pqrs', U_R[:,t], ERI[:,t,t,t])
                 dERI_dR += oe.contract('tq,ptrs->pqrs', U_R[:,t], ERI[t,:,t,t])
                 dERI_dR += oe.contract('tr,pqts->pqrs', U_R[:,t], ERI[t,t,:,t])
@@ -844,8 +666,8 @@ class analytic_derivative(AnalyticDerivative):
 
                 # Computing the HF energy gradient.
                 dE_dR_HF = 2 * oe.contract('ii->', h_core[o,o])
-                dE_dR_HF += oe.contract('ijij->', 2 * ERI_core[a][o,o,o,o] - ERI_core[a].swapaxes(2,3)[o,o,o,o])
-                dE_dR_HF -= 2 * oe.contract('ii,i->', S_core[a][o,o], self.wfn.eps[o])
+                dE_dR_HF += oe.contract('ijij->', 2 * ERI_core_a[o,o,o,o] - ERI_core_a.swapaxes(2,3)[o,o,o,o])
+                dE_dR_HF -= 2 * oe.contract('ii,i->', S_core_a[o,o], self.wfn.eps[o])
                 dE_dR_HF += Nuc_Gradient[N1][a]
 
                 dE_dR_tot = dE_dR + dE_dR_HF
@@ -1011,19 +833,19 @@ class analytic_derivative(AnalyticDerivative):
 
                     if orbitals == 'canonical':
                         # Computing the Hartree-Fock term of the AAT.
-                        AAT_HF[lambda_alpha][beta] += N**2 * 2 * oe.contract("em,em", U_H[beta][v_, o], U_R[v_, o] + half_S_core[a][o, v_].T)
+                        AAT_HF[lambda_alpha][beta] += N**2 * 2 * oe.contract("em,em", U_H[beta][v_, o], U_R[v_, o] + half_S_core_a[o, v_].T)
 
                         # Singles/Refence terms.
                         AAT_S0[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ai", dt1_dR, U_H[beta][v_,o_])
 
-                        AAT_S0[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ei,ea", t1, U_H[beta][v_,o_], U_R[v_,v_] + half_S_core[a][v_,v_].T)
-                        AAT_S0[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,am,im", t1, U_H[beta][v_,o], U_R[o_,o] + half_S_core[a][o,o_].T)
+                        AAT_S0[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ei,ea", t1, U_H[beta][v_,o_], U_R[v_,v_] + half_S_core_a[v_,v_].T)
+                        AAT_S0[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,am,im", t1, U_H[beta][v_,o], U_R[o_,o] + half_S_core_a[o,o_].T)
 
                         # Reference/Singles terms.
-                        AAT_0S[lambda_alpha][beta] += N**2 * 2 * oe.contract("kc,ck", dT1_dH[beta], U_R[v_,o_] + half_S_core[a][o_,v_].T)
+                        AAT_0S[lambda_alpha][beta] += N**2 * 2 * oe.contract("kc,ck", dT1_dH[beta], U_R[v_,o_] + half_S_core_a[o_,v_].T)
 
-                        AAT_0S[lambda_alpha][beta] += N**2 * 2 * oe.contract("kc,fc,fk", t1, U_H[beta][v_,v_], U_R[v_,o_] + half_S_core[a][o_,v_].T) # Canonical
-                        AAT_0S[lambda_alpha][beta] -= N**2 * 2 * oe.contract("kc,kn,cn", t1, U_H[beta][o_,o], U_R[v_,o] + half_S_core[a][o,v_].T)                
+                        AAT_0S[lambda_alpha][beta] += N**2 * 2 * oe.contract("kc,fc,fk", t1, U_H[beta][v_,v_], U_R[v_,o_] + half_S_core_a[o_,v_].T) # Canonical
+                        AAT_0S[lambda_alpha][beta] -= N**2 * 2 * oe.contract("kc,kn,cn", t1, U_H[beta][o_,o], U_R[v_,o] + half_S_core_a[o,v_].T)                
 
                         # Singles/Singles terms.
                         AAT_SS[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ia", dt1_dR, dT1_dH[beta])
@@ -1031,42 +853,42 @@ class analytic_derivative(AnalyticDerivative):
                         AAT_SS[lambda_alpha][beta] += N**2 * 2 * oe.contract("kc,cf,kf", dt1_dR, U_H[beta][v_,v_], t1) # Canonical
                         AAT_SS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("kc,nk,nc", dt1_dR, U_H[beta][o_,o_], t1) # Canonical
 
-                        AAT_SS[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ae,ie", dT1_dH[beta], U_R[v_,v_] + half_S_core[a][v_,v_].T, t1)
-                        AAT_SS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,mi,ma", dT1_dH[beta], U_R[o_,o_] + half_S_core[a][o_,o_].T, t1)
+                        AAT_SS[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ae,ie", dT1_dH[beta], U_R[v_,v_] + half_S_core_a[v_,v_].T, t1)
+                        AAT_SS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,mi,ma", dT1_dH[beta], U_R[o_,o_] + half_S_core_a[o_,o_].T, t1)
 
-                        AAT_SS[lambda_alpha][beta] += N**2 * 2 * oe.contract("kc,fc,fa,ka", t1, U_H[beta][v_,v_], U_R[v_,v_] + half_S_core[a][v_,v_].T, t1) # Canonical
-                        AAT_SS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("kc,fc,ik,if", t1, U_H[beta][v_,v_], U_R[o_,o_] + half_S_core[a][o_,o_].T, t1) # Canonical    # TPD Contributor - Remove
-                        AAT_SS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("kc,kn,ca,na", t1, U_H[beta][o_,o_], U_R[v_,v_] + half_S_core[a][v_,v_].T, t1) # Canonical    # TPD Contributor - Remove
-                        AAT_SS[lambda_alpha][beta] += N**2 * 2 * oe.contract("kc,kn,in,ic", t1, U_H[beta][o_,o], U_R[o_,o] + half_S_core[a][o,o_].T, t1)
-                        AAT_SS[lambda_alpha][beta] += N**2 * 4 * oe.contract("kc,kc,ia,ia", t1, U_H[beta][o_,v_], U_R[o_,v_] + half_S_core[a][v_,o_].T, t1)                # TPD Contributor - Remove
-                        AAT_SS[lambda_alpha][beta] += N**2 * 4 * oe.contract("kc,fn,fn,kc", t1, U_H[beta][v_,o], U_R[v_,o] + half_S_core[a][o,v_].T, t1)
-                        AAT_SS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("kc,fn,fk,nc", t1, U_H[beta][v_,o_], U_R[v_,o_] + half_S_core[a][o_,v_].T, t1)
-                        AAT_SS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("kc,fn,cn,kf", t1, U_H[beta][v_,o], U_R[v_,o] + half_S_core[a][o,v_].T, t1)
-                        AAT_SS[lambda_alpha][beta] += N**2 * 4 * oe.contract("kc,fn,ck,nf", t1, U_H[beta][v_,o_], U_R[v_,o_] + half_S_core[a][o_,v_].T, t1)                # TPD Contributor - Remove
+                        AAT_SS[lambda_alpha][beta] += N**2 * 2 * oe.contract("kc,fc,fa,ka", t1, U_H[beta][v_,v_], U_R[v_,v_] + half_S_core_a[v_,v_].T, t1) # Canonical
+                        AAT_SS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("kc,fc,ik,if", t1, U_H[beta][v_,v_], U_R[o_,o_] + half_S_core_a[o_,o_].T, t1) # Canonical    # TPD Contributor - Remove
+                        AAT_SS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("kc,kn,ca,na", t1, U_H[beta][o_,o_], U_R[v_,v_] + half_S_core_a[v_,v_].T, t1) # Canonical    # TPD Contributor - Remove
+                        AAT_SS[lambda_alpha][beta] += N**2 * 2 * oe.contract("kc,kn,in,ic", t1, U_H[beta][o_,o], U_R[o_,o] + half_S_core_a[o,o_].T, t1)
+                        AAT_SS[lambda_alpha][beta] += N**2 * 4 * oe.contract("kc,kc,ia,ia", t1, U_H[beta][o_,v_], U_R[o_,v_] + half_S_core_a[v_,o_].T, t1)                # TPD Contributor - Remove
+                        AAT_SS[lambda_alpha][beta] += N**2 * 4 * oe.contract("kc,fn,fn,kc", t1, U_H[beta][v_,o], U_R[v_,o] + half_S_core_a[o,v_].T, t1)
+                        AAT_SS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("kc,fn,fk,nc", t1, U_H[beta][v_,o_], U_R[v_,o_] + half_S_core_a[o_,v_].T, t1)
+                        AAT_SS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("kc,fn,cn,kf", t1, U_H[beta][v_,o], U_R[v_,o] + half_S_core_a[o,v_].T, t1)
+                        AAT_SS[lambda_alpha][beta] += N**2 * 4 * oe.contract("kc,fn,ck,nf", t1, U_H[beta][v_,o_], U_R[v_,o_] + half_S_core_a[o_,v_].T, t1)                # TPD Contributor - Remove
 
                         # Doubles/Singles terms.
                         AAT_DS[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,bj,ia", 2*dt2_dR - dt2_dR.swapaxes(2,3), U_H[beta][v_,o_], t1)
 
-                        AAT_DS[lambda_alpha][beta] += N**2 * 2 * oe.contract("kc,ia,ikac", dT1_dH[beta], U_R[o_,v_] + half_S_core[a][v_,o_].T, 2*t2 - t2.swapaxes(2,3))
+                        AAT_DS[lambda_alpha][beta] += N**2 * 2 * oe.contract("kc,ia,ikac", dT1_dH[beta], U_R[o_,v_] + half_S_core_a[v_,o_].T, 2*t2 - t2.swapaxes(2,3))
 
-                        AAT_DS[lambda_alpha][beta] += N**2 * 2 * oe.contract("kc,fc,ia,ikaf", t1, U_H[beta][v_,v_], U_R[o_,v_] + half_S_core[a][v_,o_].T, 2*t2 - t2.swapaxes(2,3)) # Canonical # TPD Contributor - Remove
-                        AAT_DS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("kc,kn,ia,inac", t1, U_H[beta][o_,o_], U_R[o_,v_] + half_S_core[a][v_,o_].T, 2*t2 - t2.swapaxes(2,3)) # Canonical # TPD Contributor - Remove
-                        AAT_DS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("kc,fn,ik,incf", t1, U_H[beta][v_,o_], U_R[o_,o_] + half_S_core[a][o_,o_].T, 2*t2 - t2.swapaxes(2,3))             # TPD Contributor - Remove
-                        AAT_DS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("kc,fn,in,ikfc", t1, U_H[beta][v_,o], U_R[o_,o] + half_S_core[a][o,o_].T, 2*t2 - t2.swapaxes(2,3))
-                        AAT_DS[lambda_alpha][beta] += N**2 * 2 * oe.contract("kc,fn,ca,knaf", t1, U_H[beta][v_,o_], U_R[v_,v_] + half_S_core[a][v_,v_].T, 2*t2 - t2.swapaxes(2,3))             # TPD Contributor - Remove
-                        AAT_DS[lambda_alpha][beta] += N**2 * 2 * oe.contract("kc,fn,fa,knca", t1, U_H[beta][v_,o_], U_R[v_,v_] + half_S_core[a][v_,v_].T, 2*t2 - t2.swapaxes(2,3))
+                        AAT_DS[lambda_alpha][beta] += N**2 * 2 * oe.contract("kc,fc,ia,ikaf", t1, U_H[beta][v_,v_], U_R[o_,v_] + half_S_core_a[v_,o_].T, 2*t2 - t2.swapaxes(2,3)) # Canonical # TPD Contributor - Remove
+                        AAT_DS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("kc,kn,ia,inac", t1, U_H[beta][o_,o_], U_R[o_,v_] + half_S_core_a[v_,o_].T, 2*t2 - t2.swapaxes(2,3)) # Canonical # TPD Contributor - Remove
+                        AAT_DS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("kc,fn,ik,incf", t1, U_H[beta][v_,o_], U_R[o_,o_] + half_S_core_a[o_,o_].T, 2*t2 - t2.swapaxes(2,3))             # TPD Contributor - Remove
+                        AAT_DS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("kc,fn,in,ikfc", t1, U_H[beta][v_,o], U_R[o_,o] + half_S_core_a[o,o_].T, 2*t2 - t2.swapaxes(2,3))
+                        AAT_DS[lambda_alpha][beta] += N**2 * 2 * oe.contract("kc,fn,ca,knaf", t1, U_H[beta][v_,o_], U_R[v_,v_] + half_S_core_a[v_,v_].T, 2*t2 - t2.swapaxes(2,3))             # TPD Contributor - Remove
+                        AAT_DS[lambda_alpha][beta] += N**2 * 2 * oe.contract("kc,fn,fa,knca", t1, U_H[beta][v_,o_], U_R[v_,v_] + half_S_core_a[v_,v_].T, 2*t2 - t2.swapaxes(2,3))
 
                         # Singles/Doubles terms.
                         AAT_SD[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,kc,ikac", dt1_dR, U_H[beta][o_,v_], 2*t2 - t2.swapaxes(2,3))
 
-                        AAT_SD[lambda_alpha][beta] += N**2 * 2 * oe.contract("klcd,dl,kc", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), U_R[v_,o_] + half_S_core[a][o_,v_].T, t1)
+                        AAT_SD[lambda_alpha][beta] += N**2 * 2 * oe.contract("klcd,dl,kc", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), U_R[v_,o_] + half_S_core_a[o_,v_].T, t1)
 
-                        AAT_SD[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,kc,ea,kice", t1, U_H[beta][o_,v_], U_R[v_,v_] + half_S_core[a][v_,v_].T, 2*t2 - t2.swapaxes(2,3))             # TPD Contributor - Remove
-                        AAT_SD[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,kc,im,kmca", t1, U_H[beta][o_,v_], U_R[o_,o_] + half_S_core[a][o_,o_].T, 2*t2 - t2.swapaxes(2,3))             # TPD Contributor - Remove
-                        AAT_SD[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ac,em,imce", t1, U_H[beta][v_,v_], U_R[v_,o_] + half_S_core[a][o_,v_].T, 2*t2 - t2.swapaxes(2,3)) # Canonical # TPD Contributor - Remove
-                        AAT_SD[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ec,em,imac", t1, U_H[beta][v_,v_], U_R[v_,o_] + half_S_core[a][o_,v_].T, 2*t2 - t2.swapaxes(2,3)) # Canonical
-                        AAT_SD[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,ki,em,kmae", t1, U_H[beta][o_,o_], U_R[v_,o_] + half_S_core[a][o_,v_].T, 2*t2 - t2.swapaxes(2,3)) # Canonical # TPD Contributor - Remove
-                        AAT_SD[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,km,em,kiea", t1, U_H[beta][o_,o], U_R[v_,o] + half_S_core[a][o,v_].T, 2*t2 - t2.swapaxes(2,3))
+                        AAT_SD[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,kc,ea,kice", t1, U_H[beta][o_,v_], U_R[v_,v_] + half_S_core_a[v_,v_].T, 2*t2 - t2.swapaxes(2,3))             # TPD Contributor - Remove
+                        AAT_SD[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,kc,im,kmca", t1, U_H[beta][o_,v_], U_R[o_,o_] + half_S_core_a[o_,o_].T, 2*t2 - t2.swapaxes(2,3))             # TPD Contributor - Remove
+                        AAT_SD[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ac,em,imce", t1, U_H[beta][v_,v_], U_R[v_,o_] + half_S_core_a[o_,v_].T, 2*t2 - t2.swapaxes(2,3)) # Canonical # TPD Contributor - Remove
+                        AAT_SD[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ec,em,imac", t1, U_H[beta][v_,v_], U_R[v_,o_] + half_S_core_a[o_,v_].T, 2*t2 - t2.swapaxes(2,3)) # Canonical
+                        AAT_SD[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,ki,em,kmae", t1, U_H[beta][o_,o_], U_R[v_,o_] + half_S_core_a[o_,v_].T, 2*t2 - t2.swapaxes(2,3)) # Canonical # TPD Contributor - Remove
+                        AAT_SD[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,km,em,kiea", t1, U_H[beta][o_,o], U_R[v_,o] + half_S_core_a[o,v_].T, 2*t2 - t2.swapaxes(2,3))
 
                         # Doubles/Doubles terms.
                         AAT_DD[lambda_alpha][beta] += N**2 * oe.contract("ijab,ijab", 2*dt2_dR - dt2_dR.swapaxes(2,3), dT2_dH[beta])
@@ -1074,14 +896,14 @@ class analytic_derivative(AnalyticDerivative):
                         AAT_DD[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ijab,kjab,ki", 2*dt2_dR - dt2_dR.swapaxes(2,3), t2, U_H[beta][o_, o_]) # Canonical
                         AAT_DD[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,ijcb,ac", 2*dt2_dR - dt2_dR.swapaxes(2,3), t2, U_H[beta][v_, v_]) # Canonical
 
-                        AAT_DD[lambda_alpha][beta] -= N**2 * 2 * oe.contract("klcd,mlcd,mk", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[o_, o_] + half_S_core[a][o_, o_].T)
-                        AAT_DD[lambda_alpha][beta] += N**2 * 2 * oe.contract("klcd,kled,ce", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[v_, v_] + half_S_core[a][v_, v_].T)
+                        AAT_DD[lambda_alpha][beta] -= N**2 * 2 * oe.contract("klcd,mlcd,mk", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[o_, o_] + half_S_core_a[o_, o_].T)
+                        AAT_DD[lambda_alpha][beta] += N**2 * 2 * oe.contract("klcd,kled,ce", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[v_, v_] + half_S_core_a[v_, v_].T)
 
-                        AAT_DD[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,kjab,km,im", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][o_, o], U_R[o_, o] + half_S_core[a][o, o_].T)
-                        AAT_DD[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,ijcb,ec,ea", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, v_], U_R[v_, v_] + half_S_core[a][v_, v_].T) # Canonical
-                        AAT_DD[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,ijab,em,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o], U_R[v_, o] + half_S_core[a][o, v_].T)
-                        AAT_DD[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ijab,imab,ej,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o_], U_R[v_, o_] + half_S_core[a][o_, v_].T)
-                        AAT_DD[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ijab,ijae,bm,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o], U_R[v_, o] + half_S_core[a][o, v_].T)
+                        AAT_DD[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,kjab,km,im", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][o_, o], U_R[o_, o] + half_S_core_a[o, o_].T)
+                        AAT_DD[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,ijcb,ec,ea", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, v_], U_R[v_, v_] + half_S_core_a[v_, v_].T) # Canonical
+                        AAT_DD[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,ijab,em,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o], U_R[v_, o] + half_S_core_a[o, v_].T)
+                        AAT_DD[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ijab,imab,ej,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o_], U_R[v_, o_] + half_S_core_a[o_, v_].T)
+                        AAT_DD[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ijab,ijae,bm,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o], U_R[v_, o] + half_S_core_a[o, v_].T)
 
                         # Adding terms for full normalization. 
                         if normalization == 'full':
@@ -1099,57 +921,57 @@ class analytic_derivative(AnalyticDerivative):
 
                     if orbitals == 'non-canonical':
                         # Computing the Hartree-Fock term of the AAT.
-                        AAT_HF[lambda_alpha][beta] += N**2 * 2 * oe.contract("em,em", U_H[beta][v_, o], U_R[v_, o] + half_S_core[a][o, v_].T)
+                        AAT_HF[lambda_alpha][beta] += N**2 * 2 * oe.contract("em,em", U_H[beta][v_, o], U_R[v_, o] + half_S_core_a[o, v_].T)
 
                         # Singles/Refence terms.
                         AAT_S0[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ai", dt1_dR, U_H[beta][v_,o_])
 
-                        AAT_S0[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ei,ea", t1, U_H[beta][v_,o_], U_R[v_,v_] + half_S_core[a][v_,v_].T)
-                        AAT_S0[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,am,im", t1, U_H[beta][v_,o], U_R[o_,o] + half_S_core[a][o,o_].T)
+                        AAT_S0[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ei,ea", t1, U_H[beta][v_,o_], U_R[v_,v_] + half_S_core_a[v_,v_].T)
+                        AAT_S0[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,am,im", t1, U_H[beta][v_,o], U_R[o_,o] + half_S_core_a[o,o_].T)
 
                         # Reference/Singles terms.
-                        AAT_0S[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ai", dT1_dH[beta], U_R[v_,o_] + half_S_core[a][o_,v_].T)
+                        AAT_0S[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ai", dT1_dH[beta], U_R[v_,o_] + half_S_core_a[o_,v_].T)
 
-                        AAT_0S[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,im,am", t1, U_H[beta][o_,o], U_R[v_,o] + half_S_core[a][o,v_].T)
+                        AAT_0S[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,im,am", t1, U_H[beta][o_,o], U_R[v_,o] + half_S_core_a[o,v_].T)
 
                         # Singles/Singles terms.
                         AAT_SS[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ia", dt1_dR, dT1_dH[beta])
 
-                        AAT_SS[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ae,ie", dT1_dH[beta], U_R[v_,v_] + half_S_core[a][v_,v_].T, t1)
-                        AAT_SS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,mi,ma", dT1_dH[beta], U_R[o_,o_] + half_S_core[a][o_,o_].T, t1)
+                        AAT_SS[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ae,ie", dT1_dH[beta], U_R[v_,v_] + half_S_core_a[v_,v_].T, t1)
+                        AAT_SS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,mi,ma", dT1_dH[beta], U_R[o_,o_] + half_S_core_a[o_,o_].T, t1)
 
-                        AAT_SS[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,im,km,ka", t1, U_H[beta][o_,o], U_R[o_,o] + half_S_core[a][o,o_].T, t1)
-                        AAT_SS[lambda_alpha][beta] += N**2 * 4 * oe.contract("ia,ia,kc,kc", t1, U_H[beta][o_,v_], U_R[o_,v_] + half_S_core[a][v_,o_].T, t1)
-                        AAT_SS[lambda_alpha][beta] += N**2 * 4 * oe.contract("ia,em,em,ia", t1, U_H[beta][v_,o], U_R[v_,o] + half_S_core[a][o,v_].T, t1)
-                        AAT_SS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,em,ei,ma", t1, U_H[beta][v_,o_], U_R[v_,o_] + half_S_core[a][o_,v_].T, t1)
-                        AAT_SS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,em,am,ie", t1, U_H[beta][v_,o], U_R[v_,o] + half_S_core[a][o,v_].T, t1)
-                        AAT_SS[lambda_alpha][beta] += N**2 * 4 * oe.contract("ia,em,ai,me", t1, U_H[beta][v_,o_], U_R[v_,o_] + half_S_core[a][o_,v_].T, t1)
+                        AAT_SS[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,im,km,ka", t1, U_H[beta][o_,o], U_R[o_,o] + half_S_core_a[o,o_].T, t1)
+                        AAT_SS[lambda_alpha][beta] += N**2 * 4 * oe.contract("ia,ia,kc,kc", t1, U_H[beta][o_,v_], U_R[o_,v_] + half_S_core_a[v_,o_].T, t1)
+                        AAT_SS[lambda_alpha][beta] += N**2 * 4 * oe.contract("ia,em,em,ia", t1, U_H[beta][v_,o], U_R[v_,o] + half_S_core_a[o,v_].T, t1)
+                        AAT_SS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,em,ei,ma", t1, U_H[beta][v_,o_], U_R[v_,o_] + half_S_core_a[o_,v_].T, t1)
+                        AAT_SS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,em,am,ie", t1, U_H[beta][v_,o], U_R[v_,o] + half_S_core_a[o,v_].T, t1)
+                        AAT_SS[lambda_alpha][beta] += N**2 * 4 * oe.contract("ia,em,ai,me", t1, U_H[beta][v_,o_], U_R[v_,o_] + half_S_core_a[o_,v_].T, t1)
 
                         # Doubles/Singles terms.
                         AAT_DS[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,bj,ia", 2*dt2_dR - dt2_dR.swapaxes(2,3), U_H[beta][v_,o_], t1)
 
-                        AAT_DS[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,kc,ikac", dT1_dH[beta], U_R[o_,v_] + half_S_core[a][v_,o_].T, 2*t2 - t2.swapaxes(2,3))
+                        AAT_DS[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,kc,ikac", dT1_dH[beta], U_R[o_,v_] + half_S_core_a[v_,o_].T, 2*t2 - t2.swapaxes(2,3))
 
-                        AAT_DS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,em,km,kiea", t1, U_H[beta][v_,o], U_R[o_,o] + half_S_core[a][o,o_].T, 2*t2 - t2.swapaxes(2,3))
-                        AAT_DS[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,em,ec,imac", t1, U_H[beta][v_,o_], U_R[v_,v_] + half_S_core[a][v_,v_].T, 2*t2 - t2.swapaxes(2,3))
+                        AAT_DS[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,em,km,kiea", t1, U_H[beta][v_,o], U_R[o_,o] + half_S_core_a[o,o_].T, 2*t2 - t2.swapaxes(2,3))
+                        AAT_DS[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,em,ec,imac", t1, U_H[beta][v_,o_], U_R[v_,v_] + half_S_core_a[v_,v_].T, 2*t2 - t2.swapaxes(2,3))
 
                         # Singles/Doubles terms.
                         AAT_SD[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,kc,ikac", dt1_dR, U_H[beta][o_,v_], 2*t2 - t2.swapaxes(2,3))
 
-                        AAT_SD[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,bj,ia", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), U_R[v_,o_] + half_S_core[a][o_,v_].T, t1)
+                        AAT_SD[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,bj,ia", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), U_R[v_,o_] + half_S_core_a[o_,v_].T, t1)
 
-                        AAT_SD[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,km,em,kiea", t1, U_H[beta][o_,o], U_R[v_,o] + half_S_core[a][o,v_].T, 2*t2 - t2.swapaxes(2,3))
+                        AAT_SD[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,km,em,kiea", t1, U_H[beta][o_,o], U_R[v_,o] + half_S_core_a[o,v_].T, 2*t2 - t2.swapaxes(2,3))
 
                         # Doubles/Doubles terms.
                         AAT_DD[lambda_alpha][beta] += N**2 * oe.contract("ijab,ijab", 2*dt2_dR - dt2_dR.swapaxes(2,3), dT2_dH[beta])
 
-                        AAT_DD[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ijab,kjab,ki", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[o_, o_] + half_S_core[a][o_, o_].T)
-                        AAT_DD[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,ijcb,ac", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[v_, v_] + half_S_core[a][v_, v_].T)
+                        AAT_DD[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ijab,kjab,ki", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[o_, o_] + half_S_core_a[o_, o_].T)
+                        AAT_DD[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,ijcb,ac", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, U_R[v_, v_] + half_S_core_a[v_, v_].T)
 
-                        AAT_DD[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,kjab,km,im", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][o_, o], U_R[o_, o] + half_S_core[a][o, o_].T)
-                        AAT_DD[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,ijab,em,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o], U_R[v_, o] + half_S_core[a][o, v_].T)
-                        AAT_DD[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ijab,imab,ej,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o_], U_R[v_, o_] + half_S_core[a][o_, v_].T)
-                        AAT_DD[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ijab,ijae,bm,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o], U_R[v_, o] + half_S_core[a][o, v_].T)
+                        AAT_DD[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,kjab,km,im", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][o_, o], U_R[o_, o] + half_S_core_a[o, o_].T)
+                        AAT_DD[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,ijab,em,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o], U_R[v_, o] + half_S_core_a[o, v_].T)
+                        AAT_DD[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ijab,imab,ej,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o_], U_R[v_, o_] + half_S_core_a[o_, v_].T)
+                        AAT_DD[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ijab,ijae,bm,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o], U_R[v_, o] + half_S_core_a[o, v_].T)
 
                         # Adding terms for full normalization. 
                         if normalization == 'full':
@@ -1162,51 +984,51 @@ class analytic_derivative(AnalyticDerivative):
                     ######### Test #########
                     #if orbitals == 'non-canonical' and self.parameters['freeze_core'] == False:
                     #    # Computing the Hartree-Fock term of the AAT.
-                    #    AAT_HF_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("em,em", U_H[beta][v_, o], U_R[v_, o] + half_S_core[a][o, v_].T)
+                    #    AAT_HF_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("em,em", U_H[beta][v_, o], U_R[v_, o] + half_S_core_a[o, v_].T)
 
                     #    # Singles/Refence terms.
                     #    AAT_S0_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ai", dt1_dR, U_H[beta][v_,o_])
 
-                    #    AAT_S0_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ei,ea", t1, U_H[beta][v_,o_], -0.5*S_core[a][v_,v_] + half_S_core[a][v_,v_].T)
-                    #    AAT_S0_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,am,im", t1, U_H[beta][v_,o], -0.5*S_core[a][o_,o] + half_S_core[a][o,o_].T)
+                    #    AAT_S0_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ei,ea", t1, U_H[beta][v_,o_], -0.5*S_core[a][v_,v_] + half_S_core_a[v_,v_].T)
+                    #    AAT_S0_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,am,im", t1, U_H[beta][v_,o], -0.5*S_core[a][o_,o] + half_S_core_a[o,o_].T)
 
                     #    # Reference/Singles terms.
-                    #    AAT_0S_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ai", dT1_dH[beta], U_R[v_,o_] + half_S_core[a][o_,v_].T)
+                    #    AAT_0S_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ai", dT1_dH[beta], U_R[v_,o_] + half_S_core_a[o_,v_].T)
 
                     #    # Singles/Singles terms.
                     #    AAT_SS_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ia", dt1_dR, dT1_dH[beta])
 
-                    #    AAT_SS_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ae,ie", dT1_dH[beta], -0.5*S_core[a][v_,v_] + half_S_core[a][v_,v_].T, t1)
-                    #    AAT_SS_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,mi,ma", dT1_dH[beta], -0.5*S_core[a][o_,o_] + half_S_core[a][o_,o_].T, t1)
+                    #    AAT_SS_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ae,ie", dT1_dH[beta], -0.5*S_core[a][v_,v_] + half_S_core_a[v_,v_].T, t1)
+                    #    AAT_SS_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,mi,ma", dT1_dH[beta], -0.5*S_core[a][o_,o_] + half_S_core_a[o_,o_].T, t1)
 
-                    #    AAT_SS_test[lambda_alpha][beta] += N**2 * 4 * oe.contract("ia,ia,kc,kc", t1, U_H[beta][o_,v_], U_R[o_,v_] + half_S_core[a][v_,o_].T, t1)
-                    #    AAT_SS_test[lambda_alpha][beta] += N**2 * 4 * oe.contract("ia,em,em,ia", t1, U_H[beta][v_,o], U_R[v_,o] + half_S_core[a][o,v_].T, t1)
-                    #    AAT_SS_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,em,ei,ma", t1, U_H[beta][v_,o_], U_R[v_,o_] + half_S_core[a][o_,v_].T, t1)
-                    #    AAT_SS_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,em,am,ie", t1, U_H[beta][v_,o], U_R[v_,o] + half_S_core[a][o,v_].T, t1)
-                    #    AAT_SS_test[lambda_alpha][beta] += N**2 * 4 * oe.contract("ia,em,ai,me", t1, U_H[beta][v_,o_], U_R[v_,o_] + half_S_core[a][o_,v_].T, t1)
+                    #    AAT_SS_test[lambda_alpha][beta] += N**2 * 4 * oe.contract("ia,ia,kc,kc", t1, U_H[beta][o_,v_], U_R[o_,v_] + half_S_core_a[v_,o_].T, t1)
+                    #    AAT_SS_test[lambda_alpha][beta] += N**2 * 4 * oe.contract("ia,em,em,ia", t1, U_H[beta][v_,o], U_R[v_,o] + half_S_core_a[o,v_].T, t1)
+                    #    AAT_SS_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,em,ei,ma", t1, U_H[beta][v_,o_], U_R[v_,o_] + half_S_core_a[o_,v_].T, t1)
+                    #    AAT_SS_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,em,am,ie", t1, U_H[beta][v_,o], U_R[v_,o] + half_S_core_a[o,v_].T, t1)
+                    #    AAT_SS_test[lambda_alpha][beta] += N**2 * 4 * oe.contract("ia,em,ai,me", t1, U_H[beta][v_,o_], U_R[v_,o_] + half_S_core_a[o_,v_].T, t1)
 
                     #    # Doubles/Singles terms.
                     #    AAT_DS_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,bj,ia", 2*dt2_dR - dt2_dR.swapaxes(2,3), U_H[beta][v_,o_], t1)
 
-                    #    AAT_DS_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,kc,ikac", dT1_dH[beta], U_R[o_,v_] + half_S_core[a][v_,o_].T, 2*t2 - t2.swapaxes(2,3))
+                    #    AAT_DS_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,kc,ikac", dT1_dH[beta], U_R[o_,v_] + half_S_core_a[v_,o_].T, 2*t2 - t2.swapaxes(2,3))
 
-                    #    AAT_DS_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,em,km,kiea", t1, U_H[beta][v_,o], -0.5*S_core[a][o_,o] + half_S_core[a][o,o_].T, 2*t2 - t2.swapaxes(2,3))
-                    #    AAT_DS_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,em,ec,imac", t1, U_H[beta][v_,o_], -0.5*S_core[a][v_,v_] + half_S_core[a][v_,v_].T, 2*t2 - t2.swapaxes(2,3))
+                    #    AAT_DS_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,em,km,kiea", t1, U_H[beta][v_,o], -0.5*S_core[a][o_,o] + half_S_core_a[o,o_].T, 2*t2 - t2.swapaxes(2,3))
+                    #    AAT_DS_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,em,ec,imac", t1, U_H[beta][v_,o_], -0.5*S_core[a][v_,v_] + half_S_core_a[v_,v_].T, 2*t2 - t2.swapaxes(2,3))
 
                     #    # Singles/Doubles terms.
                     #    AAT_SD_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,kc,ikac", dt1_dR, U_H[beta][o_,v_], 2*t2 - t2.swapaxes(2,3))
 
-                    #    AAT_SD_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,bj,ia", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), U_R[v_,o_] + half_S_core[a][o_,v_].T, t1)
+                    #    AAT_SD_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,bj,ia", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), U_R[v_,o_] + half_S_core_a[o_,v_].T, t1)
 
                     #    # Doubles/Doubles terms.
                     #    AAT_DD_test[lambda_alpha][beta] += N**2 * oe.contract("ijab,ijab", 2*dt2_dR - dt2_dR.swapaxes(2,3), dT2_dH[beta])
 
-                    #    AAT_DD_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ijab,kjab,ki", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, -0.5*S_core[a][o_, o_] + half_S_core[a][o_, o_].T)
-                    #    AAT_DD_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,ijcb,ac", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, -0.5*S_core[a][v_, v_] + half_S_core[a][v_, v_].T)
+                    #    AAT_DD_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ijab,kjab,ki", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, -0.5*S_core[a][o_, o_] + half_S_core_a[o_, o_].T)
+                    #    AAT_DD_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,ijcb,ac", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, -0.5*S_core[a][v_, v_] + half_S_core_a[v_, v_].T)
 
-                    #    AAT_DD_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,ijab,em,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o], U_R[v_, o] + half_S_core[a][o, v_].T)
-                    #    AAT_DD_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ijab,imab,ej,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o_], U_R[v_, o_] + half_S_core[a][o_, v_].T)
-                    #    AAT_DD_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ijab,ijae,bm,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o], U_R[v_, o] + half_S_core[a][o, v_].T)
+                    #    AAT_DD_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,ijab,em,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o], U_R[v_, o] + half_S_core_a[o, v_].T)
+                    #    AAT_DD_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ijab,imab,ej,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o_], U_R[v_, o_] + half_S_core_a[o_, v_].T)
+                    #    AAT_DD_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ijab,ijae,bm,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o], U_R[v_, o] + half_S_core_a[o, v_].T)
 
                     #    # Adding terms for full normalization. 
                     #    if normalization == 'full':

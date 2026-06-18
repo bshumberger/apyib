@@ -22,117 +22,73 @@ class analytic_derivative(AnalyticDerivative):
         o, v, t = m.o, m.v, m.t
         C_p4, natom, atoms = m.C_p4, m.natom, m.atoms
         h, ERI, F, mints = m.h, m.ERI, m.F, m.mints
-        Nuc_Gradient = self.H.molecule.nuclear_repulsion_energy_deriv1().np
 
-        # Set up the atomic axial tensor.
         APT = np.zeros((natom * 3, 3))
-
-        # Set up U-coefficient matrices for APT calculations.
-        U_E = []
 
         A, G = self._build_cphf_A(ERI, F, no, nv, o, v, sign=+1)
 
-        # Get the electric dipole AO integrals and transform into the MO basis.
+        # Collect electric dipole integrals and build CPHF B vectors for 3 field directions.
         mu_AO = mints.ao_dipole()
+        B_elec = np.zeros((nv * no, 3))
+        h_dep_elec = np.zeros((3, nbf, nbf))
         h_E = []
-        F_E = []
-
         for b in range(3):
             mu_AO[b] = mu_AO[b].np
             mu = oe.contract('mp,mn,nq->pq', np.conjugate(C), mu_AO[b], C)
+            B_elec[:, b] = -mu[v, o].reshape(nv * no)
+            h_dep_elec[b] = mu
+            h_E.append(mu)
 
-            # Computing skeleton (core) first derivative integrals.
-            h_b = mu
-
-            # Compute the perturbation-dependent B matrix for the CPHF coefficients with respect to a electric field.
-            B = -h_b[v,o]
-
-            # Solve for the independent-pairs of the CPHF U-coefficient matrix with respect to a electric field.
-            U_b = np.zeros((nbf,nbf))
-            U_b[v,o] += (G @ B.reshape((nv*no))).reshape(nv,no)
-            U_b[o,v] -= U_b[v,o].T
-
-            # Solve for the dependent-pairs of the CPHF U-coefficient matrix with respect to an electric field.
-            if self.parameters['freeze_core'] == True or orbitals == 'canonical':
-                D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
-                B = h_b[o,o].copy() + oe.contract('em,iejm->ij', U_b[v,o], A.swapaxes(1,2)[o,v,o,o])
-                U_b[o,o] += B/D
-
-                D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
-                B = h_b[v,v].copy() + oe.contract('em,aebm->ab', U_b[v,o], A.swapaxes(1,2)[v,v,v,o])
-                U_b[v,v] += B/D
-
-                for j in range(no):
-                    U_b[j,j] = 0
-                for c in range(no,nbf):
-                    U_b[c,c] = 0
-
-            if orbitals == 'non-canonical':
-                U_b[f_,f_] = 0
-                U_b[o_,o_] = 0
-                U_b[v_,v_] = 0
-
-            # Appending to lists.
-            U_E.append(U_b)
-            h_E.append(h_b)
-            F_E.append(h_b)
-            #print(U_b)
+        # Vectorized CPHF solve for all 3 electric field directions simultaneously.
+        # ov_sign=-1: real perturbation (U[o,v] = -U[v,o].T, no overlap derivative).
+        # dep_sign=+1: B_oo = +h[o,o] + U*A.
+        U_E = self._solve_cphf(G, A, B_elec, nbf, no, nv, o, v, F, orbitals, f_, o_, v_,
+                                ov_sign=-1, h_dep_all=h_dep_elec, dep_sign=+1)
 
         for N1 in atoms:
-            # Compute the nuclear skeleton (core) one-electron first derivative integrals in the MO basis.
             T_a = mints.mo_oei_deriv1('KINETIC', N1, C_p4, C_p4)
             V_a = mints.mo_oei_deriv1('POTENTIAL', N1, C_p4, C_p4)
             S_a = mints.mo_oei_deriv1('OVERLAP', N1, C_p4, C_p4)
-
-            # Compute the nuclear skeleton (core) two-electron first derivative integrals in the MO basis.
             ERI_a = mints.mo_tei_deriv1(N1, C_p4, C_p4, C_p4, C_p4)
-
-            # Compute the mixed nuclear/electric skeleton (core) one-electron second derivative integrals in the MO basis.
             h_ab = mints.ao_elec_dip_deriv1(N1)
 
             for a in range(3):
-                # Convert the Psi4 matrices to numpy matrices.
                 T_R = T_a[a].np
                 V_R = V_a[a].np
                 S_R = S_a[a].np
-
                 ERI_R = ERI_a[a].np
-                ERI_R = ERI_R.swapaxes(1,2)
-                #A_R = (2 * ERI_R - ERI_R.swapaxes(2,3)) + (2 * ERI_R - ERI_R.swapaxes(2,3)).swapaxes(1,3)
+                ERI_R = ERI_R.swapaxes(1, 2)
 
-                # Computing skeleton (core) first derivative integrals.
                 h_R = T_R + V_R
-                F_R = h_R + oe.contract('pkqk->pq', 2*ERI_R[:,o,:,o] - ERI_R[:,o,o,:].swapaxes(2,3))
+                F_R = h_R + oe.contract('pkqk->pq', 2 * ERI_R[:, o, :, o] - ERI_R[:, o, o, :].swapaxes(2, 3))
 
                 lambda_alpha = 3 * N1 + a
                 for beta in range(3):
-                    h_RE = h_ab[a + 3*beta].np
+                    h_RE = h_ab[a + 3 * beta].np
                     h_RE = oe.contract('mp,mn,nq->pq', np.conjugate(C), h_RE, C)
 
-                    # Asymmetric approach to APT calculation.
-                    APT[lambda_alpha][beta] += 2 * oe.contract('ii->', h_RE[o,o])
-                    APT[lambda_alpha][beta] += 2 * oe.contract('pi,pi->', U_E[beta][:,o], F_R[:,o] + F_R[o,:].T) 
-                    APT[lambda_alpha][beta] -= 2 * oe.contract('pi,pj,ij->', U_E[beta][:,o], S_R[:,o], F[o,o])
-                    APT[lambda_alpha][beta] -= 2 * oe.contract('pj,ip,ij->', U_E[beta][:,o], S_R[o,:], F[o,o])
-                    APT[lambda_alpha][beta] -= 2 * oe.contract('ij,ij->', S_R[o,o], F_E[beta][o,o])
-                    APT[lambda_alpha][beta] -= 2 * oe.contract('ij,ki,kj->', S_R[o,o], U_E[beta][o,o], F[o,o])
-                    APT[lambda_alpha][beta] -= 2 * oe.contract('ij,kj,ik->', S_R[o,o], U_E[beta][o,o], F[o,o])
-                    APT[lambda_alpha][beta] -= 2 * oe.contract('ij,pk,ipjk->', S_R[o,o],  U_E[beta][:,o], 2 * ERI[o,:,o,o] + 2 * ERI[o,o,o,:].swapaxes(1,3) - ERI[o,:,o,o].swapaxes(2,3) - ERI[o,o,:,o].swapaxes(1,2).swapaxes(2,3))
+                    APT[lambda_alpha][beta] += 2 * oe.contract('ii->', h_RE[o, o])
+                    APT[lambda_alpha][beta] += 2 * oe.contract('pi,pi->', U_E[beta][:, o], F_R[:, o] + F_R[o, :].T)
+                    APT[lambda_alpha][beta] -= 2 * oe.contract('pi,pj,ij->', U_E[beta][:, o], S_R[:, o], F[o, o])
+                    APT[lambda_alpha][beta] -= 2 * oe.contract('pj,ip,ij->', U_E[beta][:, o], S_R[o, :], F[o, o])
+                    APT[lambda_alpha][beta] -= 2 * oe.contract('ij,ij->', S_R[o, o], h_E[beta][o, o])
+                    APT[lambda_alpha][beta] -= 2 * oe.contract('ij,ki,kj->', S_R[o, o], U_E[beta][o, o], F[o, o])
+                    APT[lambda_alpha][beta] -= 2 * oe.contract('ij,kj,ik->', S_R[o, o], U_E[beta][o, o], F[o, o])
+                    APT[lambda_alpha][beta] -= 2 * oe.contract('ij,pk,ipjk->', S_R[o, o], U_E[beta][:, o],
+                                               2 * ERI[o, :, o, o] + 2 * ERI[o, o, o, :].swapaxes(1, 3)
+                                               - ERI[o, :, o, o].swapaxes(2, 3)
+                                               - ERI[o, o, :, o].swapaxes(1, 2).swapaxes(2, 3))
 
-        # Compute the nuclear component of the APTs.
         geom, mass, elem, Z, uniq = self.H.molecule.to_arrays()
-
-        N = np.zeros((3 * self.H.molecule.natom(), 3))
+        N = np.zeros((3 * natom, 3))
         delta_ab = np.eye(3)
-        for lambd_alpha in range(3 * self.H.molecule.natom()):
+        for lambd_alpha in range(3 * natom):
             alpha = lambd_alpha % 3
             lambd = lambd_alpha // 3
             for beta in range(3):
                 N[lambd_alpha][beta] += Z[lambd] * delta_ab[alpha, beta]
 
-        APT = APT + N
-
-        return APT
+        return APT + N
 
 
 
@@ -143,428 +99,84 @@ class analytic_derivative(AnalyticDerivative):
         o, v, t = m.o, m.v, m.t
         C_p4, natom, atoms = m.C_p4, m.natom, m.atoms
         h, ERI, F, mints = m.h, m.ERI, m.F, m.mints
-        
-        # Set up the atomic axial tensor.
-        APT = np.zeros((natom * 3, 3))
-
-        # Set up U-coefficient matrices for AAT calculations.
-        U_R = [] 
-        U_E = [] 
 
         A, G = self._build_cphf_A(ERI, F, no, nv, o, v, sign=+1)
 
-        # First derivative matrices.
+        # Collect nuclear derivative integrals and build CPHF B vectors for all 3*natom directions.
+        B_nuc = np.zeros((nv * no, 3 * natom))
+        S_nuc = np.zeros((3 * natom, nbf, nbf))
+        h_dep_nuc = np.zeros((3 * natom, nbf, nbf))
         half_S = []
 
-        # Compute and store first derivative integrals.
         for N1 in atoms:
-            # Compute the skeleton (core) one-electron first derivative integrals in the MO basis.
             T_d1 = mints.mo_oei_deriv1('KINETIC', N1, C_p4, C_p4)
             V_d1 = mints.mo_oei_deriv1('POTENTIAL', N1, C_p4, C_p4)
             S_d1 = mints.mo_oei_deriv1('OVERLAP', N1, C_p4, C_p4)
-
-            # Compute the skeleton (core) two-electron first derivative integrals in the MO basis.
             ERI_d1 = mints.mo_tei_deriv1(N1, C_p4, C_p4, C_p4, C_p4)
-
-            # Compute the half derivative overlap for AAT calculation.
             half_S_d1 = mints.mo_overlap_half_deriv1('LEFT', N1, C_p4, C_p4)
 
             for a in range(3):
-                # Convert the Psi4 matrices to numpy matrices.
                 T_d1[a] = T_d1[a].np
                 V_d1[a] = V_d1[a].np
                 S_d1[a] = S_d1[a].np
-
                 ERI_d1[a] = ERI_d1[a].np
-                ERI_d1[a] = ERI_d1[a].swapaxes(1,2)
+                ERI_d1[a] = ERI_d1[a].swapaxes(1, 2)
                 half_S_d1[a] = half_S_d1[a].np
 
-                # Computing skeleton (core) first derivative integrals.
                 h_d1 = T_d1[a] + V_d1[a]
-                F_d1 = T_d1[a] + V_d1[a] + oe.contract('piqi->pq', 2 * ERI_d1[a][:,o,:,o] - ERI_d1[a].swapaxes(2,3)[:,o,:,o])
+                F_d1 = h_d1 + oe.contract('piqi->pq', 2 * ERI_d1[a][:, o, :, o] - ERI_d1[a].swapaxes(2, 3)[:, o, :, o])
 
-                # Compute the perturbation-dependent B matrix for the CPHF coefficients.
-                B = -F_d1[v,o] + oe.contract('ai,ii->ai', S_d1[a][v,o], F[o,o]) + 0.5 * oe.contract('mn,amin->ai', S_d1[a][o,o], A.swapaxes(1,2)[v,o,o,o])
-
-                # Solve for the independent-pairs of the CPHF U-coefficient matrix.
-                U_d1 = np.zeros((nbf,nbf))
-                U_d1[v,o] += (G @ B.reshape((nv*no))).reshape(nv,no)
-                U_d1[o,v] -= U_d1[v,o].T + S_d1[a][o,v]
-
-                # Solve for the dependent-pairs of the CPHF U-coefficient matrix.
-                if self.parameters['freeze_core'] == True or orbitals == 'canonical':
-                    D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
-                    B = F_d1[o,o].copy() - oe.contract('ij,jj->ij', S_d1[a][o,o], F[o,o]) + oe.contract('em,iejm->ij', U_d1[v,o], A.swapaxes(1,2)[o,v,o,o]) - 0.5 * oe.contract('mn,imjn->ij', S_d1[a][o,o], A.swapaxes(1,2)[o,o,o,o])
-                    U_d1[o,o] += B/D
-
-                    D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
-                    B = F_d1[v,v].copy() - oe.contract('ab,bb->ab', S_d1[a][v,v], F[v,v]) + oe.contract('em,aebm->ab', U_d1[v,o], A.swapaxes(1,2)[v,v,v,o]) - 0.5 * oe.contract('mn,ambn->ab', S_d1[a][o,o], A.swapaxes(1,2)[v,o,v,o])
-                    U_d1[v,v] += B/D
-
-                    for j in range(no):
-                        U_d1[j,j] = -0.5 * S_d1[a][j,j]
-                    for b in range(no,nbf):
-                        U_d1[b,b] = -0.5 * S_d1[a][b,b]
-
-                if orbitals == 'non-canonical':
-                    U_d1[f_,f_] = -0.5 * S_d1[a][f_,f_]
-                    U_d1[o_,o_] = -0.5 * S_d1[a][o_,o_]
-                    U_d1[v_,v_] = -0.5 * S_d1[a][v_,v_]
-
-                # Appending to lists.
+                k = 3 * N1 + a
+                B_nuc[:, k] = (-F_d1[v, o]
+                                + oe.contract('ai,ii->ai', S_d1[a][v, o], F[o, o])
+                                + 0.5 * oe.contract('mn,amin->ai', S_d1[a][o, o], A.swapaxes(1, 2)[v, o, o, o])
+                                ).reshape(nv * no)
+                S_nuc[k] = S_d1[a]
+                h_dep_nuc[k] = F_d1
                 half_S.append(half_S_d1[a])
-                U_R.append(U_d1)
+
+        # Vectorized nuclear CPHF solve for all 3*natom directions simultaneously.
+        # ov_sign=-1: real perturbation; S_all provides overlap derivatives.
+        # dep_sign=+1: B_oo = +F_a[o,o] - S*F + U*A - 0.5*S*A.
+        U_R = self._solve_cphf(G, A, B_nuc, nbf, no, nv, o, v, F, orbitals, f_, o_, v_,
+                                ov_sign=-1, S_all=S_nuc, h_dep_all=h_dep_nuc, dep_sign=+1)
 
         A_elec, G_elec = self._build_cphf_A(ERI, F, no, nv, o, v, sign=-1)
 
-        # Get the electric dipole AO integrals and transform into the MO basis.
+        # Collect nabla (velocity-gauge) integrals and build CPHF B vectors for 3 field directions.
         mu_elec_AO = mints.ao_nabla()
+        B_elec = np.zeros((nv * no, 3))
+        h_dep_elec = np.zeros((3, nbf, nbf))
         for a in range(3):
-            mu_elec_AO[a] = - mu_elec_AO[a].np
+            mu_elec_AO[a] = -mu_elec_AO[a].np
             mu_elec = oe.contract('mp,mn,nq->pq', np.conjugate(C), mu_elec_AO[a], C)
+            # B = +mu_elec[v,o]: velocity gauge has positive sign (imaginary perturbation).
+            B_elec[:, a] = mu_elec[v, o].reshape(nv * no)
+            h_dep_elec[a] = mu_elec
 
-            # Computing skeleton (core) first derivative integrals.
-            h_d1 = mu_elec
+        # Vectorized velocity-gauge electric CPHF solve for all 3 directions simultaneously.
+        # ov_sign=+1: imaginary perturbation (U[o,v] = +U[v,o].T, no overlap derivative).
+        # dep_sign=-1: B_oo = -h[o,o] + U*A_elec.
+        U_E = self._solve_cphf(G_elec, A_elec, B_elec, nbf, no, nv, o, v, F, orbitals, f_, o_, v_,
+                                ov_sign=+1, h_dep_all=h_dep_elec, dep_sign=-1)
 
-            # Compute the perturbation-dependent B matrix for the CPHF coefficients with respect to an electric field.
-            B = h_d1[v,o]
-
-            # Solve for the independent-pairs of the CPHF U-coefficient matrix with respect to an electric field.
-            U_d1 = np.zeros((nbf,nbf))
-            U_d1[v,o] += (G_elec @ B.reshape((nv*no))).reshape(nv,no)
-            U_d1[o,v] += U_d1[v,o].T
-
-            # Solve for the dependent-pairs of the CPHF U-coefficient matrix with respect to an electric field.
-            if self.parameters['freeze_core'] == True or orbitals == 'canonical':
-                D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
-                B = - h_d1[o,o].copy() + oe.contract('em,iejm->ij', U_d1[v,o], A_elec.swapaxes(1,2)[o,v,o,o])
-                U_d1[o,o] += B/D
-
-                D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
-                B = - h_d1[v,v].copy() + oe.contract('em,aebm->ab', U_d1[v,o], A_elec.swapaxes(1,2)[v,v,v,o])
-                U_d1[v,v] += B/D
-
-                for j in range(no):
-                    U_d1[j,j] = 0
-                for b in range(no,nbf):
-                    U_d1[b,b] = 0
-
-            if orbitals == 'non-canonical':
-                U_d1[f_,f_] = 0
-                U_d1[o_,o_] = 0
-                U_d1[v_,v_] = 0
-
-            U_E.append(U_d1)
-            #print(U_d1)
-
-        # Setting up different components of the APTs.
         APT_HF = np.zeros((natom * 3, 3))
-
-        # Compute APTs.
         for lambda_alpha in range(3 * natom):
             for beta in range(3):
-                # Computing the Hartree-Fock term of the APT.
-                APT_HF[lambda_alpha][beta] += 2 * oe.contract("em,em", U_E[beta][v_, o], U_R[lambda_alpha][v_, o] + half_S[lambda_alpha][o, v_].T)
-                #print("Lambda Alpha:", lambda_alpha, "Beta:", beta)
-                #print("U_R + half_S:")
-                #print(U_R[lambda_alpha][v_, o] + half_S[lambda_alpha][o, v_].T)
-                #print("U_E:")
-                #print(U_E[beta][v_, o])
+                APT_HF[lambda_alpha][beta] += 2 * oe.contract("em,em", U_E[beta][v_, o],
+                                                               U_R[lambda_alpha][v_, o]
+                                                               + half_S[lambda_alpha][o, v_].T)
 
-
-        # Compute the nuclear component of the APTs.
         geom, mass, elem, Z, uniq = self.H.molecule.to_arrays()
-
-        N = np.zeros((3 * self.H.molecule.natom(), 3))
+        N = np.zeros((3 * natom, 3))
         delta_ab = np.eye(3)
-        for lambd_alpha in range(3 * self.H.molecule.natom()):
+        for lambd_alpha in range(3 * natom):
             alpha = lambd_alpha % 3
             lambd = lambd_alpha // 3
             for beta in range(3):
                 N[lambd_alpha][beta] += Z[lambd] * delta_ab[alpha, beta]
 
-        APT = - 2 * APT_HF + N
-
-        return APT
-
-
-
-    def compute_RHF_APTs_VGII(self, orbitals='non-canonical'):
-        m = self._setup_mo_basis()
-        C, nbf, no, nv = m.C, m.nbf, m.no, m.nv
-        f_, o_, v_, t_ = m.f_, m.o_, m.v_, m.t_
-        o, v, t = m.o, m.v, m.t
-        C_p4, natom, atoms = m.C_p4, m.natom, m.atoms
-        h, ERI, F, mints = m.h, m.ERI, m.F, m.mints
-
-        # Set up the atomic axial tensor.
-        APT = np.zeros((natom * 3, 3))
-
-        # Set up U-coefficient matrices for AAT calculations.
-        U_R = []
-        U_E = []
-
-        A, G = self._build_cphf_A(ERI, F, no, nv, o, v, sign=+1)
-
-        # First derivative matrices.
-        half_S = []
-
-        # Compute and store first derivative integrals.
-        for N1 in atoms:
-            # Compute the skeleton (core) one-electron first derivative integrals in the MO basis.
-            T_d1 = mints.mo_oei_deriv1('KINETIC', N1, C_p4, C_p4)
-            V_d1 = mints.mo_oei_deriv1('POTENTIAL', N1, C_p4, C_p4)
-            S_d1 = mints.mo_oei_deriv1('OVERLAP', N1, C_p4, C_p4)
-
-            # Compute the skeleton (core) two-electron first derivative integrals in the MO basis.
-            ERI_d1 = mints.mo_tei_deriv1(N1, C_p4, C_p4, C_p4, C_p4)
-
-            # Compute the half derivative overlap for AAT calculation.
-            half_S_d1 = mints.mo_overlap_half_deriv1('LEFT', N1, C_p4, C_p4)
-
-            for a in range(3):
-                # Convert the Psi4 matrices to numpy matrices.
-                T_d1[a] = T_d1[a].np
-                V_d1[a] = V_d1[a].np
-                S_d1[a] = S_d1[a].np
-
-                ERI_d1[a] = ERI_d1[a].np
-                ERI_d1[a] = ERI_d1[a].swapaxes(1,2)
-                half_S_d1[a] = half_S_d1[a].np
-
-                # Computing skeleton (core) first derivative integrals.
-                h_d1 = T_d1[a] + V_d1[a]
-                F_d1 = T_d1[a] + V_d1[a] + oe.contract('piqi->pq', 2 * ERI_d1[a][:,o,:,o] - ERI_d1[a].swapaxes(2,3)[:,o,:,o])
-
-                # Compute the perturbation-dependent B matrix for the CPHF coefficients.
-                B = -F_d1[v,o] + oe.contract('ai,ii->ai', S_d1[a][v,o], F[o,o]) + 0.5 * oe.contract('mn,amin->ai', S_d1[a][o,o], A.swapaxes(1,2)[v,o,o,o])
-
-                # Solve for the independent-pairs of the CPHF U-coefficient matrix.
-                U_d1 = np.zeros((nbf,nbf))
-                U_d1[v,o] += (G @ B.reshape((nv*no))).reshape(nv,no)
-                U_d1[o,v] -= U_d1[v,o].T + S_d1[a][o,v]
-
-                # Solve for the dependent-pairs of the CPHF U-coefficient matrix.
-                if self.parameters['freeze_core'] == True or orbitals == 'canonical':
-                    D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
-                    B = F_d1[o,o].copy() - oe.contract('ij,jj->ij', S_d1[a][o,o], F[o,o]) + oe.contract('em,iejm->ij', U_d1[v,o], A.swapaxes(1,2)[o,v,o,o]) - 0.5 * oe.contract('mn,imjn->ij', S_d1[a][o,o], A.swapaxes(1,2)[o,o,o,o])
-                    U_d1[o,o] += B/D
-
-                    D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
-                    B = F_d1[v,v].copy() - oe.contract('ab,bb->ab', S_d1[a][v,v], F[v,v]) + oe.contract('em,aebm->ab', U_d1[v,o], A.swapaxes(1,2)[v,v,v,o]) - 0.5 * oe.contract('mn,ambn->ab', S_d1[a][o,o], A.swapaxes(1,2)[v,o,v,o])
-                    U_d1[v,v] += B/D
-
-                    for j in range(no):
-                        U_d1[j,j] = -0.5 * S_d1[a][j,j]
-                    for b in range(no,nbf):
-                        U_d1[b,b] = -0.5 * S_d1[a][b,b]
-
-                if orbitals == 'non-canonical':
-                    U_d1[f_,f_] = -0.5 * S_d1[a][f_,f_]
-                    U_d1[o_,o_] = -0.5 * S_d1[a][o_,o_]
-                    U_d1[v_,v_] = -0.5 * S_d1[a][v_,v_]
-
-                # Appending to lists.
-                half_S.append(half_S_d1[a])
-                U_R.append(U_d1)
-
-        A_elec, G_elec = self._build_cphf_A(ERI, F, no, nv, o, v, sign=-1)
-
-        # Get the electric dipole AO integrals and transform into the MO basis.
-        mu_elec_AO = mints.ao_dipole()
-        for a in range(3):
-            mu_elec_AO[a] = mu_elec_AO[a].np
-            mu_elec = oe.contract('mp,mn,nq->pq', np.conjugate(C), mu_elec_AO[a], C)
-            mu_elec = - (self.wfn.eps[:] - self.wfn.eps[:].reshape(-1,1)) * mu_elec
-
-            # Computing skeleton (core) first derivative integrals.
-            h_d1 = - mu_elec
-
-            # Compute the perturbation-dependent B matrix for the CPHF coefficients with respect to an electric field.
-            B = h_d1[v,o]
-
-            # Solve for the independent-pairs of the CPHF U-coefficient matrix with respect to an electric field.
-            U_d1 = np.zeros((nbf,nbf))
-            U_d1[v,o] += (G_elec @ B.reshape((nv*no))).reshape(nv,no)
-            U_d1[o,v] += U_d1[v,o].T
-
-            # Solve for the dependent-pairs of the CPHF U-coefficient matrix with respect to an electric field.
-            if self.parameters['freeze_core'] == True or orbitals == 'canonical':
-                D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
-                B = - h_d1[o,o].copy() + oe.contract('em,iejm->ij', U_d1[v,o], A_elec.swapaxes(1,2)[o,v,o,o])
-                U_d1[o,o] += B/D
-
-                D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
-                B = - h_d1[v,v].copy() + oe.contract('em,aebm->ab', U_d1[v,o], A_elec.swapaxes(1,2)[v,v,v,o])
-                U_d1[v,v] += B/D
-
-                for j in range(no):
-                    U_d1[j,j] = 0
-                for b in range(no,nbf):
-                    U_d1[b,b] = 0
-
-            if orbitals == 'non-canonical':
-                U_d1[f_,f_] = 0
-                U_d1[o_,o_] = 0
-                U_d1[v_,v_] = 0
-
-            U_E.append(U_d1)
-            #print(U_d1)
-
-        # Setting up different components of the APTs.
-        APT_HF = np.zeros((natom * 3, 3))
-
-        # Compute APTs.
-        for lambda_alpha in range(3 * natom):
-            for beta in range(3):
-                # Computing the Hartree-Fock term of the APT.
-                APT_HF[lambda_alpha][beta] += 2 * oe.contract("em,em", U_E[beta][v_, o], U_R[lambda_alpha][v_, o] + half_S[lambda_alpha][o, v_].T)
-                #print("Lambda Alpha:", lambda_alpha, "Beta:", beta)
-                #print("U_R + half_S:")
-                #print(U_R[lambda_alpha][v_, o] + half_S[lambda_alpha][o, v_].T)
-                #print("U_E:")
-                #print(U_E[beta][v_, o])
-
-
-        # Compute the nuclear component of the APTs.
-        geom, mass, elem, Z, uniq = self.H.molecule.to_arrays()
-
-        N = np.zeros((3 * self.H.molecule.natom(), 3))
-        delta_ab = np.eye(3)
-        for lambd_alpha in range(3 * self.H.molecule.natom()):
-            alpha = lambd_alpha % 3
-            lambd = lambd_alpha // 3
-            for beta in range(3):
-                N[lambd_alpha][beta] += Z[lambd] * delta_ab[alpha, beta]
-
-        APT = - 2 * APT_HF + N
-
-        return APT
-
-
-
-    def compute_RHF_APTs_LGII(self, orbitals='non-canonical'):
-        m = self._setup_mo_basis()
-        C, nbf, no, nv = m.C, m.nbf, m.no, m.nv
-        f_, o_, v_, t_ = m.f_, m.o_, m.v_, m.t_
-        o, v, t = m.o, m.v, m.t
-        C_p4, natom, atoms = m.C_p4, m.natom, m.atoms
-        h, ERI, F, mints = m.h, m.ERI, m.F, m.mints
-        Nuc_Gradient = self.H.molecule.nuclear_repulsion_energy_deriv1().np
-
-        # Set up the atomic axial tensor.
-        APT = np.zeros((natom * 3, 3))
-
-        # Set up U-coefficient matrices for APT calculations.
-        U_E = [] 
-
-        A, G = self._build_cphf_A(ERI, F, no, nv, o, v, sign=+1)
-
-        # Get the electric dipole AO integrals and transform into the MO basis.
-        mu_AO_dipole = mints.ao_dipole()
-        mu_AO_nabla = mints.ao_nabla()
-        h_E = [] 
-        F_E = [] 
-
-        for b in range(3):
-            mu_AO_dipole[b] = mu_AO_dipole[b].np
-            mu_AO_nabla[b] = mu_AO_nabla[b].np
-            mu_dipole = oe.contract('mp,mn,nq->pq', np.conjugate(C), mu_AO_dipole[b], C)
-            mu_nabla = oe.contract('mp,mn,nq->pq', np.conjugate(C), mu_AO_nabla[b], C)
-            mu = -1/(self.wfn.eps - self.wfn.eps.reshape(-1,1) + np.eye(nbf)) * mu_nabla + np.eye(nbf) * mu_dipole
-
-            # Computing skeleton (core) first derivative integrals.
-            h_b = mu 
-
-            # Compute the perturbation-dependent B matrix for the CPHF coefficients with respect to a electric field.
-            B = -h_b[v,o]
-
-            # Solve for the independent-pairs of the CPHF U-coefficient matrix with respect to a electric field.
-            U_b = np.zeros((nbf,nbf))
-            U_b[v,o] += (G @ B.reshape((nv*no))).reshape(nv,no)
-            U_b[o,v] -= U_b[v,o].T
-
-            # Solve for the dependent-pairs of the CPHF U-coefficient matrix with respect to an electric field.
-            if self.parameters['freeze_core'] == True or orbitals == 'canonical':
-                D = (self.wfn.eps[o] - self.wfn.eps[o].reshape(-1,1)) + np.eye(no)
-                B = h_b[o,o].copy() + oe.contract('em,iejm->ij', U_b[v,o], A.swapaxes(1,2)[o,v,o,o])
-                U_b[o,o] += B/D
-
-                D = (self.wfn.eps[v] - self.wfn.eps[v].reshape(-1,1)) + np.eye(nv)
-                B = h_b[v,v].copy() + oe.contract('em,aebm->ab', U_b[v,o], A.swapaxes(1,2)[v,v,v,o])
-                U_b[v,v] += B/D
-
-                for j in range(no):
-                    U_b[j,j] = 0
-                for c in range(no,nbf):
-                    U_b[c,c] = 0
-
-            if orbitals == 'non-canonical':
-                U_b[f_,f_] = 0
-                U_b[o_,o_] = 0
-                U_b[v_,v_] = 0
-
-            # Appending to lists.
-            U_E.append(U_b)
-            h_E.append(h_b)
-            F_E.append(h_b)
-            #print(U_b)
-
-        for N1 in atoms:
-            # Compute the nuclear skeleton (core) one-electron first derivative integrals in the MO basis.
-            T_a = mints.mo_oei_deriv1('KINETIC', N1, C_p4, C_p4)
-            V_a = mints.mo_oei_deriv1('POTENTIAL', N1, C_p4, C_p4)
-            S_a = mints.mo_oei_deriv1('OVERLAP', N1, C_p4, C_p4)
-
-            # Compute the nuclear skeleton (core) two-electron first derivative integrals in the MO basis.
-            ERI_a = mints.mo_tei_deriv1(N1, C_p4, C_p4, C_p4, C_p4)
-
-            # Compute the mixed nuclear/electric skeleton (core) one-electron second derivative integrals in the MO basis.
-            h_ab = mints.ao_elec_dip_deriv1(N1)
-
-            for a in range(3):
-                # Convert the Psi4 matrices to numpy matrices.
-                T_R = T_a[a].np
-                V_R = V_a[a].np
-                S_R = S_a[a].np
-
-                ERI_R = ERI_a[a].np
-                ERI_R = ERI_R.swapaxes(1,2)
-                #A_R = (2 * ERI_R - ERI_R.swapaxes(2,3)) + (2 * ERI_R - ERI_R.swapaxes(2,3)).swapaxes(1,3)
-
-                # Computing skeleton (core) first derivative integrals.
-                h_R = T_R + V_R
-                F_R = h_R + oe.contract('pkqk->pq', 2*ERI_R[:,o,:,o] - ERI_R[:,o,o,:].swapaxes(2,3))
-
-                lambda_alpha = 3 * N1 + a
-                for beta in range(3):
-                    h_RE = h_ab[a + 3*beta].np
-                    h_RE = oe.contract('mp,mn,nq->pq', np.conjugate(C), h_RE, C)
-
-                    # Asymmetric approach to APT calculation.
-                    APT[lambda_alpha][beta] += 2 * oe.contract('ii->', h_RE[o,o])
-                    APT[lambda_alpha][beta] += 2 * oe.contract('pi,pi->', U_E[beta][:,o], F_R[:,o] + F_R[o,:].T) 
-                    APT[lambda_alpha][beta] -= 2 * oe.contract('pi,pj,ij->', U_E[beta][:,o], S_R[:,o], F[o,o])
-                    APT[lambda_alpha][beta] -= 2 * oe.contract('pj,ip,ij->', U_E[beta][:,o], S_R[o,:], F[o,o])
-                    APT[lambda_alpha][beta] -= 2 * oe.contract('ij,ij->', S_R[o,o], F_E[beta][o,o])
-                    APT[lambda_alpha][beta] -= 2 * oe.contract('ij,ki,kj->', S_R[o,o], U_E[beta][o,o], F[o,o])
-                    APT[lambda_alpha][beta] -= 2 * oe.contract('ij,kj,ik->', S_R[o,o], U_E[beta][o,o], F[o,o])
-                    APT[lambda_alpha][beta] -= 2 * oe.contract('ij,pk,ipjk->', S_R[o,o],  U_E[beta][:,o], 2 * ERI[o,:,o,o] + 2 * ERI[o,o,o,:].swapaxes(1,3) - ERI[o,:,o,o].swapaxes(2,3) - ERI[o,o,:,o].swapaxes(1,2).swapaxes(2,3))
-
-        # Compute the nuclear component of the APTs.
-        geom, mass, elem, Z, uniq = self.H.molecule.to_arrays()
-
-        N = np.zeros((3 * self.H.molecule.natom(), 3))
-        delta_ab = np.eye(3)
-        for lambd_alpha in range(3 * self.H.molecule.natom()):
-            alpha = lambd_alpha % 3
-            lambd = lambd_alpha // 3 
-            for beta in range(3):
-                N[lambd_alpha][beta] += Z[lambd] * delta_ab[alpha, beta]
-
-        APT = APT + N
-
-        return APT
+        return -2 * APT_HF + N
 
 
 
