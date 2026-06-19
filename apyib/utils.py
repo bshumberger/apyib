@@ -442,8 +442,32 @@ def total_energy(E_list):
 
 
 def line_shape(frequency, intensity, fwhm, number_of_points, min_freq, max_freq):
-    """
-    Fits the VCD rotatory strengths to a line shape function.
+    """Broaden discrete VCD/IR intensities into a Lorentzian line-shape spectrum.
+
+    Standalone helper for plotting spectra from computed peak frequencies and
+    intensities (e.g. in external analysis scripts or notebooks). It is not
+    called elsewhere in the package.
+
+    Parameters
+    ----------
+    frequency : array_like
+        Peak positions (cm^-1).
+    intensity : array_like
+        Peak intensities, aligned with ``frequency`` (rotatory strengths are
+        expected in the 10^44 cgs convention used for reporting).
+    fwhm : float
+        Full width at half maximum of the Lorentzian (cm^-1).
+    number_of_points : int
+        Number of points sampled across the frequency axis.
+    min_freq, max_freq : float
+        Lower and upper bounds of the frequency axis (cm^-1).
+
+    Returns
+    -------
+    freq_axis : ndarray
+        Sampled frequency grid (cm^-1).
+    ints_axis : ndarray
+        Broadened intensity at each grid point.
     """
     # Set up physical constants.
     _c = psi4.qcel.constants.get("speed of light in vacuum") # m/s
