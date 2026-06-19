@@ -47,6 +47,8 @@ class analytic_derivative(AnalyticDerivative):
         for b in range(3):
             mu_AO[b] = mu_AO[b].np
             mu = oe.contract('mp,mn,nq->pq', np.conjugate(C), mu_AO[b], C)
+            # Electric-field CPHF right-hand side is just the (negative) MO dipole;
+            # no skeleton-Fock or overlap-derivative terms (AOs are field-independent).
             B_elec[:, b] = -mu[v, o].reshape(nv * no)
             h_dep_elec[b] = mu
             h_E.append(mu)
@@ -79,6 +81,8 @@ class analytic_derivative(AnalyticDerivative):
                     h_RE = h_ab[a + 3 * beta].np
                     h_RE = oe.contract('mp,mn,nq->pq', np.conjugate(C), h_RE, C)
 
+                    # APT element dmu_beta/dR_alpha: explicit mixed nuclear-field
+                    # derivative (h_RE) plus orbital-response and overlap-derivative terms.
                     APT[lambda_alpha][beta] += 2 * oe.contract('ii->', h_RE[o, o])
                     APT[lambda_alpha][beta] += 2 * oe.contract('pi,pi->', U_E[beta][:, o], F_R[:, o] + F_R[o, :].T)
                     APT[lambda_alpha][beta] -= 2 * oe.contract('pi,pj,ij->', U_E[beta][:, o], S_R[:, o], F[o, o])
