@@ -88,7 +88,9 @@ class ci_wfn(object):
             E_CID_old = E_CID
             t2_old = t2.copy()
 
-            # Solving for the residual.
+            # CID doubles residual: integral driver, Fock ladder terms, and the
+            # particle-particle (vvvv), hole-hole (oooo), and ring (ovvo/ovov)
+            # ERI contractions.
             r_T2 = 0.5 * ERI_MO.copy().swapaxes(0,2).swapaxes(1,3)[o_,o_,v_,v_]
             r_T2 += oe.contract('ijae,be->ijab', t2, F_MO[v_,v_])
             r_T2 -= oe.contract('imab,mj->ijab', t2, F_MO[o_,o_])
@@ -98,6 +100,7 @@ class ci_wfn(object):
             r_T2 += oe.contract('imae,mbej->ijab', t2, (ERI_MO[o_,v_,v_,o_] - ERI_MO.swapaxes(2,3)[o_,v_,v_,o_]))
             r_T2 -= oe.contract('mjae,mbie->ijab', t2, ERI_MO[o_,v_,o_,v_])
 
+            # Symmetrize under ij<->ji,ab<->ba and subtract the energy term.
             r_T2 = r_T2 + r_T2.swapaxes(0,1).swapaxes(2,3)
             r_T2 -= E_CID * t2
             t2 += r_T2 / self.D_ijab
@@ -221,6 +224,8 @@ class ci_wfn(object):
             t2_old = t2.copy()
 
             # Solving for the residual. Note that the equations for the T2 amplitudes must all be permuted to have final indices of i,j,a,b for Tijab.
+            # Spin-orbital CID doubles residual: antisymmetrized analogue of the
+            # spatial r_T2 in solve_CID (Fock ladder + pp/hh/ring ERI terms).
             r_T2 = ERI_SO.copy().swapaxes(0,2).swapaxes(1,3)[o_,o_,v_,v_] - ERI_SO.copy().swapaxes(0,2).swapaxes(1,3).swapaxes(2,3)[o_,o_,v_,v_]
             r_T2 += oe.contract('ijae,be->ijab', t2, F_SO[v_,v_]) + oe.contract('ijeb,ae->ijab', t2, F_SO[v_,v_])
             r_T2 -= oe.contract('imab,mj->ijab', t2, F_SO[o_,o_]) + oe.contract('mjab,mi->ijab', t2, F_SO[o_,o_])
@@ -478,6 +483,8 @@ class ci_wfn(object):
             t2_old = t2.copy()
 
             # Solving for the residuals. Note that the equations for the T2 amplitudes must all be permuted to have final indices of i,j,a,b for Tijab.
+            # Singles residual r_T1: Fock terms, singles-singles ring, and
+            # singles-doubles coupling.
             r_T1 = F_MO.copy().swapaxes(0,1)[o_,v_]
             r_T1 -= oe.contract('ji,ja->ia', F_MO[o_,o_], t1)
             r_T1 += oe.contract('ab,ib->ia', F_MO[v_,v_], t1)
@@ -487,6 +494,8 @@ class ci_wfn(object):
             r_T1 -= oe.contract('kjib,kjab->ia', 2.0 * ERI_MO[o_,o_,o_,v_] - ERI_MO.swapaxes(2,3)[o_,o_,o_,v_], t2)
             r_T1 -= E_CISD * t1
 
+            # Doubles residual r_T2: integral driver, singles coupling, Fock
+            # ladder, and particle-particle / hole-hole / ring ERI terms.
             r_T2 = ERI_MO.copy().swapaxes(0,2).swapaxes(1,3)[o_,o_,v_,v_]
             r_T2 += oe.contract('abcj,ic->ijab', ERI_MO[v_,v_,v_,o_], t1)
             r_T2 += oe.contract('abic,jc->ijab', ERI_MO[v_,v_,o_,v_], t1)
