@@ -55,27 +55,41 @@ def _cphf_fill_U(U_ov_k, A, F, D_oo, D_vv,
     -------
     U : ndarray, shape (nbf, nbf)
     """
+    # Assemble the full CPHF coefficient matrix U from its solved independent
+    # (virtual-occupied) block.  U_pq = <p|dq/dx> is the orbital-rotation
+    # response of MO q to perturbation x; only the v-o block is independent,
+    # and the remaining blocks follow from orbital orthonormality U + U^T = -S^x.
     U = np.zeros((nbf, nbf), dtype=dtype)
     U[v, o] = U_ov_k
 
-    # OV/VO symmetry: -S[o,v] term is zero for field perturbations.
+    # Occupied-virtual block from orthonormality: U[o,v] = ov_sign*U[v,o]^T - S[o,v].
+    # ov_sign = -1 (real perturbation, Hermitian U) or +1 (imaginary, anti-Hermitian U);
+    # the -S[o,v] overlap-derivative term is zero for field perturbations.
     U[o, v] = ov_sign * U[v, o].T - (S_k[o, v] if S_k is not None else 0)
 
     if do_dep:
+        # Dependent occ-occ and virt-virt blocks.  These are non-redundant only
+        # with frozen core or canonical orbitals; solve the orbital-energy-weighted
+        # equation (eps_i - eps_j) U_ij = B_ij, where B couples the perturbation h
+        # to the already-solved U[v,o] through the CPHF A-tensor.
         h = h_dep_k
         S = S_k
         B_oo = dep_sign * h[o, o] + oe.contract('em,iejm->ij', U[v, o], A.swapaxes(1, 2)[o, v, o, o])
         B_vv = dep_sign * h[v, v] + oe.contract('em,aebm->ab', U[v, o], A.swapaxes(1, 2)[v, v, v, o])
         if S is not None:
-            # Nuclear-only S-overlap corrections to dependent-pair B vectors.
+            # Nuclear overlap-derivative corrections to the dependent-pair RHS
+            # (absent for field perturbations, where the overlap derivative S^x = 0).
             B_oo -= oe.contract('ij,jj->ij', S[o, o], F[o, o])
             B_oo -= 0.5 * oe.contract('mn,imjn->ij', S[o, o], A.swapaxes(1, 2)[o, o, o, o])
             B_vv -= oe.contract('ab,bb->ab', S[v, v], F[v, v])
             B_vv -= 0.5 * oe.contract('mn,ambn->ab', S[o, o], A.swapaxes(1, 2)[v, o, v, o])
+        # Divide by the orbital-energy denominators (diagonal i==j / a==b set below).
         U[o, o] = B_oo / D_oo
         U[v, v] = B_vv / D_vv
 
-        # Diagonal override from orthonormality: -0.5*S for nuclear, 0 for fields.
+        # The diagonal (i==i, a==a) is not fixed by the energy-weighted equation
+        # above (its denominator vanishes); orthonormality pins it to U_pp = -0.5*S_pp
+        # for a nuclear perturbation, or 0 for a field (where S^x = 0).
         if S is not None:
             for j in range(no):
                 U[j, j] = -0.5 * S[j, j]
@@ -87,7 +101,10 @@ def _cphf_fill_U(U_ov_k, A, F, D_oo, D_vv,
             for b in range(no, nbf):
                 U[b, b] = 0.0
 
-    # Block-diagonal constraints for non-canonical (block-diagonal) MOs.
+    # Non-canonical (block-diagonal) MOs: the HF energy is invariant to unitary
+    # mixing within the frozen, active-occupied, and virtual subspaces, so those
+    # within-block rotations are not determined by the CPHF equations.  They are
+    # fixed directly by orthonormality (-0.5*S within each block, 0 for fields).
     if orbitals == 'non-canonical':
         if S_k is not None:
             U[f_, f_] = -0.5 * S_k[f_, f_]
@@ -156,14 +173,19 @@ class AnalyticDerivative:
         natom = self.H.molecule.natom()
         atoms = np.arange(0, natom)
 
+        # Core one-electron Hamiltonian (kinetic + nuclear attraction) in the MO basis.
         h = oe.contract('mp,mn,nq->pq', np.conjugate(C), self.H.T + self.H.V, C)
 
+        # Transform the two-electron integrals from AO to MO, one index at a time
+        # so each quarter-transform is O(N^5) rather than a single O(N^8) contraction.
         ERI = oe.contract('mnlg,gs->mnls', self.H.ERI, C)
         ERI = oe.contract('mnls,lr->mnrs', ERI, np.conjugate(C))
         ERI = oe.contract('nq,mnrs->mqrs', C, ERI)
         ERI = oe.contract('mp,mqrs->pqrs', np.conjugate(C), ERI)
-        ERI = ERI.swapaxes(1, 2)  # (pr|qs) -> <pq|rs>
+        ERI = ERI.swapaxes(1, 2)  # chemist (pr|qs) -> physicist/Dirac <pq|rs>
 
+        # MO Fock matrix: F = h + sum_i (2<pi|qi> - <pi|iq>), the closed-shell
+        # Coulomb (2J) minus exchange (K) contraction over occupied orbitals.
         F = h + oe.contract('piqi->pq', 2 * ERI[:, o, :, o] - ERI.swapaxes(2, 3)[:, o, :, o])
 
         mints = psi4.core.MintsHelper(self.H.basis_set)
@@ -308,11 +330,19 @@ class AnalyticDerivative:
             Inverted ov-block kernel used to solve the independent-pair
             CPHF equations.
         """
+        # Closed-shell Coulomb-minus-exchange combination (2J - K) in Dirac order.
         J_K = 2 * ERI - ERI.swapaxes(2, 3)
+        # CPHF A-tensor (orbital Hessian off-diagonal).  The exchange-like term
+        # carries 'sign': +1 for real perturbations, -1 for imaginary ones, which
+        # is what distinguishes the nuclear/length-gauge kernel from the
+        # magnetic/velocity-gauge kernel.
         A = sign * J_K + J_K.swapaxes(1, 3)
         A = A.swapaxes(1, 2)
+        # Independent-pair (virtual-occupied) kernel: orbital-energy difference
+        # (eps_a - eps_i) on the diagonal plus the A[v,o,v,o] coupling block.
         G = (oe.contract('ab,ij,aibj->aibj', np.eye(nv), np.eye(no),
                          F[v, v].reshape(nv, 1, nv, 1) - F[o, o].reshape(1, no, 1, no))
              + A[v, o, v, o])
+        # Pre-invert once so each perturbation's U[v,o] is a single matrix-vector solve.
         G = np.linalg.inv(G.reshape((nv * no, nv * no)))
         return A, G
