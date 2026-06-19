@@ -145,8 +145,9 @@ class ci_wfn(object):
                     )
             iteration += 1
 
-        print("t-Amplitude Data:")
-        print("Maximum t2: ", np.max(t2))
+        if print_level > 0:
+            print("t-Amplitude Data:")
+            print("Maximum t2: ", np.max(t2))
 
         #### Testing adjoint formulation of CISD equations. ####
 
@@ -563,9 +564,10 @@ class ci_wfn(object):
                     )
             iteration += 1
 
-        print("t-Amplitude Data:")
-        print("Maximum t1: ", np.max(t1))
-        print("Maximum t2: ", np.max(t2))
+        if print_level > 0:
+            print("t-Amplitude Data:")
+            print("Maximum t1: ", np.max(t1))
+            print("Maximum t2: ", np.max(t2))
 
         #### Testing adjoint formulation of CISD equations. ####
 

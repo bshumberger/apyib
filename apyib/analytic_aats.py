@@ -100,7 +100,7 @@ class analytic_derivative(AnalyticDerivative):
 
 
 
-    def compute_MP2_AATs(self, normalization='full', orbitals='non-canonical'):
+    def compute_MP2_AATs(self, normalization='full', orbitals='non-canonical', print_level=0):
         """Compute analytic MP2 atomic axial tensors.
 
         Parameters
@@ -109,6 +109,8 @@ class analytic_derivative(AnalyticDerivative):
             Wavefunction normalization convention (default ``'full'``).
         orbitals : {'non-canonical', 'canonical'}, optional
             Orbital convention (default ``'non-canonical'``).
+        print_level : int, optional
+            Verbosity level; 0 (default) suppresses diagnostic output.
 
         Returns
         -------
@@ -189,9 +191,10 @@ class analytic_derivative(AnalyticDerivative):
             dt2_dH /= wfn_MP2.D_ijab
 
             dT2_dH.append(dt2_dH)
-            print("\nMagnetic Field Perturbtion Data:")
-            print("Cartesian: ", b)
-            print("Maximum dt2/dH: ", np.max(dt2_dH))
+            if print_level > 0:
+                print("\nMagnetic Field Perturbation Data:")
+                print("Cartesian: ", b)
+                print("Maximum dt2/dH: ", np.max(dt2_dH))
 
         # ------------------------------------------------------------------ #
         # Nuclear CPHF: vectorized over all 3*natom displacements.           #
@@ -281,10 +284,11 @@ class analytic_derivative(AnalyticDerivative):
                 dt2_dR += oe.contract('ijac,cb->ijab', t2, df_dR[v_, v_])
                 dt2_dR /= wfn_MP2.D_ijab
 
-                print("\nNuclear Perturbation Data:")
-                print("Atom: ", N1)
-                print("Cartesian: ", a)
-                print("Maximum dt2/dR: ", np.max(dt2_dR))
+                if print_level > 0:
+                    print("\nNuclear Perturbation Data:")
+                    print("Atom: ", N1)
+                    print("Cartesian: ", a)
+                    print("Maximum dt2/dR: ", np.max(dt2_dR))
 
                 # Derivative of the full-normalization factor w.r.t. this displacement.
                 N_R = -(1 / np.sqrt((1 + oe.contract('ijab,ijab', np.conjugate(t2), 2 * t2 - t2.swapaxes(2, 3)))**3))
@@ -336,10 +340,11 @@ class analytic_derivative(AnalyticDerivative):
                         if normalization == 'full':
                             AAT_Norm[lambda_alpha][beta] += N * N_R * 1.0 * oe.contract("ijab,ijab", 2 * t2 - t2.swapaxes(2, 3), dT2_dH[beta])
 
-        print("\nHartree-Fock AAT:")
-        print(AAT_HF, "\n")
-        print("Doubles/Doubles:")
-        print(AAT_1 + AAT_2 + AAT_3 + AAT_4, "\n")
+        if print_level > 0:
+            print("\nHartree-Fock AAT:")
+            print(AAT_HF, "\n")
+            print("Doubles/Doubles:")
+            print(AAT_1 + AAT_2 + AAT_3 + AAT_4, "\n")
 
         return AAT_HF + AAT_1 + AAT_2 + AAT_3 + AAT_4 + AAT_Norm
 
@@ -631,10 +636,11 @@ class analytic_derivative(AnalyticDerivative):
                         print("Not converged.")
                 iteration += 1
 
-            print("\nMagnetic Field Perturbtion Data:")
-            print("Cartesian: ", a)
-            print("Maximum dt1/dH: ", np.max(dt1_dH))
-            print("Maximum dt2/dH: ", np.max(dt2_dH))
+            if print_level > 0:
+                print("\nMagnetic Field Perturbation Data:")
+                print("Cartesian: ", a)
+                print("Maximum dt1/dH: ", np.max(dt1_dH))
+                print("Maximum dt2/dH: ", np.max(dt2_dH))
 
             dT1_dH.append(dt1_dH)
             dT2_dH.append(dt2_dH)
@@ -872,11 +878,12 @@ class analytic_derivative(AnalyticDerivative):
                             print("Not converged.")
                     iteration += 1
 
-                print("\nNuclear Perturbation Data:")
-                print("Atom: ", N1)
-                print("Cartesian: ", a)
-                print("Maximum dt1/dR: ", np.max(dt1_dR))
-                print("Maximum dt2/dR: ", np.max(dt2_dR))
+                if print_level > 0:
+                    print("\nNuclear Perturbation Data:")
+                    print("Atom: ", N1)
+                    print("Cartesian: ", a)
+                    print("Maximum dt1/dR: ", np.max(dt1_dR))
+                    print("Maximum dt2/dR: ", np.max(dt2_dR))
 
                 # Compute derivative of the normalization factor.
                 N_R = - (1 / np.sqrt((1 + 2*oe.contract('ia,ia', np.conjugate(t1), t1) + oe.contract('ijab,ijab', np.conjugate(t2), 2*t2 - t2.swapaxes(2,3)))**3))
@@ -1036,20 +1043,21 @@ class analytic_derivative(AnalyticDerivative):
                             AAT_Norm[lambda_alpha][beta] += N * N_R * 2 * oe.contract("ia,ia", t1, dT1_dH[beta])
                             AAT_Norm[lambda_alpha][beta] += N * N_R * 4 * oe.contract("ijab,bj,ia", 2*t2 - t2.swapaxes(2,3), U_H[beta][v_,o_], t1)
 
-        print("Hartree-Fock AAT:")
-        print(AAT_HF, "\n")
-        print("Singles/Reference AAT:")
-        print(AAT_S0, "\n")
-        print("Reference/Singles AAT:")
-        print(AAT_0S, "\n")
-        print("Singles/Singles AAT:")
-        print(AAT_SS, "\n")
-        print("Doubles/Singles:")
-        print(AAT_DS, "\n")
-        print("Singles/Doubles:")
-        print(AAT_SD, "\n")
-        print("Doubles/Doubles:")
-        print(AAT_DD, "\n")
+        if print_level > 0:
+            print("Hartree-Fock AAT:")
+            print(AAT_HF, "\n")
+            print("Singles/Reference AAT:")
+            print(AAT_S0, "\n")
+            print("Reference/Singles AAT:")
+            print(AAT_0S, "\n")
+            print("Singles/Singles AAT:")
+            print(AAT_SS, "\n")
+            print("Doubles/Singles:")
+            print(AAT_DS, "\n")
+            print("Singles/Doubles:")
+            print(AAT_SD, "\n")
+            print("Doubles/Doubles:")
+            print(AAT_DD, "\n")
 
         AAT = AAT_HF + AAT_S0 + AAT_0S + AAT_SS + AAT_DS + AAT_SD + AAT_DD + AAT_Norm
 
@@ -1293,9 +1301,10 @@ class analytic_derivative(AnalyticDerivative):
                         print("Not converged.")
                 iteration += 1
 
-            print("\nMagnetic Field Perturbation Data:")
-            print("Cartesian: ", a)
-            print("Maximum dt2/dH: ", np.max(dt2_dH))
+            if print_level > 0:
+                print("\nMagnetic Field Perturbation Data:")
+                print("Cartesian: ", a)
+                print("Maximum dt2/dH: ", np.max(dt2_dH))
 
             dT2_dH.append(dt2_dH)
             U_H.append(U_h)
@@ -1490,10 +1499,11 @@ class analytic_derivative(AnalyticDerivative):
                             print("Not converged.")
                     iteration += 1
 
-                print("\nNuclear Perturbation Data:")
-                print("Atom: ", N1)
-                print("Cartesian: ", a)
-                print("Maximum dt2/dR: ", np.max(dt2_dR))
+                if print_level > 0:
+                    print("\nNuclear Perturbation Data:")
+                    print("Atom: ", N1)
+                    print("Cartesian: ", a)
+                    print("Maximum dt2/dR: ", np.max(dt2_dR))
 
                 # Compute derivative of the normalization factor.
                 N_R = - (1 / np.sqrt((1 + oe.contract('ijab,ijab', np.conjugate(t2), 2*t2 - t2.swapaxes(2,3)))**3))
@@ -1547,10 +1557,11 @@ class analytic_derivative(AnalyticDerivative):
                         if normalization == 'full':
                             AAT_Norm[lambda_alpha][beta] += N * N_R * 1 * oe.contract("ijab,ijab", 2*t2 - t2.swapaxes(2,3), dT2_dH[beta])
 
-        print("Hartree-Fock AAT:")
-        print(AAT_HF, "\n")
-        print("Doubles/Doubles:")
-        print(AAT_DD, "\n")
+        if print_level > 0:
+            print("Hartree-Fock AAT:")
+            print(AAT_HF, "\n")
+            print("Doubles/Doubles:")
+            print(AAT_DD, "\n")
 
         AAT = AAT_HF + AAT_DD + AAT_Norm
 

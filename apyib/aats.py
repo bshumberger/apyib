@@ -690,16 +690,6 @@ class AAT(object):
         det_ia_S_kcld = np.swapaxes(np.swapaxes(np.swapaxes(np.swapaxes(det_ia_S_kcld,0,4),1,5),2,4),3,5)
         det_iajb_S_kcld = det_iajb_S_kcld - np.swapaxes(det_iajb_S_kcld,0,2) - np.swapaxes(det_iajb_S_kcld,1,3) - np.swapaxes(det_iajb_S_kcld,4,6) - np.swapaxes(det_iajb_S_kcld,5,7) + np.swapaxes(np.swapaxes(det_iajb_S_kcld,0,2),1,3) + np.swapaxes(np.swapaxes(det_iajb_S_kcld,4,6),5,7) + np.swapaxes(np.swapaxes(det_iajb_S_kcld,0,2),4,6) + np.swapaxes(np.swapaxes(det_iajb_S_kcld,1,3),5,7) + np.swapaxes(np.swapaxes(det_iajb_S_kcld,0,2),5,7) + np.swapaxes(np.swapaxes(det_iajb_S_kcld,1,3),4,6) - np.swapaxes(np.swapaxes(np.swapaxes(det_iajb_S_kcld,0,2),1,3),4,6) - np.swapaxes(np.swapaxes(np.swapaxes(det_iajb_S_kcld,0,2),1,3),5,7) - np.swapaxes(np.swapaxes(np.swapaxes(det_iajb_S_kcld,0,2),4,6),5,7) - np.swapaxes(np.swapaxes(np.swapaxes(det_iajb_S_kcld,1,3),4,6),5,7) + np.swapaxes(np.swapaxes(np.swapaxes(np.swapaxes(det_iajb_S_kcld,0,2),1,3),4,6),5,7)
 
-        #print("det_: ", det_S)
-        #print("det_ia: ", det_ia_S)
-        #print("det_kc: ", det_S_kc)
-        #print("det_iajb: ", det_iajb_S)
-        #print("det_kcld: ", det_S_kcld)
-        #print("det_iakc: ", det_ia_S_kc)
-        #print("det_iajbkc: ", det_iajb_S_kc)
-        #print("det_iakcld: ", det_ia_S_kcld)
-        #print("det_iajbkcld: ", det_iajb_S_kcld)
-
         return det_S, det_ia_S, det_S_kc, det_iajb_S, det_S_kcld, det_ia_S_kc, det_iajb_S_kc, det_ia_S_kcld, det_iajb_S_kcld
 
 
