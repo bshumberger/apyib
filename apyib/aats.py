@@ -21,7 +21,37 @@ class AAT(object):
     The atomic axial tensor object computed by finite difference.
     """
     def __init__(self, parameters, wfn, unperturbed_wfn, unperturbed_basis, unperturbed_T, nuc_pos_wfn, nuc_neg_wfn, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T, mag_pos_wfn, mag_neg_wfn, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T, nuc_pert_strength, mag_pert_strength):
+        """Store displaced-geometry wavefunctions for finite-difference AAT evaluation.
 
+        Parameters
+        ----------
+        parameters : dict
+            Calculation parameters.
+        wfn : hf_wfn
+            Reference (unperturbed) RHF wavefunction.
+        unperturbed_wfn : ndarray
+            MO coefficients at the reference geometry.
+        unperturbed_basis : psi4.core.BasisSet
+            Basis set at the reference geometry.
+        unperturbed_T : list
+            Amplitude list at the reference geometry.
+        nuc_pos_wfn, nuc_neg_wfn : list of ndarray
+            MO coefficients at +/− nuclear displacements.
+        nuc_pos_basis, nuc_neg_basis : list of psi4.core.BasisSet
+            Basis sets at +/− nuclear displacements.
+        nuc_pos_T, nuc_neg_T : list
+            Amplitude lists at +/− nuclear displacements.
+        mag_pos_wfn, mag_neg_wfn : list of ndarray
+            MO coefficients at +/− magnetic field perturbations.
+        mag_pos_basis, mag_neg_basis : list of psi4.core.BasisSet
+            Basis sets at +/− magnetic field perturbations.
+        mag_pos_T, mag_neg_T : list
+            Amplitude lists at +/− magnetic field perturbations.
+        nuc_pert_strength : float
+            Step size for nuclear coordinate displacements.
+        mag_pert_strength : float
+            Step size for magnetic field perturbations.
+        """
         # Basis sets and wavefunctions from calculations with respect to nuclear displacements.
         self.nuc_pos_wfn = nuc_pos_wfn
         self.nuc_neg_wfn = nuc_neg_wfn
@@ -118,6 +148,7 @@ class AAT(object):
 
     # Computes the determinant of the occupied space for some general row and column swap.
     def compute_SO_det(self, overlap, bra_indices, ket_indices):
+        """Compute the occupied-block determinant after swapping bra/ket rows and columns."""
         nocc = 2 * self.ndocc
         S = overlap.copy()
         for x in range(0, len(bra_indices), 2):
@@ -132,6 +163,7 @@ class AAT(object):
 
 
     def compute_normalization(self, alpha, beta, normalization):
+        """Compute wavefunction normalization factors for the given displacement pair."""
         # Compute normalization factors.
         if self.parameters['method'] == 'RHF' or normalization == 'intermediate':
             N = 1
@@ -159,6 +191,7 @@ class AAT(object):
 
 
     def compute_SO_I_00(self, alpha, beta, normalization):
+        """Return the HF (reference/reference) AAT contribution in the SO basis."""
         # Compute the Hartree-Fock determinant in the spin-orbital basis.
         N, N_np, N_nn, N_mp, N_mn = self.compute_normalization(alpha, beta, normalization)
 
@@ -181,6 +214,7 @@ class AAT(object):
 
 
     def compute_SO_I_0D(self, alpha, beta, normalization):
+        """Return the reference/doubles AAT contribution in the SO basis."""
         # Compute the reference/doubles determinants in the spin-orbital basis.
         N, N_np, N_nn, N_mp, N_mn = self.compute_normalization(alpha, beta, normalization)
 
@@ -215,6 +249,7 @@ class AAT(object):
 
 
     def compute_SO_I_D0(self, alpha, beta, normalization):
+        """Return the doubles/reference AAT contribution in the SO basis."""
         # Compute the doubles/reference determinants in the spin-orbital basis.
         N, N_np, N_nn, N_mp, N_mn = self.compute_normalization(alpha, beta, normalization)
 
@@ -249,6 +284,7 @@ class AAT(object):
 
 
     def compute_SO_I_DD(self, alpha, beta, normalization):
+        """Return the doubles/doubles AAT contribution in the SO basis."""
         # Compute the doubles/doubles determinants in the spin-orbital basis.
         N, N_np, N_nn, N_mp, N_mn = self.compute_normalization(alpha, beta, normalization)
 
@@ -302,6 +338,7 @@ class AAT(object):
 
 
     def compute_SO_I_0S(self, alpha, beta, normalization):
+        """Return the reference/singles AAT contribution in the SO basis."""
         # Compute the reference/singles determinants in the spin-orbital basis.
         N, N_np, N_nn, N_mp, N_mn = self.compute_normalization(alpha, beta, normalization)
 
@@ -334,6 +371,7 @@ class AAT(object):
 
 
     def compute_SO_I_S0(self, alpha, beta, normalization):
+        """Return the singles/reference AAT contribution in the SO basis."""
         # Compute the singles/reference determinants in the spin-orbital basis.
         N, N_np, N_nn, N_mp, N_mn = self.compute_normalization(alpha, beta, normalization)
 
@@ -366,6 +404,7 @@ class AAT(object):
 
 
     def compute_SO_I_SS(self, alpha, beta, normalization):
+        """Return the singles/singles AAT contribution in the SO basis."""
         # Compute the singles/singles determinants in the spin-orbital basis.
         N, N_np, N_nn, N_mp, N_mn = self.compute_normalization(alpha, beta, normalization)
 
@@ -415,6 +454,7 @@ class AAT(object):
 
 
     def compute_SO_I_SD(self, alpha, beta, normalization):
+        """Return the singles/doubles AAT contribution in the SO basis."""
         # Compute the singles/doubles determinants in the spin-orbital basis.
         N, N_np, N_nn, N_mp, N_mn = self.compute_normalization(alpha, beta, normalization)
 
@@ -467,6 +507,7 @@ class AAT(object):
 
 
     def compute_SO_I_DS(self, alpha, beta, normalization):
+        """Return the doubles/singles AAT contribution in the SO basis."""
         # Compute the doubles/singles determinants in the spin-orbital basis.
         N, N_np, N_nn, N_mp, N_mn = self.compute_normalization(alpha, beta, normalization)
 
@@ -518,6 +559,25 @@ class AAT(object):
 
 
     def compute_SO_aats(self, alpha, beta, normalization='full'):
+        """Compute one AAT element (alpha, beta) in the spin-orbital basis.
+
+        Sums all determinant contributions (HF, singles, doubles) appropriate
+        for the method specified in ``parameters['method']``.
+
+        Parameters
+        ----------
+        alpha : int
+            Nuclear displacement index (0 to 3*natom - 1).
+        beta : int
+            Magnetic field direction index (0, 1, or 2).
+        normalization : {'full', 'intermediate'}, optional
+            Wavefunction normalization convention (default ``'full'``).
+
+        Returns
+        -------
+        float
+            The imaginary part of the central-difference AAT element.
+        """
         t0 = time.time()
         # Compute the HF term of the AATs.
         I_00 = self.compute_SO_I_00(alpha, beta, normalization)
@@ -556,6 +616,7 @@ class AAT(object):
 
 
     def compute_all_dets(self, overlap):
+        """Pre-compute all row/column-swapped occupied-block determinants needed for spatial AATs."""
         # Setting up occupied and virtual spaces.
         nf = self.nfzc
         no = self.ndocc

@@ -13,7 +13,26 @@ class hf_wfn(object):
     """
     # Define the specific properties of the Hartree-Fock wavefunction.
     def __init__(self, H, charge=0):
+        """Initialise the RHF wavefunction from a Hamiltonian.
 
+        Parameters
+        ----------
+        H : Hamiltonian
+            Pre-built AO Hamiltonian object.
+        charge : int, optional
+            Molecular charge (default 0).
+
+        Attributes
+        ----------
+        ndocc : int
+            Number of doubly occupied orbitals.
+        nbf : int
+            Number of basis functions.
+        C : ndarray, shape (nbf, nbf)
+            MO coefficient matrix (populated by :meth:`solve_SCF`).
+        eps : ndarray, shape (nbf,)
+            Orbital energies (populated by :meth:`solve_SCF`).
+        """
         # Define the Hamiltonian and number of doubly occupied orbitals as properties of the wavefunction.
         self.H = H
         self.nelec = self.nelectron(charge)
@@ -27,6 +46,7 @@ class hf_wfn(object):
 
     # Computes the number of electrons.
     def nelectron(self, charge):
+        """Return the total number of electrons for the given molecular charge."""
         nelec = -charge
         for atom in range(self.H.molecule.natom()):
             nelec += self.H.molecule.true_atomic_number(atom)

@@ -19,7 +19,13 @@ class vcd(object):
     Combines the functions for the Hessian, APTs, and AATs to compute a VCD spectrum.
     """
     def __init__(self, parameters):
+        """Initialise the VCD driver.
 
+        Parameters
+        ----------
+        parameters : dict
+            Calculation parameters.  Required keys: ``'geom'``.
+        """
         # Define the calculation parameters.
         self.parameters = parameters
 

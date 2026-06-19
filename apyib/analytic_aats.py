@@ -16,6 +16,18 @@ class analytic_derivative(AnalyticDerivative):
 
 
     def compute_RHF_AATs(self, orbitals='non-canonical'):
+        """Compute analytic RHF atomic axial tensors.
+
+        Parameters
+        ----------
+        orbitals : {'non-canonical', 'canonical'}, optional
+            Orbital convention (default ``'non-canonical'``).
+
+        Returns
+        -------
+        AAT_HF : ndarray, shape (3*natom, 3)
+            Hartree-Fock contribution to the AAT ``dI_beta / dR_alpha`` [a.u.].
+        """
         m = self._setup_mo_basis()
         C, nbf, no, nv = m.C, m.nbf, m.no, m.nv
         f_, o_, v_, t_ = m.f_, m.o_, m.v_, m.t_
@@ -89,6 +101,20 @@ class analytic_derivative(AnalyticDerivative):
 
 
     def compute_MP2_AATs(self, normalization='full', orbitals='non-canonical'):
+        """Compute analytic MP2 atomic axial tensors.
+
+        Parameters
+        ----------
+        normalization : {'full', 'intermediate'}, optional
+            Wavefunction normalization convention (default ``'full'``).
+        orbitals : {'non-canonical', 'canonical'}, optional
+            Orbital convention (default ``'non-canonical'``).
+
+        Returns
+        -------
+        ndarray, shape (3*natom, 3)
+            MP2 AAT ``dI_beta / dR_alpha`` [a.u.].
+        """
         wfn_MP2 = mp2_wfn(self.parameters, self.wfn)
         E_MP2, t2 = wfn_MP2.solve_MP2()
 
@@ -300,6 +326,22 @@ class analytic_derivative(AnalyticDerivative):
 
 
     def compute_CISD_AATs(self, normalization='full', orbitals='non-canonical', print_level=0):
+        """Compute analytic CISD atomic axial tensors.
+
+        Parameters
+        ----------
+        normalization : {'full', 'intermediate'}, optional
+            Wavefunction normalization convention (default ``'full'``).
+        orbitals : {'non-canonical', 'canonical'}, optional
+            Orbital convention (default ``'non-canonical'``).
+        print_level : int, optional
+            Verbosity level; 0 (default) suppresses output.
+
+        Returns
+        -------
+        ndarray, shape (3*natom, 3)
+            CISD AAT ``dI_beta / dR_alpha`` [a.u.].
+        """
         # Compute T2 amplitudes and MP2 energy.
         wfn_CISD = ci_wfn(self.parameters, self.wfn)
         E_CISD, t1, t2 = wfn_CISD.solve_CISD()
@@ -1071,6 +1113,22 @@ class analytic_derivative(AnalyticDerivative):
 
 
     def compute_CID_AATs(self, normalization='full', orbitals='non-canonical', print_level=0):
+        """Compute analytic CID atomic axial tensors.
+
+        Parameters
+        ----------
+        normalization : {'full', 'intermediate'}, optional
+            Wavefunction normalization convention (default ``'full'``).
+        orbitals : {'non-canonical', 'canonical'}, optional
+            Orbital convention (default ``'non-canonical'``).
+        print_level : int, optional
+            Verbosity level; 0 (default) suppresses output.
+
+        Returns
+        -------
+        ndarray, shape (3*natom, 3)
+            CID AAT ``dI_beta / dR_alpha`` [a.u.].
+        """
         # Compute T2 amplitudes and MP2 energy.
         wfn_CID = ci_wfn(self.parameters, self.wfn)
         E_CID, t2 = wfn_CID.solve_CID()
@@ -1556,6 +1614,18 @@ class analytic_derivative(AnalyticDerivative):
 
 
     def compute_RHF_DO_AATs(self, orbitals='non-canonical'):
+        """Compute analytic RHF AATs using the distributed-origin gauge.
+
+        Parameters
+        ----------
+        orbitals : {'non-canonical', 'canonical'}, optional
+            Orbital convention (default ``'non-canonical'``).
+
+        Returns
+        -------
+        ndarray, shape (3*natom, 3)
+            Distributed-origin RHF AAT ``dI_beta / dR_alpha`` [a.u.].
+        """
         m = self._setup_mo_basis()
         C, nbf, no, nv = m.C, m.nbf, m.no, m.nv
         f_, o_, v_, t_ = m.f_, m.o_, m.v_, m.t_

@@ -16,6 +16,18 @@ class analytic_derivative(AnalyticDerivative):
 
 
     def compute_RHF_APTs_LG(self, orbitals='non-canonical'):
+        """Compute analytic RHF atomic polar tensors in the length gauge.
+
+        Parameters
+        ----------
+        orbitals : {'non-canonical', 'canonical'}, optional
+            Orbital convention (default ``'non-canonical'``).
+
+        Returns
+        -------
+        APT : ndarray, shape (3*natom, 3)
+            Atomic polar tensor ``dmu_beta / dR_alpha`` [e].
+        """
         m = self._setup_mo_basis()
         C, nbf, no, nv = m.C, m.nbf, m.no, m.nv
         f_, o_, v_, t_ = m.f_, m.o_, m.v_, m.t_
@@ -93,6 +105,19 @@ class analytic_derivative(AnalyticDerivative):
 
 
     def compute_RHF_APTs_VG(self, orbitals='non-canonical'):
+        """Compute analytic RHF atomic polar tensors in the velocity gauge.
+
+        Parameters
+        ----------
+        orbitals : {'non-canonical', 'canonical'}, optional
+            Orbital convention (default ``'non-canonical'``).
+
+        Returns
+        -------
+        APT : ndarray, shape (3*natom, 3)
+            Velocity-gauge atomic polar tensor ``-i * dp_beta / dR_alpha``
+            [e * a_0^{-1}].
+        """
         m = self._setup_mo_basis()
         C, nbf, no, nv = m.C, m.nbf, m.no, m.nv
         f_, o_, v_, t_ = m.f_, m.o_, m.v_, m.t_

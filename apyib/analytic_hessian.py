@@ -13,6 +13,20 @@ class analytic_derivative(AnalyticDerivative):
     """Analytic nuclear Hessian for RHF wavefunctions."""
 
     def compute_RHF_Hessian(self, orbitals='non-canonical'):
+        """Compute the analytic RHF nuclear Hessian.
+
+        Parameters
+        ----------
+        orbitals : {'non-canonical', 'canonical'}, optional
+            Orbital convention.  ``'non-canonical'`` (default) uses
+            block-diagonal MOs; ``'canonical'`` uses fully diagonalised MOs.
+
+        Returns
+        -------
+        Hessian : ndarray, shape (3*natom, 3*natom)
+            Second derivative of the total energy w.r.t. nuclear coordinates
+            [E_h / a_0^2].
+        """
         m = self._setup_mo_basis()
         C, nbf, no, nv = m.C, m.nbf, m.no, m.nv
         f_, o_, v_, t_ = m.f_, m.o_, m.v_, m.t_
@@ -109,6 +123,22 @@ class analytic_derivative(AnalyticDerivative):
 
 
     def compute_RHF_Hessian_opt(self, orbitals='non-canonical'):
+        """Compute the analytic RHF nuclear Hessian using frozen-core-aware ERIs.
+
+        Identical result to :meth:`compute_RHF_Hessian` but uses a frozen-core
+        ERI transform; intended for benchmarking frozen-core energetics.
+
+        Parameters
+        ----------
+        orbitals : {'non-canonical', 'canonical'}, optional
+            Orbital convention (default ``'non-canonical'``).
+
+        Returns
+        -------
+        Hessian : ndarray, shape (3*natom, 3*natom)
+            Second derivative of the total energy w.r.t. nuclear coordinates
+            [E_h / a_0^2].
+        """
         m = self._setup_mo_basis()
         C, nbf, no, nv = m.C, m.nbf, m.no, m.nv
         f_, o_, v_, t_ = m.f_, m.o_, m.v_, m.t_

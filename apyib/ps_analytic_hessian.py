@@ -18,6 +18,14 @@ class analytic_derivative(object):
     """
     # Defines the integrals associated with the analytic evaluation of the energy.
     def __init__(self, parameters):
+        """Run a single RHF SCF and store the converged wavefunction.
+
+        Parameters
+        ----------
+        parameters : dict
+            Calculation parameters (see :func:`apyib.energy.energy`).
+            Must include ``'hamiltonian': 'phase-space'`` for phase-space runs.
+        """
         # Set calculation parameters.
         self.parameters = parameters
 
@@ -29,6 +37,18 @@ class analytic_derivative(object):
 
 
     def compute_RHF_momentum_Hessian(self, orbitals='non-canonical'):
+        """Compute the analytic phase-space RHF momentum Hessian.
+
+        Parameters
+        ----------
+        orbitals : {'non-canonical', 'canonical'}, optional
+            Orbital convention (default ``'non-canonical'``).
+
+        Returns
+        -------
+        mom_Hessian : ndarray, shape (3*natom, 3*natom)
+            Second derivative of total energy w.r.t. nuclear momenta [a.u.].
+        """
         # Setting initial variables for readability.
         C = self.C
         nbf = self.wfn.nbf
