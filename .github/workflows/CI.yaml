@@ -9,6 +9,7 @@ on:
       - "main"
   schedule:
     - cron: "0 0 * * 0"
+  workflow_dispatch:
 
 jobs:
   test:
@@ -22,7 +23,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ['3.10', '3.12']
+        python-version: ['3.10', '3.11', '3.12']
 
     steps:
       - uses: actions/checkout@v4
@@ -54,9 +55,43 @@ jobs:
         run: pip install -e . --no-deps
 
       - name: Run tests (excluding slow)
-        run: pytest apyib/tests/ -m "not slow" -v --cov=apyib --cov-report=xml
+        env:
+          OMP_NUM_THREADS: 1
+        run: pytest apyib/tests/ -m "not slow" -n auto -v --cov=apyib --cov-report=xml
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  # Opt-in job for the slow tests (MP2/CID/CISD analytic Hessians and the
+  # full VCD cases). Runs on the weekly schedule and on manual dispatch only,
+  # so routine push/PR checks stay fast.
+  slow-test:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    defaults:
+      run:
+        shell: bash -l {0}
+
+    name: Slow tests (ubuntu-latest, Python 3.12)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up conda environment with Psi4 and dependencies
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniconda-version: "latest"
+          activate-environment: p4env
+          environment-file: devtools/conda-envs/psi.yaml
+          python-version: '3.12'
+          auto-activate-base: false
+
+      - name: Install apyib
+        run: pip install -e . --no-deps
+
+      - name: Run slow tests
+        env:
+          OMP_NUM_THREADS: 1
+        run: pytest apyib/tests/ -m slow -n auto -v

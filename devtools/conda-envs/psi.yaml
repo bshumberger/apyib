@@ -10,5 +10,6 @@ dependencies:
   - opt_einsum>=3.3
   - pytest>=6.1
   - pytest-cov
+  - pytest-xdist
   - coverage
   - pip

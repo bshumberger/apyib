@@ -4,6 +4,11 @@ import apyib
 import pytest
 from ..data.molecules import *
 
+# These VCD cases run a full analytic Hessian + APT + AAT on H2O2/aug-cc-pVDZ
+# and are the slowest tests in the suite; exclude from the default run with
+# '-m "not slow"' and exercise them via the opt-in slow CI job.
+pytestmark = pytest.mark.slow
+
 def test_rhf_aug_cc_pvdz_vcd_with_LGOI():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["H2O2_opt_hfapvdz"],
