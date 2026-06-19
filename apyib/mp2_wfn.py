@@ -6,7 +6,6 @@ import scipy.linalg as la
 import opt_einsum as oe
 from apyib.hamiltonian import Hamiltonian
 from apyib.hf_wfn import hf_wfn
-from apyib.utils import solve_DIIS
 from apyib.utils import get_slices
 from apyib.utils import compute_F_MO
 from apyib.utils import compute_ERI_MO

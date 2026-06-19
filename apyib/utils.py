@@ -54,53 +54,6 @@ def run_psi4(parameters, method='RHF'):
 
 
 
-def solve_DIIS(parameters, F, D, S, X, F_iter, e_iter, min_DIIS=1, max_DIIS=7):
-    """ 
-    Solve the direct inversion of the iterative subspace (DIIS) equations for improved SCF convergence.
-    """
-    # Truncate the storage of the Fock matrices and error matrices for stability reasons.
-    if len(e_iter) > max_DIIS:
-        while len(e_iter) > max_DIIS:
-            del F_iter[0]
-            del e_iter[0]
-    
-    # Store Fock matrices.
-    F_iter.append(F)
-    
-    # Compute the error matrix.
-    e_diis = np.zeros_like(F)
-    e_diis = X@(S@D@F - np.conjugate(np.transpose(S@D@F)))@X
-    e_iter.append(e_diis)
-    
-    # Compute the "B" matrix.
-    B = np.zeros((len(e_iter)+1,len(e_iter)+1))
-    B[-1,:] = -1
-    B[:,-1] = -1
-    B[-1,-1] = 0 
-    for m in range(len(e_iter)):
-        for n in range(len(e_iter)):
-            B[m,n] = B[m,n] + oe.contract('op,op->', np.conjugate(e_iter[m]), e_iter[n])
-            #for o in range(len(e_diis[0])):
-            #    for p in range(len(e_diis[0])):
-            #        B[m,n] = B[m,n] + np.conjugate(e_iter[m][o][p]) * e_iter[n][o][p]
-    
-    # Build the "A" matrix for the system of linear equations.
-    A = np.zeros(len(e_iter)+1)
-    A[-1] = -1
-    
-    # Solve the system of linear equations.
-    #C_diis = np.linalg.inv(B) @ A
-    C_diis = np.linalg.solve(B,A)
-    
-    # Solve for new Fock matrix.
-    F = np.zeros_like(F)
-    for j in range(len(C_diis) - 1): 
-        F = F + C_diis[j] * F_iter[j]
-
-    return F
-
-
-
 def solve_general_DIIS(parameters, res_vec, t_vec, e_iter, t_iter, iteration, min_DIIS=1, max_DIIS=7):
     """ 
     Solve the direct inversion of the iterative subspace (DIIS) equations for improved CI convergence.
@@ -138,46 +91,6 @@ def solve_general_DIIS(parameters, res_vec, t_vec, e_iter, t_iter, iteration, mi
     t_vec = oe.contract('j,ij->i', C_diis[0:-1], t_iter)
 
     return t_vec, e_iter, t_iter
-
-
-
-#def solve_general_DIIS(parameters, res_vec, t_vec, e_iter, t_iter, min_DIIS=1, max_DIIS=7):
-#    """ 
-#    Solve the direct inversion of the iterative subspace (DIIS) equations for improved CI convergence.
-#    """
-#    # Truncate the storage of the error matrices for stability reasons.
-#    if len(e_iter) > max_DIIS:
-#        while len(e_iter) > max_DIIS:
-#            del e_iter[0]
-#            del t_iter[0]
-#
-#    # Compute the error matrix.
-#    e_diis = res_vec
-#    e_iter.append(e_diis)
-#    t_iter.append(t_vec)
-#
-#    # Compute the "B" matrix.
-#    B = np.zeros((len(e_iter)+1,len(e_iter)+1))
-#    B[-1,:] = -1
-#    B[:,-1] = -1
-#    B[-1,-1] = 0 
-#    for m in range(len(e_iter)):
-#        for n in range(len(e_iter)):
-#            B[m,n] = B[m,n] + oe.contract('o,o->', np.conjugate(e_iter[m]), e_iter[n])
-#    
-#    # Build the "A" matrix for the system of linear equations.
-#    A = np.zeros(len(e_iter)+1)
-#    A[-1] = -1
-#    
-#    # Solve the system of linear equations.
-#    C_diis = np.linalg.solve(B,A)
-#    
-#    # Solve for new Fock matrix.
-#    t_vec = np.zeros_like(res_vec)
-#    for j in range(len(C_diis) - 1): 
-#        t_vec = t_vec + C_diis[j] * t_iter[j]
-#
-#    return t_vec
 
 
 
