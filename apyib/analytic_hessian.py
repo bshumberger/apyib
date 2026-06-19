@@ -62,9 +62,12 @@ class analytic_derivative(AnalyticDerivative):
                 ERI_a[a] = ERI_a[a].np
                 ERI_a[a] = ERI_a[a].swapaxes(1, 2)
 
+                # Skeleton-derivative Fock matrix for this Cartesian displacement.
                 h_a = T_a[a] + V_a[a]
                 F_a = h_a + oe.contract('piqi->pq', 2 * ERI_a[a][:, o, :, o] - ERI_a[a].swapaxes(2, 3)[:, o, :, o])
 
+                # CPHF right-hand side for nuclear perturbation k = 3*N1 + a:
+                # skeleton Fock term plus overlap-derivative corrections.
                 k = 3 * N1 + a
                 B_nuc[:, k] = (-F_a[v, o]
                                 + oe.contract('ai,ii->ai', S_a[a][v, o], F[o, o])
@@ -103,6 +106,9 @@ class analytic_derivative(AnalyticDerivative):
                         ERI_RR = ERI_ab[ab].np
                         ERI_RR = ERI_RR.swapaxes(1, 2)
 
+                        # Hessian element = explicit second-derivative integral terms
+                        # (h_RR, ERI_RR) plus orbital-response (U_R) and overlap-
+                        # derivative (S_R, S_RR) coupling terms.
                         Hessian[N1a][N2b] += 2 * oe.contract('ii->', h_RR[o, o])
                         Hessian[N1a][N2b] += 1 * oe.contract('ijij->', 2 * ERI_RR[o, o, o, o] - ERI_RR[o, o, o, o].swapaxes(2, 3))
                         Hessian[N1a][N2b] += 2 * oe.contract('pi,pi->', U_R[N2b][:, o], F_R[N1a][:, o] + F_R[N1a][o, :].T)
@@ -238,6 +244,8 @@ class analytic_derivative(AnalyticDerivative):
                         S_Ra_a = S_Ra_store[N1a]
                         S_Rb_b = S_Ra_store[N2b]
 
+                        # Occupied-block second-order response intermediate:
+                        # symmetrized U-matrix products minus overlap-derivative products.
                         eta_RR = (oe.contract('im,jm->ij', U_Ra[o, :], U_Rb[o, :])
                                   + oe.contract('im,jm->ij', U_Rb[o, :], U_Ra[o, :])
                                   - oe.contract('im,jm->ij', S_Ra_a[o, :], S_Rb_b[o, :])
