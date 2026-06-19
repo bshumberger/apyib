@@ -161,6 +161,9 @@ class analytic_derivative(AnalyticDerivative):
             U_h = U_H[b]
             h_core = h_dep_mag[b]
 
+            # Derivative of the MO Fock matrix w.r.t. the magnetic field, occ-occ
+            # and virt-virt blocks: perturbation operator + orbital-energy-weighted
+            # U_H response + A_mag coupling through the solved U_H[v,o].
             df_dH = np.zeros((nbf, nbf))
             df_dH[o, o] -= h_core[o, o].copy()
             df_dH[o, o] += U_h[o, o] * self.wfn.eps[o].reshape(-1, 1) - U_h[o, o].swapaxes(0, 1) * self.wfn.eps[o]
@@ -169,11 +172,15 @@ class analytic_derivative(AnalyticDerivative):
             df_dH[v, v] += U_h[v, v] * self.wfn.eps[v].reshape(-1, 1) - U_h[v, v].swapaxes(0, 1) * self.wfn.eps[v]
             df_dH[v, v] += oe.contract('em,aebm->ab', U_h[v, o], A_mag.swapaxes(1, 2)[v, v, v, o])
 
+            # Derivative of the MO two-electron integrals: U_H orbital rotation
+            # applied to each of the four indices in turn.
             dERI_dH  = oe.contract('tr,pqts->pqrs', U_h[:, t], ERI[t, t, :, t])
             dERI_dH += oe.contract('ts,pqrt->pqrs', U_h[:, t], ERI[t, t, t, :])
             dERI_dH -= oe.contract('tp,tqrs->pqrs', U_h[:, t], ERI[:, t, t, t])
             dERI_dH -= oe.contract('tq,ptrs->pqrs', U_h[:, t], ERI[t, :, t, t])
 
+            # Derivative of the MP2 T2 amplitudes: differentiated integrals plus
+            # Fock-derivative terms, divided by the MP2 energy denominator.
             dt2_dH = dERI_dH.copy().swapaxes(0, 2).swapaxes(1, 3)[o_, o_, v_, v_]
             dt2_dH += oe.contract('ac,ijcb->ijab', df_dH[v_, v_], t2)
             dt2_dH += oe.contract('bc,ijac->ijab', df_dH[v_, v_], t2)
@@ -214,6 +221,8 @@ class analytic_derivative(AnalyticDerivative):
                 ERI_core[a] = ERI_core[a].swapaxes(1, 2)
                 half_S_core[a] = half_S_core[a].np
 
+                # Skeleton-derivative Fock matrix and CPHF right-hand side for
+                # nuclear perturbation k = 3*N1 + a (cf. analytic_hessian).
                 h_core = T_core[a] + V_core[a]
                 F_core = h_core + oe.contract('piqi->pq', 2 * ERI_core[a][:, o, :, o] - ERI_core[a].swapaxes(2, 3)[:, o, :, o])
 
@@ -243,6 +252,9 @@ class analytic_derivative(AnalyticDerivative):
                 half_S_core_a = half_S[k]
                 lambda_alpha = k
 
+                # Derivative of the MO Fock matrix w.r.t. nuclear displacement
+                # (occ-occ, virt-virt): skeleton Fock + U_R response + A coupling +
+                # overlap-derivative correction.
                 df_dR = np.zeros((nbf, nbf))
                 df_dR[o, o] += F_core[o, o].copy()
                 df_dR[o, o] += U_R[o, o] * self.wfn.eps[o].reshape(-1, 1) + U_R[o, o].swapaxes(0, 1) * self.wfn.eps[o]
@@ -253,12 +265,15 @@ class analytic_derivative(AnalyticDerivative):
                 df_dR[v, v] += oe.contract('em,aebm->ab', U_R[v, o], A.swapaxes(1, 2)[v, v, v, o])
                 df_dR[v, v] -= 0.5 * oe.contract('mn,ambn->ab', S_core_a[o, o], A.swapaxes(1, 2)[v, o, v, o])
 
+                # Derivative of the MO two-electron integrals: skeleton derivative
+                # plus the U_R rotation applied to each of the four indices.
                 dERI_dR = ERI_core_a.copy()
                 dERI_dR += oe.contract('tp,tqrs->pqrs', U_R[:, t], ERI[:, t, t, t])
                 dERI_dR += oe.contract('tq,ptrs->pqrs', U_R[:, t], ERI[t, :, t, t])
                 dERI_dR += oe.contract('tr,pqts->pqrs', U_R[:, t], ERI[t, t, :, t])
                 dERI_dR += oe.contract('ts,pqrt->pqrs', U_R[:, t], ERI[t, t, t, :])
 
+                # Derivative of the MP2 T2 amplitudes w.r.t. nuclear displacement.
                 dt2_dR = dERI_dR.copy()[o_, o_, v_, v_]
                 dt2_dR -= oe.contract('kjab,ik->ijab', t2, df_dR[o_, o_])
                 dt2_dR -= oe.contract('ikab,kj->ijab', t2, df_dR[o_, o_])
@@ -271,10 +286,15 @@ class analytic_derivative(AnalyticDerivative):
                 print("Cartesian: ", a)
                 print("Maximum dt2/dR: ", np.max(dt2_dR))
 
+                # Derivative of the full-normalization factor w.r.t. this displacement.
                 N_R = -(1 / np.sqrt((1 + oe.contract('ijab,ijab', np.conjugate(t2), 2 * t2 - t2.swapaxes(2, 3)))**3))
                 N_R *= 0.5 * (oe.contract('ijab,ijab', np.conjugate(dt2_dR), 2 * t2 - t2.swapaxes(2, 3))
                               + oe.contract('ijab,ijab', dt2_dR, np.conjugate(2 * t2 - t2.swapaxes(2, 3))))
 
+                # AAT components, summed at the end: AAT_HF (reference/reference),
+                # AAT_1-4 (doubles/doubles), AAT_Norm (normalization-derivative
+                # correction, full normalization only). The canonical and
+                # non-canonical branches differ in the within-block U treatment.
                 for beta in range(3):
                     if orbitals == 'canonical':
                         AAT_HF[lambda_alpha][beta] += N**2 * 2 * oe.contract("em,em", U_H[beta][v_, o], U_R[v_, o] + half_S_core_a[o, v_].T)
@@ -358,6 +378,10 @@ class analytic_derivative(AnalyticDerivative):
         AAT = np.zeros((natom * 3, 3))
 
         # Setting up different components of the AATs.
+        # CISD AAT components labelled by bra/ket excitation level: the first
+        # label is the nuclear-derivative (bra) block and the second the
+        # magnetic-derivative (ket) block, with 0 = reference, S = singles,
+        # D = doubles. AAT_Norm is the full-normalization derivative correction.
         AAT_HF = np.zeros((natom * 3, 3))
         AAT_S0 = np.zeros((natom * 3, 3))
         AAT_0S = np.zeros((natom * 3, 3))
@@ -399,7 +423,8 @@ class analytic_derivative(AnalyticDerivative):
         t1_n = t1 * N
         t2_n = t2 * N
 
-        # Build OPD.
+        # Build the CISD one-particle density matrix (OPD) in the MO basis from
+        # the normalized reference/singles/doubles amplitudes (t0_n, t1_n, t2_n).
         D_pq = np.zeros_like(F)
         D_pq[o_,o_] -= 2 * oe.contract('ja,ia->ij', np.conjugate(t1_n), t1_n) + 2 * oe.contract('jkab,ikab->ij', np.conjugate(2*t2_n - t2_n.swapaxes(2,3)), t2_n)
         D_pq[v_,v_] += 2 * oe.contract('ia,ib->ab', np.conjugate(t1_n), t1_n) + 2 * oe.contract('ijac,ijbc->ab', np.conjugate(2*t2_n - t2_n.swapaxes(2,3)), t2_n)
@@ -407,7 +432,7 @@ class analytic_derivative(AnalyticDerivative):
         D_pq[v_,o_] += 2 * np.conjugate(t1_n.T) * t0_n + 2 * oe.contract('ijab,jb->ai', np.conjugate(t2_n - t2_n.swapaxes(2,3)), t1_n)
         D_pq = D_pq[t_,t_]
 
-        # Build TPD.
+        # Build the CISD two-particle density matrix (TPD) in the MO basis.
         D_pqrs = np.zeros_like(ERI)
         D_pqrs[o_,o_,o_,o_] += oe.contract('klab,ijab->ijkl', np.conjugate(t2_n), (2*t2_n - t2_n.swapaxes(2,3)))
         D_pqrs[v_,v_,v_,v_] += oe.contract('ijab,ijcd->abcd', np.conjugate(t2_n), (2*t2_n - t2_n.swapaxes(2,3)))
