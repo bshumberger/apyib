@@ -15,8 +15,15 @@ authors = [
 license = { text = "BSD-3-Clause" }
 # See https://pypi.org/classifiers/
 classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
     "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Chemistry",
 ]
 requires-python = ">=3.10"
 # psi4 is a required runtime dependency but cannot be declared here because it is
@@ -27,10 +34,16 @@ dependencies = [
     "opt_einsum>=3.3",
 ]
 
+[project.urls]
+Homepage = "https://github.com/bshumberger/apyib"
+Repository = "https://github.com/bshumberger/apyib"
+Issues = "https://github.com/bshumberger/apyib/issues"
+
 [project.optional-dependencies]
 test = [
   "pytest>=6.1",
   "pytest-cov",
+  "pytest-xdist",
 ]
 
 [tool.setuptools]

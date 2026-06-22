@@ -161,37 +161,6 @@ class hf_wfn(object):
 
         self.E_SCF = E_SCF
 
-        #################################################
-        ## Compute the AO to MO transformed SCF energy.
-        #H_core_MO = oe.contract('ip,ij,jq->pq', np.conjugate(C), H.T + H.V, C)
-        #F_MO = oe.contract('ip,ij,jq->pq', np.conjugate(C), F, C)
-        #E1 = 0.0 
-        #for i in range(0,self.ndocc):
-        #    E1 += H_core_MO[i][i] + F_MO[i][i]
-        #print('AO to MO Transformed Energy:', E1 + self.H.E_nuc)
-
-        ## Compute AO density based SCF energy.
-        #E_SCF1 = oe.contract('vu,uv->', D, H_core + F)
-        #print('AO Density-Based Energy:',E_SCF1 + self.H.E_nuc)
-
-        ##print(C,'\n')
-        #print('D')
-        #print(D,'\n')
-        #print('C[0:self.nbf,0:self.ndocc] @ np.conjugate(np.transpose(C)[0:self.ndocc,0:self.nbf])')
-        #print(C[0:self.nbf,0:self.ndocc] @ np.conjugate(np.transpose(C)[0:self.ndocc,0:self.nbf]), '\n')
-        #print('C[0:self.nbf,0:self.ndocc]')
-        #print(C[0:self.nbf,0:self.ndocc], '\n')
-        #print('np.conjugate(np.transpose(C)[0:self.ndocc,0:self.nbf])')
-        #print(np.conjugate(np.transpose(C)[0:self.ndocc,0:self.nbf]), '\n')
-
-        # Test MO Density
-        #print(np.conjugate(np.transpose(C))@H.S@D@H.S@C)
-
-        # Test Idempotency
-        #print(D - (D@H.S@D))
-        #################################################
-
-
         return E_SCF, self.C
 
 

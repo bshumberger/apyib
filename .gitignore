@@ -107,3 +107,12 @@ ENV/
 
 # In-tree generated files
 */_version.py
+
+# Editor swap files
+*.swp
+
+# Psi4 / apyib generated output (calculation logs, timing data)
+# Scoped to the known generated filenames so legitimate data files
+# (e.g. apyib/data/look_and_say.dat) stay tracked.
+output.dat
+timer.dat

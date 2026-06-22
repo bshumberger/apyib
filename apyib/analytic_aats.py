@@ -100,7 +100,7 @@ class analytic_derivative(AnalyticDerivative):
 
 
 
-    def compute_MP2_AATs(self, normalization='full', orbitals='non-canonical'):
+    def compute_MP2_AATs(self, normalization='full', orbitals='non-canonical', print_level=0):
         """Compute analytic MP2 atomic axial tensors.
 
         Parameters
@@ -109,6 +109,8 @@ class analytic_derivative(AnalyticDerivative):
             Wavefunction normalization convention (default ``'full'``).
         orbitals : {'non-canonical', 'canonical'}, optional
             Orbital convention (default ``'non-canonical'``).
+        print_level : int, optional
+            Verbosity level; 0 (default) suppresses diagnostic output.
 
         Returns
         -------
@@ -161,6 +163,9 @@ class analytic_derivative(AnalyticDerivative):
             U_h = U_H[b]
             h_core = h_dep_mag[b]
 
+            # Derivative of the MO Fock matrix w.r.t. the magnetic field, occ-occ
+            # and virt-virt blocks: perturbation operator + orbital-energy-weighted
+            # U_H response + A_mag coupling through the solved U_H[v,o].
             df_dH = np.zeros((nbf, nbf))
             df_dH[o, o] -= h_core[o, o].copy()
             df_dH[o, o] += U_h[o, o] * self.wfn.eps[o].reshape(-1, 1) - U_h[o, o].swapaxes(0, 1) * self.wfn.eps[o]
@@ -169,11 +174,15 @@ class analytic_derivative(AnalyticDerivative):
             df_dH[v, v] += U_h[v, v] * self.wfn.eps[v].reshape(-1, 1) - U_h[v, v].swapaxes(0, 1) * self.wfn.eps[v]
             df_dH[v, v] += oe.contract('em,aebm->ab', U_h[v, o], A_mag.swapaxes(1, 2)[v, v, v, o])
 
+            # Derivative of the MO two-electron integrals: U_H orbital rotation
+            # applied to each of the four indices in turn.
             dERI_dH  = oe.contract('tr,pqts->pqrs', U_h[:, t], ERI[t, t, :, t])
             dERI_dH += oe.contract('ts,pqrt->pqrs', U_h[:, t], ERI[t, t, t, :])
             dERI_dH -= oe.contract('tp,tqrs->pqrs', U_h[:, t], ERI[:, t, t, t])
             dERI_dH -= oe.contract('tq,ptrs->pqrs', U_h[:, t], ERI[t, :, t, t])
 
+            # Derivative of the MP2 T2 amplitudes: differentiated integrals plus
+            # Fock-derivative terms, divided by the MP2 energy denominator.
             dt2_dH = dERI_dH.copy().swapaxes(0, 2).swapaxes(1, 3)[o_, o_, v_, v_]
             dt2_dH += oe.contract('ac,ijcb->ijab', df_dH[v_, v_], t2)
             dt2_dH += oe.contract('bc,ijac->ijab', df_dH[v_, v_], t2)
@@ -182,9 +191,10 @@ class analytic_derivative(AnalyticDerivative):
             dt2_dH /= wfn_MP2.D_ijab
 
             dT2_dH.append(dt2_dH)
-            print("\nMagnetic Field Perturbtion Data:")
-            print("Cartesian: ", b)
-            print("Maximum dt2/dH: ", np.max(dt2_dH))
+            if print_level > 0:
+                print("\nMagnetic Field Perturbation Data:")
+                print("Cartesian: ", b)
+                print("Maximum dt2/dH: ", np.max(dt2_dH))
 
         # ------------------------------------------------------------------ #
         # Nuclear CPHF: vectorized over all 3*natom displacements.           #
@@ -214,6 +224,8 @@ class analytic_derivative(AnalyticDerivative):
                 ERI_core[a] = ERI_core[a].swapaxes(1, 2)
                 half_S_core[a] = half_S_core[a].np
 
+                # Skeleton-derivative Fock matrix and CPHF right-hand side for
+                # nuclear perturbation k = 3*N1 + a (cf. analytic_hessian).
                 h_core = T_core[a] + V_core[a]
                 F_core = h_core + oe.contract('piqi->pq', 2 * ERI_core[a][:, o, :, o] - ERI_core[a].swapaxes(2, 3)[:, o, :, o])
 
@@ -243,6 +255,9 @@ class analytic_derivative(AnalyticDerivative):
                 half_S_core_a = half_S[k]
                 lambda_alpha = k
 
+                # Derivative of the MO Fock matrix w.r.t. nuclear displacement
+                # (occ-occ, virt-virt): skeleton Fock + U_R response + A coupling +
+                # overlap-derivative correction.
                 df_dR = np.zeros((nbf, nbf))
                 df_dR[o, o] += F_core[o, o].copy()
                 df_dR[o, o] += U_R[o, o] * self.wfn.eps[o].reshape(-1, 1) + U_R[o, o].swapaxes(0, 1) * self.wfn.eps[o]
@@ -253,12 +268,15 @@ class analytic_derivative(AnalyticDerivative):
                 df_dR[v, v] += oe.contract('em,aebm->ab', U_R[v, o], A.swapaxes(1, 2)[v, v, v, o])
                 df_dR[v, v] -= 0.5 * oe.contract('mn,ambn->ab', S_core_a[o, o], A.swapaxes(1, 2)[v, o, v, o])
 
+                # Derivative of the MO two-electron integrals: skeleton derivative
+                # plus the U_R rotation applied to each of the four indices.
                 dERI_dR = ERI_core_a.copy()
                 dERI_dR += oe.contract('tp,tqrs->pqrs', U_R[:, t], ERI[:, t, t, t])
                 dERI_dR += oe.contract('tq,ptrs->pqrs', U_R[:, t], ERI[t, :, t, t])
                 dERI_dR += oe.contract('tr,pqts->pqrs', U_R[:, t], ERI[t, t, :, t])
                 dERI_dR += oe.contract('ts,pqrt->pqrs', U_R[:, t], ERI[t, t, t, :])
 
+                # Derivative of the MP2 T2 amplitudes w.r.t. nuclear displacement.
                 dt2_dR = dERI_dR.copy()[o_, o_, v_, v_]
                 dt2_dR -= oe.contract('kjab,ik->ijab', t2, df_dR[o_, o_])
                 dt2_dR -= oe.contract('ikab,kj->ijab', t2, df_dR[o_, o_])
@@ -266,15 +284,21 @@ class analytic_derivative(AnalyticDerivative):
                 dt2_dR += oe.contract('ijac,cb->ijab', t2, df_dR[v_, v_])
                 dt2_dR /= wfn_MP2.D_ijab
 
-                print("\nNuclear Perturbation Data:")
-                print("Atom: ", N1)
-                print("Cartesian: ", a)
-                print("Maximum dt2/dR: ", np.max(dt2_dR))
+                if print_level > 0:
+                    print("\nNuclear Perturbation Data:")
+                    print("Atom: ", N1)
+                    print("Cartesian: ", a)
+                    print("Maximum dt2/dR: ", np.max(dt2_dR))
 
+                # Derivative of the full-normalization factor w.r.t. this displacement.
                 N_R = -(1 / np.sqrt((1 + oe.contract('ijab,ijab', np.conjugate(t2), 2 * t2 - t2.swapaxes(2, 3)))**3))
                 N_R *= 0.5 * (oe.contract('ijab,ijab', np.conjugate(dt2_dR), 2 * t2 - t2.swapaxes(2, 3))
                               + oe.contract('ijab,ijab', dt2_dR, np.conjugate(2 * t2 - t2.swapaxes(2, 3))))
 
+                # AAT components, summed at the end: AAT_HF (reference/reference),
+                # AAT_1-4 (doubles/doubles), AAT_Norm (normalization-derivative
+                # correction, full normalization only). The canonical and
+                # non-canonical branches differ in the within-block U treatment.
                 for beta in range(3):
                     if orbitals == 'canonical':
                         AAT_HF[lambda_alpha][beta] += N**2 * 2 * oe.contract("em,em", U_H[beta][v_, o], U_R[v_, o] + half_S_core_a[o, v_].T)
@@ -316,10 +340,11 @@ class analytic_derivative(AnalyticDerivative):
                         if normalization == 'full':
                             AAT_Norm[lambda_alpha][beta] += N * N_R * 1.0 * oe.contract("ijab,ijab", 2 * t2 - t2.swapaxes(2, 3), dT2_dH[beta])
 
-        print("\nHartree-Fock AAT:")
-        print(AAT_HF, "\n")
-        print("Doubles/Doubles:")
-        print(AAT_1 + AAT_2 + AAT_3 + AAT_4, "\n")
+        if print_level > 0:
+            print("\nHartree-Fock AAT:")
+            print(AAT_HF, "\n")
+            print("Doubles/Doubles:")
+            print(AAT_1 + AAT_2 + AAT_3 + AAT_4, "\n")
 
         return AAT_HF + AAT_1 + AAT_2 + AAT_3 + AAT_4 + AAT_Norm
 
@@ -358,6 +383,10 @@ class analytic_derivative(AnalyticDerivative):
         AAT = np.zeros((natom * 3, 3))
 
         # Setting up different components of the AATs.
+        # CISD AAT components labelled by bra/ket excitation level: the first
+        # label is the nuclear-derivative (bra) block and the second the
+        # magnetic-derivative (ket) block, with 0 = reference, S = singles,
+        # D = doubles. AAT_Norm is the full-normalization derivative correction.
         AAT_HF = np.zeros((natom * 3, 3))
         AAT_S0 = np.zeros((natom * 3, 3))
         AAT_0S = np.zeros((natom * 3, 3))
@@ -366,18 +395,6 @@ class analytic_derivative(AnalyticDerivative):
         AAT_SD = np.zeros((natom * 3, 3))
         AAT_DD = np.zeros((natom * 3, 3))
         AAT_Norm = np.zeros((natom * 3, 3))
-
-        ########## Test ############
-        ## Setting up different components of the AATs.
-        #AAT_HF_test = np.zeros((natom * 3, 3))
-        #AAT_S0_test = np.zeros((natom * 3, 3))
-        #AAT_0S_test = np.zeros((natom * 3, 3))
-        #AAT_SS_test = np.zeros((natom * 3, 3))
-        #AAT_DS_test = np.zeros((natom * 3, 3))
-        #AAT_SD_test = np.zeros((natom * 3, 3))
-        #AAT_DD_test = np.zeros((natom * 3, 3))
-        #AAT_Norm_test = np.zeros((natom * 3, 3))
-        ########### End ############
 
         # Compute normalization factor.
         if normalization == 'intermediate':
@@ -399,7 +416,8 @@ class analytic_derivative(AnalyticDerivative):
         t1_n = t1 * N
         t2_n = t2 * N
 
-        # Build OPD.
+        # Build the CISD one-particle density matrix (OPD) in the MO basis from
+        # the normalized reference/singles/doubles amplitudes (t0_n, t1_n, t2_n).
         D_pq = np.zeros_like(F)
         D_pq[o_,o_] -= 2 * oe.contract('ja,ia->ij', np.conjugate(t1_n), t1_n) + 2 * oe.contract('jkab,ikab->ij', np.conjugate(2*t2_n - t2_n.swapaxes(2,3)), t2_n)
         D_pq[v_,v_] += 2 * oe.contract('ia,ib->ab', np.conjugate(t1_n), t1_n) + 2 * oe.contract('ijac,ijbc->ab', np.conjugate(2*t2_n - t2_n.swapaxes(2,3)), t2_n)
@@ -407,7 +425,7 @@ class analytic_derivative(AnalyticDerivative):
         D_pq[v_,o_] += 2 * np.conjugate(t1_n.T) * t0_n + 2 * oe.contract('ijab,jb->ai', np.conjugate(t2_n - t2_n.swapaxes(2,3)), t1_n)
         D_pq = D_pq[t_,t_]
 
-        # Build TPD.
+        # Build the CISD two-particle density matrix (TPD) in the MO basis.
         D_pqrs = np.zeros_like(ERI)
         D_pqrs[o_,o_,o_,o_] += oe.contract('klab,ijab->ijkl', np.conjugate(t2_n), (2*t2_n - t2_n.swapaxes(2,3)))
         D_pqrs[v_,v_,v_,v_] += oe.contract('ijab,ijcd->abcd', np.conjugate(t2_n), (2*t2_n - t2_n.swapaxes(2,3)))
@@ -618,10 +636,11 @@ class analytic_derivative(AnalyticDerivative):
                         print("Not converged.")
                 iteration += 1
 
-            print("\nMagnetic Field Perturbtion Data:")
-            print("Cartesian: ", a)
-            print("Maximum dt1/dH: ", np.max(dt1_dH))
-            print("Maximum dt2/dH: ", np.max(dt2_dH))
+            if print_level > 0:
+                print("\nMagnetic Field Perturbation Data:")
+                print("Cartesian: ", a)
+                print("Maximum dt1/dH: ", np.max(dt1_dH))
+                print("Maximum dt2/dH: ", np.max(dt2_dH))
 
             dT1_dH.append(dt1_dH)
             dT2_dH.append(dt2_dH)
@@ -859,11 +878,12 @@ class analytic_derivative(AnalyticDerivative):
                             print("Not converged.")
                     iteration += 1
 
-                print("\nNuclear Perturbation Data:")
-                print("Atom: ", N1)
-                print("Cartesian: ", a)
-                print("Maximum dt1/dR: ", np.max(dt1_dR))
-                print("Maximum dt2/dR: ", np.max(dt2_dR))
+                if print_level > 0:
+                    print("\nNuclear Perturbation Data:")
+                    print("Atom: ", N1)
+                    print("Cartesian: ", a)
+                    print("Maximum dt1/dR: ", np.max(dt1_dR))
+                    print("Maximum dt2/dR: ", np.max(dt2_dR))
 
                 # Compute derivative of the normalization factor.
                 N_R = - (1 / np.sqrt((1 + 2*oe.contract('ia,ia', np.conjugate(t1), t1) + oe.contract('ijab,ijab', np.conjugate(t2), 2*t2 - t2.swapaxes(2,3)))**3))
@@ -1023,88 +1043,21 @@ class analytic_derivative(AnalyticDerivative):
                             AAT_Norm[lambda_alpha][beta] += N * N_R * 2 * oe.contract("ia,ia", t1, dT1_dH[beta])
                             AAT_Norm[lambda_alpha][beta] += N * N_R * 4 * oe.contract("ijab,bj,ia", 2*t2 - t2.swapaxes(2,3), U_H[beta][v_,o_], t1)
 
-                    ######### Test #########
-                    #if orbitals == 'non-canonical' and self.parameters['freeze_core'] == False:
-                    #    # Computing the Hartree-Fock term of the AAT.
-                    #    AAT_HF_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("em,em", U_H[beta][v_, o], U_R[v_, o] + half_S_core_a[o, v_].T)
-
-                    #    # Singles/Refence terms.
-                    #    AAT_S0_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ai", dt1_dR, U_H[beta][v_,o_])
-
-                    #    AAT_S0_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ei,ea", t1, U_H[beta][v_,o_], -0.5*S_core[a][v_,v_] + half_S_core_a[v_,v_].T)
-                    #    AAT_S0_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,am,im", t1, U_H[beta][v_,o], -0.5*S_core[a][o_,o] + half_S_core_a[o,o_].T)
-
-                    #    # Reference/Singles terms.
-                    #    AAT_0S_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ai", dT1_dH[beta], U_R[v_,o_] + half_S_core_a[o_,v_].T)
-
-                    #    # Singles/Singles terms.
-                    #    AAT_SS_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ia", dt1_dR, dT1_dH[beta])
-
-                    #    AAT_SS_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,ae,ie", dT1_dH[beta], -0.5*S_core[a][v_,v_] + half_S_core_a[v_,v_].T, t1)
-                    #    AAT_SS_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,mi,ma", dT1_dH[beta], -0.5*S_core[a][o_,o_] + half_S_core_a[o_,o_].T, t1)
-
-                    #    AAT_SS_test[lambda_alpha][beta] += N**2 * 4 * oe.contract("ia,ia,kc,kc", t1, U_H[beta][o_,v_], U_R[o_,v_] + half_S_core_a[v_,o_].T, t1)
-                    #    AAT_SS_test[lambda_alpha][beta] += N**2 * 4 * oe.contract("ia,em,em,ia", t1, U_H[beta][v_,o], U_R[v_,o] + half_S_core_a[o,v_].T, t1)
-                    #    AAT_SS_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,em,ei,ma", t1, U_H[beta][v_,o_], U_R[v_,o_] + half_S_core_a[o_,v_].T, t1)
-                    #    AAT_SS_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,em,am,ie", t1, U_H[beta][v_,o], U_R[v_,o] + half_S_core_a[o,v_].T, t1)
-                    #    AAT_SS_test[lambda_alpha][beta] += N**2 * 4 * oe.contract("ia,em,ai,me", t1, U_H[beta][v_,o_], U_R[v_,o_] + half_S_core_a[o_,v_].T, t1)
-
-                    #    # Doubles/Singles terms.
-                    #    AAT_DS_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,bj,ia", 2*dt2_dR - dt2_dR.swapaxes(2,3), U_H[beta][v_,o_], t1)
-
-                    #    AAT_DS_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,kc,ikac", dT1_dH[beta], U_R[o_,v_] + half_S_core_a[v_,o_].T, 2*t2 - t2.swapaxes(2,3))
-
-                    #    AAT_DS_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ia,em,km,kiea", t1, U_H[beta][v_,o], -0.5*S_core[a][o_,o] + half_S_core_a[o,o_].T, 2*t2 - t2.swapaxes(2,3))
-                    #    AAT_DS_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,em,ec,imac", t1, U_H[beta][v_,o_], -0.5*S_core[a][v_,v_] + half_S_core_a[v_,v_].T, 2*t2 - t2.swapaxes(2,3))
-
-                    #    # Singles/Doubles terms.
-                    #    AAT_SD_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ia,kc,ikac", dt1_dR, U_H[beta][o_,v_], 2*t2 - t2.swapaxes(2,3))
-
-                    #    AAT_SD_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,bj,ia", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), U_R[v_,o_] + half_S_core_a[o_,v_].T, t1)
-
-                    #    # Doubles/Doubles terms.
-                    #    AAT_DD_test[lambda_alpha][beta] += N**2 * oe.contract("ijab,ijab", 2*dt2_dR - dt2_dR.swapaxes(2,3), dT2_dH[beta])
-
-                    #    AAT_DD_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ijab,kjab,ki", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, -0.5*S_core[a][o_, o_] + half_S_core_a[o_, o_].T)
-                    #    AAT_DD_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,ijcb,ac", 2*dT2_dH[beta] - dT2_dH[beta].swapaxes(2,3), t2, -0.5*S_core[a][v_, v_] + half_S_core_a[v_, v_].T)
-
-                    #    AAT_DD_test[lambda_alpha][beta] += N**2 * 2 * oe.contract("ijab,ijab,em,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o], U_R[v_, o] + half_S_core_a[o, v_].T)
-                    #    AAT_DD_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ijab,imab,ej,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o_], U_R[v_, o_] + half_S_core_a[o_, v_].T)
-                    #    AAT_DD_test[lambda_alpha][beta] -= N**2 * 2 * oe.contract("ijab,ijae,bm,em", t2, 2*t2 - t2.swapaxes(2,3), U_H[beta][v_, o], U_R[v_, o] + half_S_core_a[o, v_].T)
-
-                    #    # Adding terms for full normalization. 
-                    #    if normalization == 'full':
-                    #        AAT_Norm_test[lambda_alpha][beta] += N * N_R * 1 * oe.contract("ijab,ijab", 2*t2 - t2.swapaxes(2,3), dT2_dH[beta])
-
-                    #        AAT_Norm_test[lambda_alpha][beta] += N * N_R * 4 * oe.contract("ia,ai", t1, U_H[beta][v_, o_]) 
-                    #        AAT_Norm_test[lambda_alpha][beta] += N * N_R * 2 * oe.contract("ia,ia", t1, dT1_dH[beta])
-                    #        AAT_Norm_test[lambda_alpha][beta] += N * N_R * 4 * oe.contract("ijab,bj,ia", 2*t2 - t2.swapaxes(2,3), U_H[beta][v_,o_], t1)
-
-                    #    assert AAT_HF_test.all() == AAT_HF.all()
-                    #    assert AAT_S0_test.all() == AAT_S0.all()
-                    #    assert AAT_0S_test.all() == AAT_0S.all()
-                    #    assert AAT_SS_test.all() == AAT_SS.all()
-                    #    assert AAT_DS_test.all() == AAT_DS.all()
-                    #    assert AAT_SD_test.all() == AAT_SD.all()
-                    #    assert AAT_DD_test.all() == AAT_DD.all()
-                    #    assert AAT_Norm_test.all() == AAT_Norm.all()
-
-                    ########### End ##########
-
-        print("Hartree-Fock AAT:")
-        print(AAT_HF, "\n")
-        print("Singles/Reference AAT:")
-        print(AAT_S0, "\n")
-        print("Reference/Singles AAT:")
-        print(AAT_0S, "\n")
-        print("Singles/Singles AAT:")
-        print(AAT_SS, "\n")
-        print("Doubles/Singles:")
-        print(AAT_DS, "\n")
-        print("Singles/Doubles:")
-        print(AAT_SD, "\n")
-        print("Doubles/Doubles:")
-        print(AAT_DD, "\n")
+        if print_level > 0:
+            print("Hartree-Fock AAT:")
+            print(AAT_HF, "\n")
+            print("Singles/Reference AAT:")
+            print(AAT_S0, "\n")
+            print("Reference/Singles AAT:")
+            print(AAT_0S, "\n")
+            print("Singles/Singles AAT:")
+            print(AAT_SS, "\n")
+            print("Doubles/Singles:")
+            print(AAT_DS, "\n")
+            print("Singles/Doubles:")
+            print(AAT_SD, "\n")
+            print("Doubles/Doubles:")
+            print(AAT_DD, "\n")
 
         AAT = AAT_HF + AAT_S0 + AAT_0S + AAT_SS + AAT_DS + AAT_SD + AAT_DD + AAT_Norm
 
@@ -1348,9 +1301,10 @@ class analytic_derivative(AnalyticDerivative):
                         print("Not converged.")
                 iteration += 1
 
-            print("\nMagnetic Field Perturbation Data:")
-            print("Cartesian: ", a)
-            print("Maximum dt2/dH: ", np.max(dt2_dH))
+            if print_level > 0:
+                print("\nMagnetic Field Perturbation Data:")
+                print("Cartesian: ", a)
+                print("Maximum dt2/dH: ", np.max(dt2_dH))
 
             dT2_dH.append(dt2_dH)
             U_H.append(U_h)
@@ -1545,10 +1499,11 @@ class analytic_derivative(AnalyticDerivative):
                             print("Not converged.")
                     iteration += 1
 
-                print("\nNuclear Perturbation Data:")
-                print("Atom: ", N1)
-                print("Cartesian: ", a)
-                print("Maximum dt2/dR: ", np.max(dt2_dR))
+                if print_level > 0:
+                    print("\nNuclear Perturbation Data:")
+                    print("Atom: ", N1)
+                    print("Cartesian: ", a)
+                    print("Maximum dt2/dR: ", np.max(dt2_dR))
 
                 # Compute derivative of the normalization factor.
                 N_R = - (1 / np.sqrt((1 + oe.contract('ijab,ijab', np.conjugate(t2), 2*t2 - t2.swapaxes(2,3)))**3))
@@ -1602,10 +1557,11 @@ class analytic_derivative(AnalyticDerivative):
                         if normalization == 'full':
                             AAT_Norm[lambda_alpha][beta] += N * N_R * 1 * oe.contract("ijab,ijab", 2*t2 - t2.swapaxes(2,3), dT2_dH[beta])
 
-        print("Hartree-Fock AAT:")
-        print(AAT_HF, "\n")
-        print("Doubles/Doubles:")
-        print(AAT_DD, "\n")
+        if print_level > 0:
+            print("Hartree-Fock AAT:")
+            print(AAT_HF, "\n")
+            print("Doubles/Doubles:")
+            print(AAT_DD, "\n")
 
         AAT = AAT_HF + AAT_DD + AAT_Norm
 
