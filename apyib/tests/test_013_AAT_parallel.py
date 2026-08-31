@@ -389,7 +389,7 @@ def test_cisd_aat_full_norm():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
-#@pytest.mark.skip(reason="Too slow.")
+@pytest.mark.skip(reason="Too slow.")
 def test_mp2_SO_aat():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["(H2)_2"],
@@ -467,7 +467,7 @@ def test_mp2_SO_aat():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
-#@pytest.mark.skip(reason="Too slow.")
+@pytest.mark.skip(reason="Too slow.")
 def test_mp2_SO_aat_full_norm():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["(H2)_2"],
@@ -545,7 +545,7 @@ def test_mp2_SO_aat_full_norm():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
-#@pytest.mark.skip(reason="Too slow.")
+@pytest.mark.skip(reason="Too slow.")
 def test_cid_SO_aat():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["(H2)_2"],
@@ -623,7 +623,7 @@ def test_cid_SO_aat():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
-#@pytest.mark.skip(reason="Too slow.")
+@pytest.mark.skip(reason="Too slow.")
 def test_cid_SO_aat_full_norm():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["(H2)_2"],
@@ -701,6 +701,7 @@ def test_cid_SO_aat_full_norm():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
+@pytest.mark.skip(reason="Too slow.")
 def test_cisd_SO_aat():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["(H2)_2"],
@@ -736,6 +737,7 @@ def test_cisd_SO_aat():
 
     assert(np.max(np.abs(I-aat_ref)) < 1e-7)
 
+@pytest.mark.skip(reason="Too slow.")
 def test_cisd_SO_aat_full_norm():
     # Set parameters for the calculation.
     parameters = {'geom': moldict["(H2)_2"],

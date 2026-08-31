@@ -5,6 +5,32 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Velocity-gauge (VG) atomic polar tensors for MP2, CID, and CISD, extending the
+  existing HF-level implementation to correlated wavefunctions and enabling VCD
+  spectra at correlated levels in the velocity gauge. Implemented via two
+  independent routes and cross-validated against each other: analytic
+  (`analytic_apts.compute_{MP2,CID,CISD}_APTs_VG`) and finite difference
+  (`vg_apts_fd.VG_APT`, driven by `fin_diff.compute_VG_APT`). The two agree to
+  ~3e-7 on H2O/STO-3G at step 1e-4, the finite-difference truncation limit.
+- `vg_apts_fd.py`: new `VG_APT` class, mirroring `aats.py:AAT` including the MO
+  phase-alignment machinery for displaced geometries.
+- `F_mom` momentum (nabla) perturbation, applied in `hamiltonian.py` via
+  `mints.ao_nabla()` and given an optional default in `config.py`.
+- `parallel.compute_parallel_vg_apt` for parallel finite-difference VG APTs,
+  following the AAT pattern (serial SCF, parallel tensor contractions).
+- Test coverage: `test_012_VG_APT_FD.py` (finite difference),
+  `test_014_VG_APT_parallel.py` (parallel driver), and
+  `test_024/025/026_{MP2,CID,CISD}_VG_APT.py` (analytic, 8 cases each covering
+  H2O2/STO-3G and H2O/6-31G* with canonical/non-canonical orbitals and frozen
+  core on/off).
+
+### Changed
+- Restored `@pytest.mark.skip` markers on the slow spin-orbital AAT cases in
+  `test_013_AAT_parallel.py`.
+
 ## [1.0.0] - 2026-06-19
 
 First stable release, following a staged modernization of the package.

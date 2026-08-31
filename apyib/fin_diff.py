@@ -284,6 +284,83 @@ class finite_difference(object):
         return (nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T,
                 mag_pos_C, mag_neg_C, mag_pos_basis, mag_neg_basis, mag_pos_T, mag_neg_T)
 
+    def compute_VG_APT(self, nuc_pert_strength, mom_pert_strength):
+        """Compute displaced wavefunctions for VG APT finite-difference evaluation.
+
+        Parameters
+        ----------
+        nuc_pert_strength : float
+            Step size for nuclear coordinate displacements (Bohr).
+        mom_pert_strength : float
+            Step size for vector potential (momentum) field perturbations (a.u.).
+
+        Returns
+        -------
+        Twelve lists of displaced MO coefficients, amplitude lists, and basis sets
+        (nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T,
+        mom_pos_C, mom_neg_C, mom_pos_basis, mom_neg_basis, mom_pos_T, mom_neg_T).
+        """
+        n = 3 * self.natom
+        nuc_pos_C = [None] * n
+        nuc_neg_C = [None] * n
+        nuc_pos_basis = [None] * n
+        nuc_neg_basis = [None] * n
+        nuc_pos_T = [None] * n
+        nuc_neg_T = [None] * n
+        mom_pos_C = [None] * 3
+        mom_neg_C = [None] * 3
+        mom_pos_basis = [None] * 3
+        mom_neg_basis = [None] * 3
+        mom_pos_T = [None] * 3
+        mom_neg_T = [None] * 3
+
+        for alpha in range(n):
+            pert_geom = np.copy(self.geom)
+            pert_geom[alpha // 3][alpha % 3] += nuc_pert_strength
+            self.molecule.set_geometry(psi4.core.Matrix.from_array(pert_geom))
+            self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+            _, T_list, C, basis = phase_corrected_energy(
+                self.parameters, self.unperturbed_basis, self.unperturbed_C)
+            nuc_pos_C[alpha] = C
+            nuc_pos_T[alpha] = T_list
+            nuc_pos_basis[alpha] = basis
+            self.molecule.set_geometry(psi4.core.Matrix.from_array(self.geom))
+            self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+
+        for alpha in range(n):
+            pert_geom = np.copy(self.geom)
+            pert_geom[alpha // 3][alpha % 3] -= nuc_pert_strength
+            self.molecule.set_geometry(psi4.core.Matrix.from_array(pert_geom))
+            self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+            _, T_list, C, basis = phase_corrected_energy(
+                self.parameters, self.unperturbed_basis, self.unperturbed_C)
+            nuc_neg_C[alpha] = C
+            nuc_neg_T[alpha] = T_list
+            nuc_neg_basis[alpha] = basis
+            self.molecule.set_geometry(psi4.core.Matrix.from_array(self.geom))
+            self.parameters['geom'] = self.molecule.create_psi4_string_from_molecule()
+
+        for beta in range(3):
+            self.parameters['F_mom'][beta] += mom_pert_strength
+            _, T_list, C, basis = phase_corrected_energy(
+                self.parameters, self.unperturbed_basis, self.unperturbed_C)
+            mom_pos_C[beta] = C
+            mom_pos_T[beta] = T_list
+            mom_pos_basis[beta] = basis
+            self.parameters['F_mom'][beta] -= mom_pert_strength
+
+        for beta in range(3):
+            self.parameters['F_mom'][beta] -= mom_pert_strength
+            _, T_list, C, basis = phase_corrected_energy(
+                self.parameters, self.unperturbed_basis, self.unperturbed_C)
+            mom_neg_C[beta] = C
+            mom_neg_T[beta] = T_list
+            mom_neg_basis[beta] = basis
+            self.parameters['F_mom'][beta] += mom_pert_strength
+
+        return (nuc_pos_C, nuc_neg_C, nuc_pos_basis, nuc_neg_basis, nuc_pos_T, nuc_neg_T,
+                mom_pos_C, mom_neg_C, mom_pos_basis, mom_neg_basis, mom_pos_T, mom_neg_T)
+
     def compute_Nuclear_Gradient(self, nuc_pert_strength):
         """Compute the nuclear energy gradient by central finite difference.
 
