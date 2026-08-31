@@ -117,6 +117,13 @@ class Hamiltonian(object):
             if M_field == True:
                 self.V =  self.V - parameters['F_mag'][alpha] * self.mu_mag[alpha]
 
+        # Vector potential (momentum) perturbation for VG APT finite-difference.
+        F_mom = parameters.get('F_mom', [0.0, 0.0, 0.0])
+        if any(F_mom):
+            nabla_ao = mints.ao_nabla()
+            for alpha in range(3):
+                self.V = self.V - 1j * F_mom[alpha] * nabla_ao[alpha].np
+
         # ======================== Phase-Space Hamiltonian ========================
         # Add phase space componets to core Hamiltonian for a phase space Hamiltonian.
         hamiltonian = parameters.get('hamiltonian', None)

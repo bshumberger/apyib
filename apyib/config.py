@@ -21,6 +21,7 @@ _OPTIONAL_DEFAULTS = {
     'ps_bf_partitioning_factor(sigma)': None,
     'magnetic_gauge_origin': None,
     'gauge_origin': None,
+    'F_mom': [0.0, 0.0, 0.0],
 }
 
 
