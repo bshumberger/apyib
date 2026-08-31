@@ -14,8 +14,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Development install
 pip install -e .
 
-# Run all tests
-pytest apyib/tests/
+# Run fast tests (excludes slow-marked VCD/analytic-Hessian tests)
+pytest apyib/tests/ -m "not slow"
+
+# Run fast tests in parallel (recommended; set OMP_NUM_THREADS=1 to avoid BLAS contention)
+OMP_NUM_THREADS=1 pytest apyib/tests/ -m "not slow" -n auto
+
+# Run slow tests explicitly (H2O2/aug-cc-pVDZ analytic suite; ~25 min)
+pytest apyib/tests/ -m slow
 
 # Run a single test file
 pytest apyib/tests/test_002_RHF.py
@@ -50,6 +56,7 @@ parameters = {
 
 | Module | Class/Function | Purpose |
 |---|---|---|
+| `config.py` | `validate_parameters()` | Validates the `parameters` dict: checks required keys, rejects unknown methods, fills optional keys with defaults |
 | `hamiltonian.py` | `Hamiltonian` | Builds AO integrals (T, V, S, ERI) via Psi4 MintsHelper; handles field perturbations |
 | `hf_wfn.py` | `hf_wfn` | RHF SCF with DIIS; stores `C` (MO coefficients) and `eps` (orbital energies) |
 | `mp2_wfn.py` | `mp2_wfn` | MP2 energy and amplitudes (spatial and spin-orbital bases) |
@@ -66,7 +73,7 @@ parameters = {
 | `freq.py` | `frequency` | Computes vibrational frequencies from position and/or momentum Hessians |
 | `vcd.py` | `vcd` | Combines Hessian + APTs + AATs to produce VCD spectral intensities |
 | `integrals.py` | `one_electron_integral()` | Manual (non-Psi4) computation of AO integrals (overlap, dipole, nabla, angular momentum, kinetic, potential) |
-| `utils.py` | — | DIIS solvers, MO/SO integral transforms (`compute_F_MO`, `compute_ERI_MO`, `compute_F_SO`, `compute_ERI_SO`), MO overlap and phase correction for finite differences, `total_energy()`, `get_slices()` |
+| `utils.py` | — | DIIS solvers, MO/SO integral transforms (`compute_F_MO`, `compute_ERI_MO`, `compute_F_SO`, `compute_ERI_SO`), MO overlap and phase correction for finite differences, `total_energy()`, `get_slices()`, `line_shape()` (standalone Lorentzian broadening helper for users plotting spectra) |
 
 ### Typical VCD Calculation Flow
 
@@ -102,3 +109,9 @@ Finite-difference AAT calculations require phase alignment of MO coefficients ac
 ### Test Data
 
 Molecular geometries are stored in `apyib/data/molecules.py` as a `moldict` dictionary (Psi4 format strings). Tests import them via `from ..data.molecules import *`. Tests compare against Psi4 reference values and hardcoded literature values.
+
+Tests marked `@pytest.mark.slow` (currently `test_023_VCD.py` and `test_015–017` analytic Hessian stubs) are excluded from the default CI run and must be opted-in explicitly (`-m slow`).
+
+### Developer Notes
+
+`docs/developer_notes.md` contains diagnostic and verification snippets that are intentionally kept out of production code: the SCF energy/density cross-checks removed from `hf_wfn.py`, and the CISD AAT component cross-check that was removed from `analytic_aats.py`. Consult it when debugging those subsystems.
