@@ -11,13 +11,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# Development install
-pip install -e .
+# Development install (the test extra pulls in pytest-xdist, required by -n auto below)
+pip install -e ".[test]"
 
 # Run fast tests (excludes slow-marked VCD/analytic-Hessian tests)
 pytest apyib/tests/ -m "not slow"
 
-# Run fast tests in parallel (recommended; set OMP_NUM_THREADS=1 to avoid BLAS contention)
+# Run fast tests in parallel (recommended; set OMP_NUM_THREADS=1 to avoid BLAS contention).
+# -n auto needs pytest-xdist; if it errors with "unrecognized arguments: -n auto",
+# the env predates the test extra -- reinstall with pip install -e ".[test]", or drop -n auto.
 OMP_NUM_THREADS=1 pytest apyib/tests/ -m "not slow" -n auto
 
 # Run slow tests explicitly (H2O2/aug-cc-pVDZ analytic suite; ~25 min)
