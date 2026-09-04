@@ -6,7 +6,7 @@ _REQUIRED_KEYS = (
 )
 
 _VALID_METHODS = (
-    'RHF', 'MP2', 'CID', 'CISD', 'MP2_SO', 'CID_SO', 'CISD_SO',
+    'RHF', 'MP2', 'CID', 'CISD', 'MP2_SO', 'CID_SO', 'CISD_SO', 'CCSD_SO',
 )
 
 # Optional keys and their defaults; all default to None so existing .get() calls are unaffected.

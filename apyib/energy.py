@@ -7,6 +7,7 @@ from apyib.hamiltonian import Hamiltonian
 from apyib.hf_wfn import hf_wfn
 from apyib.mp2_wfn import mp2_wfn
 from apyib.ci_wfn import ci_wfn
+from apyib.cc_wfn import cc_wfn
 
 
 def _run_post_hf(parameters, wfn, print_level=0):
@@ -29,10 +30,24 @@ def _run_post_hf(parameters, wfn, print_level=0):
         Singles amplitudes (0 for methods without singles).
     t2 : ndarray or int
         Doubles amplitudes (0 for RHF).
+    l1 : ndarray or int
+        Lambda singles amplitudes (0 unless a CC method solved them).
+    l2 : ndarray or int
+        Lambda doubles amplitudes (0 unless a CC method solved them).
+
+    Notes
+    -----
+    Lambda amplitudes are solved only when ``parameters['solve_lambda']`` is
+    set and True. The key is deliberately not part of the validated parameter
+    schema: it selects which results are returned rather than describing the
+    system being solved, so it is read with a ``.get`` default and stays absent
+    from parameter dictionaries that have no use for it.
     """
     E = 0
     t1 = 0
     t2 = 0
+    l1 = 0
+    l2 = 0
     method = parameters['method']
     if method == 'RHF':
         pass
@@ -54,11 +69,16 @@ def _run_post_hf(parameters, wfn, print_level=0):
     elif method == 'CISD_SO':
         wfn_cisd = ci_wfn(parameters, wfn)
         E, t1, t2 = wfn_cisd.solve_CISD_SO(print_level)
+    elif method == 'CCSD_SO':
+        wfn_ccsd = cc_wfn(parameters, wfn)
+        E, t1, t2, l1, l2 = wfn_ccsd.solve_CCSD_SO(
+            print_level, solving_lambda=parameters.get('solve_lambda', False)
+        )
     else:
         raise ValueError(
             f"Unknown method '{method}'. Valid methods: {_VALID_METHODS}"
         )
-    return E, t1, t2
+    return E, t1, t2, l1, l2
 
 
 def energy(parameters, return_H=False, print_level=0):
@@ -78,7 +98,9 @@ def energy(parameters, return_H=False, print_level=0):
     E_list : list
         ``[E_SCF, E_corr, E_nuc]``, plus ``T_nuc`` for phase-space runs.
     T_list : list
-        ``[t0, t1, t2]`` amplitude data.
+        ``[t0, t1, t2, l1, l2]`` amplitude data. The Lambda entries are ``0``
+        unless a CC method solved them; consumers index this list positionally,
+        so the leading entries keep their meaning for every method.
     C : ndarray
         MO coefficient matrix.
     basis : psi4 BasisSet
@@ -93,10 +115,10 @@ def energy(parameters, return_H=False, print_level=0):
     basis = H.basis_set
     E_nuc = H.E_nuc
 
-    E, t1, t2 = _run_post_hf(parameters, wfn, print_level)
+    E, t1, t2, l1, l2 = _run_post_hf(parameters, wfn, print_level)
 
     E_list = [E_SCF, E, E_nuc]
-    T_list = [1, t1, t2]
+    T_list = [1, t1, t2, l1, l2]
 
     if parameters.get('P_nuc') is not None:
         E_list = [E_SCF, E, E_nuc, H.T_nuc]
@@ -144,10 +166,10 @@ def phase_corrected_energy(parameters, unperturbed_basis, unperturbed_C, return_
 
     wfn.C = compute_phase(wfn.ndocc, wfn.nbf, unperturbed_basis, unperturbed_C, basis, C)
 
-    E, t1, t2 = _run_post_hf(parameters, wfn, print_level)
+    E, t1, t2, l1, l2 = _run_post_hf(parameters, wfn, print_level)
 
     E_list = [E_SCF, E, E_nuc]
-    T_list = [1, t1, t2]
+    T_list = [1, t1, t2, l1, l2]
 
     if parameters.get('P_nuc') is not None:
         E_list = [E_SCF, E, E_nuc, H.T_nuc]
