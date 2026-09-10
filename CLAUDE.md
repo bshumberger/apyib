@@ -64,7 +64,7 @@ parameters = {
 | `hf_wfn.py` | `hf_wfn` | RHF SCF with DIIS; stores `C` (MO coefficients) and `eps` (orbital energies) |
 | `mp2_wfn.py` | `mp2_wfn` | MP2 energy and amplitudes (spatial and spin-orbital bases) |
 | `ci_wfn.py` | `ci_wfn` | CID and CISD iterative solvers with DIIS |
-| `cc_wfn.py` | `cc_wfn` | Coupled cluster wavefunction object. `solve_CCSD_SO()` is a spin-orbital CCSD solver with DIIS; residuals are transcribed term by term with no intermediates (see CCSD notes below) |
+| `cc_wfn.py` | `cc_wfn` | Coupled cluster wavefunction object. `solve_CCSD_SO()` is a spin-orbital CCSD solver with DIIS, optionally solving the Lambda amplitudes; both the T and Lambda residuals are factored into intermediates (see CCSD notes below) |
 | `energy.py` | `energy()` | Unified entry point: builds `Hamiltonian`, runs SCF, dispatches to post-HF; returns `(E_list, T_list, C, basis)` where `T_list = [t0, t1, t2, l1, l2]` |
 | `fin_diff.py` | `finite_difference` | Numerical Hessian, APTs, AATs, and velocity-gauge APTs (`compute_VG_APT`) via central differences |
 | `aats.py` | `AAT` | Finite-difference atomic axial tensors; handles phase alignment between displaced wavefunctions |
@@ -123,14 +123,15 @@ run `xlambda`, and `PRINT=5` to print the norms; the first norms printed are the
 initial guess (CFOUR also starts from `l = t`), so read the last set.
 
 **Staging.** Spin-orbital CCSD (done) -> Lambda amplitudes (done) -> Lambda
-intermediates -> spin-adapted CCSD. The near-term goal is CCSD-level AATs by
-finite difference, which is what the Lambda amplitudes are for.
+intermediates (done) -> spin-adapted CCSD. The near-term goal is CCSD-level AATs
+by finite difference, which is what the Lambda amplitudes are for.
 
 **Structure.** The T residuals are factored into the one-particle intermediates
 `F_ae`, `F_mi`, `F_me` and the two-particle `W_mnij`, `W_abef`, `W_mbej`, each built
 by its own method so a caller can take only what it needs. `_residuals_SO` builds
 them and returns both T residuals; the doubles residual folds onto representatives
-carrying `P(i,j)` and `P(a,b)`. The Lambda residuals are still unfactored.
+carrying `P(i,j)` and `P(a,b)`. The Lambda residuals are factored the same way, with
+`_lambda_residuals_SO` as the matching entry point.
 
 Two conventions differ from the published forms and must not be "corrected":
 
@@ -163,7 +164,9 @@ answer that still converges.
 `fapy` conda env against the engine at `~/src/fapy`. That input file also derives
 the Lambda and response-density equations, so no new derivation work is needed for
 later stages. `~/Documents/Journal_Articles/DPD_Approach_to_CCSD.pdf` (Stanton) is
-the reference for the standard intermediates.
+the reference for the standard intermediates, and
+`~/Documents/Notes/ccsd_derivation/` carries the worked derivation of the factored
+Lambda equations plus the scripts that verify it.
 
 **Bra-ket index safety (important for magnetic-field work).** Two symmetries look
 alike and behave differently:
@@ -195,10 +198,46 @@ converged t amplitudes. `solve_CCSD_SO` always returns a fixed 5-tuple
 as `parameters.get('solve_lambda', False)`.
 
 The Lambda residuals were generated from the fapy terms rather than transcribed, so
-no hand-copying step stands between the generator and the code. They are unfactored:
-45 singles terms, and 32 doubles representatives carrying `P(k,l)` and `P(c,d)`.
-Since t is fixed, the equations are linear in Lambda, and every intermediate would
-be a loop invariant that could be hoisted out of the iteration.
+no hand-copying step stands between the generator and the code. The generated form is
+45 singles terms and 32 doubles representatives carrying `P(k,l)` and `P(c,d)`; both
+are now factored down to **11 contractions apiece** behind eight intermediates. Since
+t is fixed, the equations are linear in Lambda, and every t-dependent intermediate is
+a loop invariant that `_solve_lambda_SO` builds once before the iteration; only the
+two `G` intermediates depend on Lambda and are rebuilt each cycle.
+
+**Factored Lambda equations.** The derivation is
+`~/Documents/Notes/ccsd_derivation/main.tex` (content in `theory.tex`), which works
+each residual in four steps from the raw fapy output: restate, relabel and reorder,
+collect behind each shared Lambda amplitude, substitute. Points that matter for the
+implementation:
+
+- **Six of the eight intermediates serve both residuals, read at different indices:**
+  `F~_ea`, `F~_im`, `W~_eima`, `F_ia`, `G_om`, `G_ge`. The doubles reads them as
+  `F~_eb`, `F~_jm`, `W~_ejmb`, `F_jb`, `G_mj`, `G_eb`. `W~_efma` and `W~_eimn` are
+  singles-only; `W~_ijmn` and `W~_efab` are doubles-only.
+- `F_ia` is the T-side `F_me` at `(i,a)`, and the code calls `_F_me_SO` for it rather
+  than building a second object. `<mi||ea> = <im||ae>` is antisymmetry in both pairs,
+  so this is safe for complex orbitals -- unlike bra-ket exchange.
+- `W~_ijmn` and `W~_efab` carry `P(mn)` and `P(ef)`, **not** a factor of 2. The
+  factor-2 form contracts to the same number, because the Lambda it meets is
+  antisymmetric in those indices, but the stored tensor would then lack the symmetry
+  of the block it represents. `W~_efma` and `W~_eimn` do carry explicit factor-2
+  terms and are correspondingly *not* antisymmetric in their summed pair. That is
+  transcribed as the document has it and is settled: do not antisymmetrize them, and
+  do not assume the symmetry when reusing them elsewhere.
+- The two G terms in the doubles read `<mi||ab> (G_mj - sum_e t_m^e l_j^e)`. The
+  `t1*l1` piece is deliberately left outside `G`. Folding it in is legitimate, but
+  the augmented `G` leaves `sum <oi||ga> t_o^e t_m^g l_m^e` on the singles side at
+  twice the size of the one `W~_eima` term available to absorb it, and both G terms
+  want that same term -- so a merged `G` costs extra terms rather than saving any.
+- The document's derivation is verified numerically against the generated equation in
+  **complex** arithmetic by `~/Documents/Notes/ccsd_derivation/verify/` (see its
+  README). The code is verified against the generated equation the same way, by
+  `test_028`. Re-run both after editing either the document or the transcription.
+
+Index letters in the code follow the document: the singles residual is written over
+free `i` (occupied) and `a` (virtual), the doubles over `i,j` and `a,b`, with `m,n,o`
+and `e,f,g` as dummies.
 
 The Lambda drivers are `f_kc` and `<kl||cd>` -- the bra-ket transposes of the T
 drivers `f_ai` and `<ab||ij>`, because Lambda projects from the left. In real
@@ -250,7 +289,11 @@ Molecular geometries are stored in `apyib/data/molecules.py` as a `moldict` dict
 
 CCSD coverage lives in `test_027_CCSD_SO.py` (6 tests: H2O2/STO-3G and H2O/6-31G*, each with frozen core on and off, against live Psi4 plus hardcoded references; a check that the `cc_wfn` solver and the `energy()` dispatch agree; and a complex-arithmetic antisymmetry check on the doubles residual).
 
-Lambda coverage lives in `test_028_CCSD_Lambda_SO.py` (7 tests: residual drivers, doubles antisymmetry, and linearity in Lambda, all in complex arithmetic; converged Lambda annihilating its residuals with frozen core on and off; that requesting Lambda leaves the energy and t amplitudes untouched; and that the iteration converges without DIIS). That last test exists because DIIS extrapolates to where the error vector vanishes regardless of the step it is given, so a wrong update still reaches the right answer with DIIS on and diverges without it.
+Lambda coverage lives in `test_028_CCSD_Lambda_SO.py` (10 tests: residual drivers, doubles antisymmetry, and linearity in Lambda, all in complex arithmetic; the factored residuals matching the generated unfactored form elementwise; `F_ia` being the T-side `F_me`; `W~_ijmn` and `W~_efab` carrying their block antisymmetry; converged Lambda annihilating its residuals with frozen core on and off; that requesting Lambda leaves the energy and t amplitudes untouched; and that the iteration converges without DIIS).
+
+The generated unfactored residuals are kept in that test file as
+`_generated_lambda_singles` / `_generated_lambda_doubles`. They are the oracle for the
+factored implementation and share no algebra with it, so they are not dead code. That last test exists because DIIS extrapolates to where the error vector vanishes regardless of the step it is given, so a wrong update still reaches the right answer with DIIS on and diverges without it.
 
 VG APT coverage lives in `test_012_VG_APT_FD.py` (finite difference), `test_014_VG_APT_parallel.py` (parallel driver), and `test_024/025/026_{MP2,CID,CISD}_VG_APT.py` (analytic, 8 cases each: H2O2/STO-3G and H2O/6-31G*, canonical/non-canonical x frozen-core on/off).
 

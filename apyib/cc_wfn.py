@@ -496,6 +496,18 @@ class cc_wfn(object):
         l1 = t1.copy()
         l2 = t2.copy()
 
+        # The t amplitudes are fixed here, so every intermediate except the two G
+        # terms is an invariant of the iteration and is built once. F_ia is the
+        # T-side F_me read at (i,a); it is not a separate object.
+        F_ia = self._F_me_SO(F, G, t1, o_, v_)
+        F_ea = self._lambda_F_ea_SO(F, G, t1, t2, o_, v_)
+        F_im = self._lambda_F_im_SO(F, G, t1, t2, o_, v_)
+        W_eima = self._lambda_W_eima_SO(G, t1, t2, o_, v_)
+        W_efma = self._lambda_W_efma_SO(F, G, t1, t2, o_, v_)
+        W_eimn = self._lambda_W_eimn_SO(F, G, t1, t2, o_, v_)
+        W_ijmn = self._lambda_W_ijmn_SO(G, t1, t2, o_, v_)
+        W_efab = self._lambda_W_efab_SO(G, t1, t2, o_, v_)
+
         E_pseudo = self._pseudoenergy_SO(F, G, l1, l2, o_, v_)
 
         if print_level > 0:
@@ -507,8 +519,16 @@ class cc_wfn(object):
             l1_old = l1.copy()
             l2_old = l2.copy()
 
-            r_L1 = self._lambda_singles_residual_SO(F, G, t1, t2, l1, l2, o_, v_)
-            r_L2 = self._lambda_doubles_residual_SO(F, G, t1, t2, l1, l2, o_, v_)
+            # G depends on Lambda and is the only intermediate rebuilt each cycle.
+            G_om = self._lambda_G_om_SO(t2, l2)
+            G_ge = self._lambda_G_ge_SO(t2, l2)
+
+            r_L1 = self._lambda_singles_residual_SO(G, t1, l1, l2, F_ia, F_ea, F_im,
+                                                    W_eima, W_efma, W_eimn,
+                                                    G_om, G_ge, o_, v_)
+            r_L2 = self._lambda_doubles_residual_SO(G, t1, l1, l2, F_ia, F_ea, F_im,
+                                                    W_eima, W_ijmn, W_efab,
+                                                    G_om, G_ge, o_, v_)
 
             # Amplitude increments, l_new - l_old, which are also the DIIS error
             # vectors, matching the convention used for the t amplitudes.
@@ -559,122 +579,350 @@ class cc_wfn(object):
 
 
 
-    def _lambda_singles_residual_SO(self, F, G, t1, t2, l1, l2, o_, v_):
+    def _lambda_residuals_SO(self, F, G, t1, t2, l1, l2, o_, v_):
+        """
+        Computes the CCSD Lambda singles and doubles residuals.
+
+        Builds every intermediate and evaluates both residuals, mirroring
+        ``_residuals_SO`` on the T side. The solver does not call this: with t
+        fixed, all but the two G intermediates are invariants of the Lambda
+        iteration, so ``_solve_lambda_SO`` builds them once and calls the two
+        residual methods directly. This entry point exists for callers that want
+        the residuals for one set of amplitudes without managing that hoisting.
+
+        Returns
+        -------
+        r_L1 : ndarray
+            Lambda singles residual, shape ``(no, nv)``.
+        r_L2 : ndarray
+            Lambda doubles residual, shape ``(no, no, nv, nv)``.
+        """
+        # F_ia is the T-side F_me read at (i,a); it is not a separate object.
+        F_ia = self._F_me_SO(F, G, t1, o_, v_)
+
+        F_ea = self._lambda_F_ea_SO(F, G, t1, t2, o_, v_)
+        F_im = self._lambda_F_im_SO(F, G, t1, t2, o_, v_)
+        W_eima = self._lambda_W_eima_SO(G, t1, t2, o_, v_)
+        W_efma = self._lambda_W_efma_SO(F, G, t1, t2, o_, v_)
+        W_eimn = self._lambda_W_eimn_SO(F, G, t1, t2, o_, v_)
+        W_ijmn = self._lambda_W_ijmn_SO(G, t1, t2, o_, v_)
+        W_efab = self._lambda_W_efab_SO(G, t1, t2, o_, v_)
+
+        G_om = self._lambda_G_om_SO(t2, l2)
+        G_ge = self._lambda_G_ge_SO(t2, l2)
+
+        r_L1 = self._lambda_singles_residual_SO(G, t1, l1, l2, F_ia, F_ea, F_im,
+                                                W_eima, W_efma, W_eimn,
+                                                G_om, G_ge, o_, v_)
+        r_L2 = self._lambda_doubles_residual_SO(G, t1, l1, l2, F_ia, F_ea, F_im,
+                                                W_eima, W_ijmn, W_efab,
+                                                G_om, G_ge, o_, v_)
+
+        return r_L1, r_L2
+
+
+
+    def _lambda_singles_residual_SO(self, G, t1, l1, l2, F_ia, F_ea, F_im,
+                                    W_eima, W_efma, W_eimn, G_om, G_ge, o_, v_):
         """
         Computes the CCSD Lambda singles residual.
 
-            0 = dL/dt_k^c = < Phi_0 | (1 + Lambda) [ H_bar tau_k^c ]_C | Phi_0 >
+            0 = dL/dt_i^a = < Phi_0 | (1 + Lambda) [ H_bar tau_i^a ]_C | Phi_0 >
 
-        Dummy indices are m,n,o (occupied) and e,f,g (virtual); external indices
-        are k (occupied) and c (virtual).
+        Free indices are i (occupied) and a (virtual); dummy indices are m,n,o
+        (occupied) and e,f,g (virtual).
+
+            r_i^a = F_ia + F~_ea l_i^e - F~_im l_m^a + W~_eima l_m^e
+                  + 1/2 W~_efma l_mi^ef - 1/2 W~_eimn l_mn^ea
+                  + G_om (<oi||ma> + <oi||ga> t_m^g)
+                  - G_ge (<ei||ga> - <oi||ga> t_o^e)
+
+        Notes
+        -----
+        The driver is f_ia, carried in by F_ia, not f_ai: Lambda projects from the
+        left, so its drivers are the bra-ket transposes of the T drivers.
+
+        The t1*l1 piece of the two G groups is deliberately left inside the doubles
+        residual rather than folded into G. Folding it in is legitimate, but the
+        augmented G then leaves extra terms on this side that have to be carried
+        explicitly; see the derivation notes.
         """
-        r_L1  = 0.5 * oe.contract('mc,mnef,nkef->kc', F[o_,v_], t2, l2)
-        r_L1 -= oe.contract('mc,me,ke->kc', F[o_,v_], t1, l1)
-        r_L1 += oe.contract('ec,ke->kc', F[v_,v_], l1)
-        r_L1 -= oe.contract('km,mc->kc', F[o_,o_], l1)
-        r_L1 += 0.5 * oe.contract('ke,mnef,mnfc->kc', F[o_,v_], t2, l2)
-        r_L1 -= oe.contract('ke,me,mc->kc', F[o_,v_], t1, l1)
-        r_L1 += F[o_,v_]
-        r_L1 += 0.25 * oe.contract('mnoc,mnef,okef->kc', G[o_,o_,o_,v_], t2, l2)
-        r_L1 += 0.5 * oe.contract('mnoc,me,nf,okef->kc', G[o_,o_,o_,v_], t1, t1, l2)
-        r_L1 -= 0.5 * oe.contract('mnec,mnef,kf->kc', G[o_,o_,v_,v_], t2, l1)
-        r_L1 += 0.25 * oe.contract('mnec,mnfg,oe,okfg->kc', G[o_,o_,v_,v_], t2, t1, l2)
-        r_L1 -= oe.contract('mnec,moef,ng,okfg->kc', G[o_,o_,v_,v_], t2, t1, l2)
-        r_L1 -= 0.5 * oe.contract('mnec,mofg,ne,okfg->kc', G[o_,o_,v_,v_], t2, t1, l2)
-        r_L1 -= oe.contract('mnec,me,nf,kf->kc', G[o_,o_,v_,v_], t1, t1, l1)
-        r_L1 += 0.5 * oe.contract('mnec,mf,ng,oe,okfg->kc', G[o_,o_,v_,v_], t1, t1, t1, l2)
-        r_L1 += oe.contract('menc,mf,nkef->kc', G[o_,v_,o_,v_], t1, l2)
-        r_L1 -= oe.contract('mefc,mnfg,nkeg->kc', G[o_,v_,v_,v_], t2, l2)
-        r_L1 += oe.contract('mefc,mf,ke->kc', G[o_,v_,v_,v_], t1, l1)
-        r_L1 += oe.contract('mefc,mg,nf,nkeg->kc', G[o_,v_,v_,v_], t1, t1, l2)
-        r_L1 += 0.5 * oe.contract('mkno,me,noec->kc', G[o_,o_,o_,o_], t1, l2)
-        r_L1 -= oe.contract('mkne,moef,nofc->kc', G[o_,o_,o_,v_], t2, l2)
-        r_L1 += oe.contract('mkne,me,nc->kc', G[o_,o_,o_,v_], t1, l1)
-        r_L1 += oe.contract('mkne,mf,oe,nofc->kc', G[o_,o_,o_,v_], t1, t1, l2)
-        r_L1 -= 0.5 * oe.contract('mknc,moef,noef->kc', G[o_,o_,o_,v_], t2, l2)
-        r_L1 -= oe.contract('mknc,me,ne->kc', G[o_,o_,o_,v_], t1, l1)
-        r_L1 -= 0.5 * oe.contract('mkef,mnef,nc->kc', G[o_,o_,v_,v_], t2, l1)
-        r_L1 -= oe.contract('mkef,mneg,of,nogc->kc', G[o_,o_,v_,v_], t2, t1, l2)
-        r_L1 += 0.5 * oe.contract('mkef,me,nofg,nogc->kc', G[o_,o_,v_,v_], t1, t2, l2)
-        r_L1 -= oe.contract('mkef,me,nf,nc->kc', G[o_,o_,v_,v_], t1, t1, l1)
-        r_L1 += 0.25 * oe.contract('mkef,mg,noef,nogc->kc', G[o_,o_,v_,v_], t1, t2, l2)
-        r_L1 += 0.5 * oe.contract('mkef,mg,ne,of,nogc->kc', G[o_,o_,v_,v_], t1, t1, t1, l2)
-        r_L1 += oe.contract('mkec,mnef,nf->kc', G[o_,o_,v_,v_], t2, l1)
-        r_L1 += 0.5 * oe.contract('mkec,mnfg,oe,nofg->kc', G[o_,o_,v_,v_], t2, t1, l2)
-        r_L1 += oe.contract('mkec,me->kc', G[o_,o_,v_,v_], t1)
-        r_L1 -= 0.5 * oe.contract('mkec,mf,noeg,nofg->kc', G[o_,o_,v_,v_], t1, t2, l2)
-        r_L1 -= oe.contract('mkec,mf,ne,nf->kc', G[o_,o_,v_,v_], t1, t1, l1)
-        r_L1 += 0.5 * oe.contract('efmc,mkef->kc', G[v_,v_,o_,v_], l2)
-        r_L1 += 0.5 * oe.contract('efgc,mg,mkef->kc', G[v_,v_,v_,v_], t1, l2)
-        r_L1 -= 0.5 * oe.contract('ekmn,mnec->kc', G[v_,o_,o_,o_], l2)
-        r_L1 -= oe.contract('ekmf,nf,mnec->kc', G[v_,o_,o_,v_], t1, l2)
-        r_L1 += oe.contract('ekmc,me->kc', G[v_,o_,o_,v_], l1)
-        r_L1 -= 0.25 * oe.contract('ekfg,mnfg,mnec->kc', G[v_,o_,v_,v_], t2, l2)
-        r_L1 -= 0.5 * oe.contract('ekfg,mf,ng,mnec->kc', G[v_,o_,v_,v_], t1, t1, l2)
-        r_L1 += 0.5 * oe.contract('ekfc,mnfg,mneg->kc', G[v_,o_,v_,v_], t2, l2)
-        r_L1 += oe.contract('ekfc,mf,me->kc', G[v_,o_,v_,v_], t1, l1)
+        r_L1  = F_ia.copy()
+
+        # Terms carried by the one-particle intermediates.
+        r_L1 += oe.contract('ea,ie->ia', F_ea, l1)
+        r_L1 -= oe.contract('im,ma->ia', F_im, l1)
+
+        # Terms carried by the two-particle intermediates.
+        r_L1 += oe.contract('eima,me->ia', W_eima, l1)
+        r_L1 += 0.5 * oe.contract('efma,mief->ia', W_efma, l2)
+        r_L1 -= 0.5 * oe.contract('eimn,mnea->ia', W_eimn, l2)
+
+        # The two Lambda-dependent G intermediates, each against a two-term bracket.
+        r_L1 += oe.contract('om,oima->ia', G_om, G[o_,o_,o_,v_])
+        r_L1 += oe.contract('om,oiga,mg->ia', G_om, G[o_,o_,v_,v_], t1)
+        r_L1 -= oe.contract('ge,eiga->ia', G_ge, G[v_,o_,v_,v_])
+        r_L1 += oe.contract('ge,oiga,oe->ia', G_ge, G[o_,o_,v_,v_], t1)
 
         return r_L1
 
 
 
-    def _lambda_doubles_residual_SO(self, F, G, t1, t2, l1, l2, o_, v_):
+    def _lambda_doubles_residual_SO(self, G, t1, l1, l2, F_ia, F_ea, F_im,
+                                    W_eima, W_ijmn, W_efab, G_om, G_ge, o_, v_):
         """
         Computes the CCSD Lambda doubles residual.
 
-            0 = dL/dt_kl^cd = < Phi_0 | (1 + Lambda) [ H_bar tau_kl^cd ]_C | Phi_0 >
+            0 = dL/dt_ij^ab = < Phi_0 | (1 + Lambda) [ H_bar tau_ij^ab ]_C | Phi_0 >
 
-        Dummy indices are m,n,o (occupied) and e,f,g (virtual); external indices
-        are k,l (occupied) and c,d (virtual).
+        Free indices are i,j (occupied) and a,b (virtual); dummy indices are m,n
+        (occupied) and e,f (virtual).
 
-        where P(k,l) X_klcd = X_klcd - X_lkcd and P(c,d) X_klcd = X_klcd - X_kldc.
+            r_ij^ab = <ij||ab>
+                    + P(a,b) F~_eb l_ij^ae - P(i,j) F~_jm l_im^ab
+                    + 1/2 W~_ijmn l_mn^ab + 1/2 W~_efab l_ij^ef
+                    + P(i,j) P(a,b) W~_ejmb l_im^ae
+                    + P(i,j) <ej||ab> l_i^e - P(a,b) <ij||mb> l_m^a
+                    + P(i,j) P(a,b) F_jb l_i^a
+                    - P(i,j) <mi||ab> (G_mj - t_m^e l_j^e)
+                    + P(a,b) <ij||ae> (G_eb - t_m^e l_m^b)
+
+        where P(i,j) X_ijab = X_ijab - X_jiab and P(a,b) X_ijab = X_ijab - X_ijba.
+
+        Notes
+        -----
+        Six of the eight intermediates are the singles ones read at different
+        indices: F~_eb and F~_jm are F~_ea and F~_im, W~_ejmb is W~_eima, F_jb is
+        F_ia, and G_mj, G_eb are G_om, G_ge. Only W~_ijmn and W~_efab are new.
+
+        The driver is <ij||ab>, not <ab||ij>; the two differ for complex orbitals.
         """
         # Terms already antisymmetric in both index pairs.
-        r_L2  = 0.25 * oe.contract('mncd,mnef,klef->klcd', G[o_,o_,v_,v_], t2, l2)
-        r_L2 += 0.5 * oe.contract('mncd,me,nf,klef->klcd', G[o_,o_,v_,v_], t1, t1, l2)
-        r_L2 += oe.contract('mecd,mf,klef->klcd', G[o_,v_,v_,v_], t1, l2)
-        r_L2 += 0.5 * oe.contract('efcd,klef->klcd', G[v_,v_,v_,v_], l2)
-        r_L2 += 0.5 * oe.contract('klmn,mncd->klcd', G[o_,o_,o_,o_], l2)
-        r_L2 += oe.contract('klme,ne,mncd->klcd', G[o_,o_,o_,v_], t1, l2)
-        r_L2 += 0.25 * oe.contract('klef,mnef,mncd->klcd', G[o_,o_,v_,v_], t2, l2)
-        r_L2 += 0.5 * oe.contract('klef,me,nf,mncd->klcd', G[o_,o_,v_,v_], t1, t1, l2)
-        r_L2 += G[o_,o_,v_,v_]
+        r_L2  = G[o_,o_,v_,v_].copy()
+        r_L2 += 0.5 * oe.contract('ijmn,mnab->ijab', W_ijmn, l2)
+        r_L2 += 0.5 * oe.contract('efab,ijef->ijab', W_efab, l2)
 
-        # Terms carrying P(c,d).
-        r_P_cd = -oe.contract('mc,me,kled->klcd', F[o_,v_], t1, l2)
-        r_P_cd += oe.contract('ec,kled->klcd', F[v_,v_], l2)
-        r_P_cd -= 0.5 * oe.contract('mnec,mnef,klfd->klcd', G[o_,o_,v_,v_], t2, l2)
-        r_P_cd -= oe.contract('mnec,me,nf,klfd->klcd', G[o_,o_,v_,v_], t1, t1, l2)
-        r_P_cd += oe.contract('mefc,mf,kled->klcd', G[o_,v_,v_,v_], t1, l2)
-        r_P_cd += oe.contract('klmc,md->klcd', G[o_,o_,o_,v_], l1)
-        r_P_cd -= 0.5 * oe.contract('klec,mnef,mnfd->klcd', G[o_,o_,v_,v_], t2, l2)
-        r_P_cd += oe.contract('klec,me,md->klcd', G[o_,o_,v_,v_], t1, l1)
+        # The G groups keep their t1*l1 piece here rather than inside G, so that one
+        # definition of G serves both residuals without extra correction terms.
+        G_oo_dressed = G_om - oe.contract('me,je->mj', t1, l1)
+        G_vv_dressed = G_ge - oe.contract('me,mb->eb', t1, l1)
 
-        # Terms carrying P(k,l).
-        r_P_kl = -oe.contract('km,mlcd->klcd', F[o_,o_], l2)
-        r_P_kl -= oe.contract('ke,me,mlcd->klcd', F[o_,v_], t1, l2)
-        r_P_kl += oe.contract('mkne,me,nlcd->klcd', G[o_,o_,o_,v_], t1, l2)
-        r_P_kl -= 0.5 * oe.contract('mkef,mnef,nlcd->klcd', G[o_,o_,v_,v_], t2, l2)
-        r_P_kl -= oe.contract('mkef,me,nf,nlcd->klcd', G[o_,o_,v_,v_], t1, t1, l2)
-        r_P_kl -= 0.5 * oe.contract('mkcd,mnef,nlef->klcd', G[o_,o_,v_,v_], t2, l2)
-        r_P_kl += oe.contract('mkcd,me,le->klcd', G[o_,o_,v_,v_], t1, l1)
-        r_P_kl -= oe.contract('ekcd,le->klcd', G[v_,o_,v_,v_], l1)
+        # Terms carrying P(a,b).
+        r_P_ab  = oe.contract('eb,ijae->ijab', F_ea, l2)
+        r_P_ab -= oe.contract('ijmb,ma->ijab', G[o_,o_,o_,v_], l1)
+        r_P_ab += oe.contract('ijae,eb->ijab', G[o_,o_,v_,v_], G_vv_dressed)
 
-        # Terms carrying P(k,l) P(c,d).
-        r_P_kl_cd  = oe.contract('kc,ld->klcd', F[o_,v_], l1)
-        r_P_kl_cd -= oe.contract('mknc,me,nled->klcd', G[o_,o_,o_,v_], t1, l2)
-        r_P_kl_cd += oe.contract('mkec,mnef,nlfd->klcd', G[o_,o_,v_,v_], t2, l2)
-        r_P_kl_cd += oe.contract('mkec,me,ld->klcd', G[o_,o_,v_,v_], t1, l1)
-        r_P_kl_cd -= oe.contract('mkec,mf,ne,nlfd->klcd', G[o_,o_,v_,v_], t1, t1, l2)
-        r_P_kl_cd += oe.contract('ekmc,mled->klcd', G[v_,o_,o_,v_], l2)
-        r_P_kl_cd += oe.contract('ekfc,mf,mled->klcd', G[v_,o_,v_,v_], t1, l2)
+        # Terms carrying P(i,j).
+        r_P_ij  = -oe.contract('jm,imab->ijab', F_im, l2)
+        r_P_ij += oe.contract('ejab,ie->ijab', G[v_,o_,v_,v_], l1)
+        r_P_ij -= oe.contract('miab,mj->ijab', G[o_,o_,v_,v_], G_oo_dressed)
+
+        # Terms carrying P(i,j) P(a,b).
+        r_P_ij_ab  = oe.contract('ejmb,imae->ijab', W_eima, l2)
+        r_P_ij_ab += oe.contract('jb,ia->ijab', F_ia, l1)
 
         # Apply each permutation operator once to the group that carries it.
-        r_L2 += r_P_cd - r_P_cd.swapaxes(2,3)
-        r_L2 += r_P_kl - r_P_kl.swapaxes(0,1)
-        r_L2 += (r_P_kl_cd
-                 - r_P_kl_cd.swapaxes(0,1)
-                 - r_P_kl_cd.swapaxes(2,3)
-                 + r_P_kl_cd.swapaxes(0,1).swapaxes(2,3))
+        r_L2 += r_P_ab - r_P_ab.swapaxes(2,3)
+        r_L2 += r_P_ij - r_P_ij.swapaxes(0,1)
+        r_L2 += (r_P_ij_ab
+                 - r_P_ij_ab.swapaxes(0,1)
+                 - r_P_ij_ab.swapaxes(2,3)
+                 + r_P_ij_ab.swapaxes(0,1).swapaxes(2,3))
 
         return r_L2
+
+
+
+    def _lambda_F_ea_SO(self, F, G, t1, t2, o_, v_):
+        """
+        Computes the Lambda one-particle intermediate F~_ea.
+
+            F~_ea = f_ea - f_na t_n^e + <ne||fa> t_n^f
+                         - <no||fa> t_n^f t_o^e - 1/2 <no||fa> t_no^fe
+
+        Depends on t alone, so it is an invariant of the Lambda iteration.
+        """
+        F_ea  = F[v_,v_].copy()
+        F_ea -= oe.contract('na,ne->ea', F[o_,v_], t1)
+        F_ea += oe.contract('nefa,nf->ea', G[o_,v_,v_,v_], t1)
+        F_ea -= oe.contract('nofa,nf,oe->ea', G[o_,o_,v_,v_], t1, t1)
+        F_ea -= 0.5 * oe.contract('nofa,nofe->ea', G[o_,o_,v_,v_], t2)
+
+        return F_ea
+
+
+
+    def _lambda_F_im_SO(self, F, G, t1, t2, o_, v_):
+        """
+        Computes the Lambda one-particle intermediate F~_im.
+
+            F~_im = f_im + f_if t_m^f - <ni||mf> t_n^f
+                         + <ni||fg> t_n^f t_m^g + 1/2 <ni||fg> t_nm^fg
+
+        Depends on t alone, so it is an invariant of the Lambda iteration.
+        """
+        F_im  = F[o_,o_].copy()
+        F_im += oe.contract('if,mf->im', F[o_,v_], t1)
+        F_im -= oe.contract('nimf,nf->im', G[o_,o_,o_,v_], t1)
+        F_im += oe.contract('nifg,nf,mg->im', G[o_,o_,v_,v_], t1, t1)
+        F_im += 0.5 * oe.contract('nifg,nmfg->im', G[o_,o_,v_,v_], t2)
+
+        return F_im
+
+
+
+    def _lambda_W_eima_SO(self, G, t1, t2, o_, v_):
+        """
+        Computes the Lambda two-particle intermediate W~_eima.
+
+            W~_eima = <ei||ma> - <ni||ma> t_n^e + <ei||fa> t_m^f
+                              + <ni||fa> t_nm^fe - <ni||fa> t_n^e t_m^f
+
+        Both residuals use this one: the doubles reads it at (e,j,m,b).
+        """
+        W_eima  = G[v_,o_,o_,v_].copy()
+        W_eima -= oe.contract('nima,ne->eima', G[o_,o_,o_,v_], t1)
+        W_eima += oe.contract('eifa,mf->eima', G[v_,o_,v_,v_], t1)
+        W_eima += oe.contract('nifa,nmfe->eima', G[o_,o_,v_,v_], t2)
+        W_eima -= oe.contract('nifa,ne,mf->eima', G[o_,o_,v_,v_], t1, t1)
+
+        return W_eima
+
+
+
+    def _lambda_W_efma_SO(self, F, G, t1, t2, o_, v_):
+        """
+        Computes the Lambda two-particle intermediate W~_efma.
+
+            W~_efma = <ef||ma> + f_na t_nm^ef + <ef||ga> t_m^g
+                    + 2 <ne||ma> t_n^f + <no||ma> t_n^e t_o^f
+                    - 2 <ne||ga> t_nm^gf + 2 <ne||ga> t_n^f t_m^g
+                    + 1/2 <no||ma> t_no^ef - <no||ga> t_nm^ef t_o^g
+                    + <no||ga> t_n^e t_o^f t_m^g - 2 <no||ga> t_nm^ge t_o^f
+                    + 1/2 <no||ga> t_no^ef t_m^g
+
+        Used only by the singles residual. It meets l_mi^ef under a 1/2, so only
+        its (e,f)-antisymmetric part contributes; the factor-2 terms above are the
+        collected form and are not themselves antisymmetric in e and f.
+        """
+        W_efma  = G[v_,v_,o_,v_].copy()
+        W_efma += oe.contract('na,nmef->efma', F[o_,v_], t2)
+        W_efma += oe.contract('efga,mg->efma', G[v_,v_,v_,v_], t1)
+        W_efma += 2 * oe.contract('nema,nf->efma', G[o_,v_,o_,v_], t1)
+        W_efma += oe.contract('noma,ne,of->efma', G[o_,o_,o_,v_], t1, t1)
+        W_efma -= 2 * oe.contract('nega,nmgf->efma', G[o_,v_,v_,v_], t2)
+        W_efma += 2 * oe.contract('nega,nf,mg->efma', G[o_,v_,v_,v_], t1, t1)
+        W_efma += 0.5 * oe.contract('noma,noef->efma', G[o_,o_,o_,v_], t2)
+        W_efma -= oe.contract('noga,nmef,og->efma', G[o_,o_,v_,v_], t2, t1)
+        W_efma += oe.contract('noga,ne,of,mg->efma', G[o_,o_,v_,v_], t1, t1, t1)
+        W_efma -= 2 * oe.contract('noga,nmge,of->efma', G[o_,o_,v_,v_], t2, t1)
+        W_efma += 0.5 * oe.contract('noga,noef,mg->efma', G[o_,o_,v_,v_], t2, t1)
+
+        return W_efma
+
+
+
+    def _lambda_W_eimn_SO(self, F, G, t1, t2, o_, v_):
+        """
+        Computes the Lambda two-particle intermediate W~_eimn.
+
+            W~_eimn = <ei||mn> - f_if t_mn^fe - <oi||mn> t_o^e
+                    + 2 <ei||mf> t_n^f + <ei||fg> t_m^f t_n^g
+                    + 2 <oi||mf> t_on^fe - 2 <oi||mf> t_o^e t_n^f
+                    + 1/2 <ei||fg> t_mn^fg - <oi||fg> t_o^f t_mn^ge
+                    - <oi||fg> t_o^e t_m^f t_n^g + 2 <oi||fg> t_om^fe t_n^g
+                    - 1/2 <oi||fg> t_o^e t_mn^fg
+
+        Used only by the singles residual. It meets l_mn^ea under a 1/2, so only
+        its (m,n)-antisymmetric part contributes; the factor-2 terms above are the
+        collected form and are not themselves antisymmetric in m and n.
+        """
+        W_eimn  = G[v_,o_,o_,o_].copy()
+        W_eimn -= oe.contract('if,mnfe->eimn', F[o_,v_], t2)
+        W_eimn -= oe.contract('oimn,oe->eimn', G[o_,o_,o_,o_], t1)
+        W_eimn += 2 * oe.contract('eimf,nf->eimn', G[v_,o_,o_,v_], t1)
+        W_eimn += oe.contract('eifg,mf,ng->eimn', G[v_,o_,v_,v_], t1, t1)
+        W_eimn += 2 * oe.contract('oimf,onfe->eimn', G[o_,o_,o_,v_], t2)
+        W_eimn -= 2 * oe.contract('oimf,oe,nf->eimn', G[o_,o_,o_,v_], t1, t1)
+        W_eimn += 0.5 * oe.contract('eifg,mnfg->eimn', G[v_,o_,v_,v_], t2)
+        W_eimn -= oe.contract('oifg,of,mnge->eimn', G[o_,o_,v_,v_], t1, t2)
+        W_eimn -= oe.contract('oifg,oe,mf,ng->eimn', G[o_,o_,v_,v_], t1, t1, t1)
+        W_eimn += 2 * oe.contract('oifg,omfe,ng->eimn', G[o_,o_,v_,v_], t2, t1)
+        W_eimn -= 0.5 * oe.contract('oifg,oe,mnfg->eimn', G[o_,o_,v_,v_], t1, t2)
+
+        return W_eimn
+
+
+
+    def _lambda_W_ijmn_SO(self, G, t1, t2, o_, v_):
+        """
+        Computes the Lambda two-particle intermediate W~_ijmn.
+
+            W~_ijmn = <ij||mn> + P(m,n) <ij||me> t_n^e
+                    + <ij||ef> t_m^e t_n^f + 1/2 <ij||ef> t_mn^ef
+
+        where P(m,n) X_ijmn = X_ijmn - X_ijnm.
+
+        Notes
+        -----
+        The singles term carries P(m,n), not a factor of two. Both contract to the
+        same number against the antisymmetric l_mn^ab, but only the permuted form
+        has the antisymmetry of the block it represents.
+        """
+        W_ijmn  = G[o_,o_,o_,o_].copy()
+        P_mn = oe.contract('ijme,ne->ijmn', G[o_,o_,o_,v_], t1)
+        W_ijmn += P_mn - P_mn.swapaxes(2,3)
+        W_ijmn += oe.contract('ijef,me,nf->ijmn', G[o_,o_,v_,v_], t1, t1)
+        W_ijmn += 0.5 * oe.contract('ijef,mnef->ijmn', G[o_,o_,v_,v_], t2)
+
+        return W_ijmn
+
+
+
+    def _lambda_W_efab_SO(self, G, t1, t2, o_, v_):
+        """
+        Computes the Lambda two-particle intermediate W~_efab.
+
+            W~_efab = <ef||ab> + P(e,f) <me||ab> t_m^f
+                    + <mn||ab> t_m^e t_n^f + 1/2 <mn||ab> t_mn^ef
+
+        where P(e,f) X_efab = X_efab - X_feab.
+
+        Notes
+        -----
+        As for W~_ijmn, the singles term carries P(e,f) rather than a factor of two
+        so that the stored tensor is antisymmetric in e and f.
+        """
+        W_efab  = G[v_,v_,v_,v_].copy()
+        P_ef = oe.contract('meab,mf->efab', G[o_,v_,v_,v_], t1)
+        W_efab += P_ef - P_ef.swapaxes(0,1)
+        W_efab += oe.contract('mnab,me,nf->efab', G[o_,o_,v_,v_], t1, t1)
+        W_efab += 0.5 * oe.contract('mnab,mnef->efab', G[o_,o_,v_,v_], t2)
+
+        return W_efab
+
+
+
+    def _lambda_G_om_SO(self, t2, l2):
+        """
+        Computes the Lambda-dependent intermediate G_om.
+
+            G_om = 1/2 t_on^fg l_nm^fg
+
+        This one depends on Lambda, so it is rebuilt every iteration. The doubles
+        residual reads it at (m,j).
+        """
+        return 0.5 * oe.contract('onfg,nmfg->om', t2, l2)
+
+
+
+    def _lambda_G_ge_SO(self, t2, l2):
+        """
+        Computes the Lambda-dependent intermediate G_ge.
+
+            G_ge = 1/2 t_no^gf l_no^fe
+
+        This one depends on Lambda, so it is rebuilt every iteration. The doubles
+        residual reads it at (e,b).
+        """
+        return 0.5 * oe.contract('nogf,nofe->ge', t2, l2)
