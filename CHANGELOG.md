@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Spin-orbital CCSD (`cc_wfn.py`, method `CCSD_SO`), giving energies and t
+  amplitudes. Validated against Psi4 to ~1e-13 for H2O2/STO-3G and H2O/6-31G*
+  with and without frozen core, and against CFOUR through the phase-invariant
+  amplitude norms.
+- CCSD Lambda amplitudes, requested with `parameters['solve_lambda']`.
+  `solve_CCSD_SO` returns a fixed 5-tuple `(E, t1, t2, l1, l2)` and `energy()`
+  exposes the Lambda amplitudes as `T_list[3]` and `T_list[4]`, so a displaced
+  geometry or field can collect everything a finite-difference CCSD AAT needs
+  from one call. Validated against CFOUR: `||L1_AA||` and `||L2_AB||` agree to
+  6e-10 and 1e-10 for H2O2/STO-3G.
+- The CCSD T residuals are factored into the one-particle intermediates `F_ae`,
+  `F_mi`, `F_me` and the two-particle `W_mnij`, `W_abef`, `W_mbej`, each built by
+  its own method. The doubles residual folds onto representatives carrying the
+  permutation operators `P(i,j)` and `P(a,b)`.
+- Test coverage: `test_027_CCSD_SO.py` (6 tests) and
+  `test_028_CCSD_Lambda_SO.py` (7 tests), including complex-arithmetic checks
+  that catch bra-ket index inversions invisible to real arithmetic.
 - Velocity-gauge (VG) atomic polar tensors for MP2, CID, and CISD, extending the
   existing HF-level implementation to correlated wavefunctions and enabling VCD
   spectra at correlated levels in the velocity gauge. Implemented via two

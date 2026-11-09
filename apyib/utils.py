@@ -50,6 +50,17 @@ def run_psi4(parameters, method='RHF'):
         # Run Psi4 CISD code and return the energy and wavefunction.
         e, wfn = psi4.energy("cisd", return_wfn=True)
 
+    elif method == 'CCSD':
+        # Run Psi4 CCSD code and return the energy and wavefunction.
+        psi4.set_options({'cc_type': 'conv'})
+        e, wfn = psi4.energy("ccsd", return_wfn=True)
+
+    else:
+        raise ValueError(
+            f"run_psi4 does not know how to run method '{method}'. "
+            f"Supported: 'RHF', 'MP2', 'CISD', 'CCSD'."
+        )
+
     return e, wfn
 
 
@@ -134,7 +145,7 @@ def get_slices(parameters, wfn):
         o_ = slice(0, no - nfzc)
         v_ = slice(no - nfzc, nbf - nfzc)
         t_ = slice(0, nbf - nfzc)
-    elif parameters['method'] == 'MP2_SO' or parameters['method'] == 'CID_SO' or parameters['method'] == 'CISD_SO':
+    elif parameters['method'] == 'MP2_SO' or parameters['method'] == 'CID_SO' or parameters['method'] == 'CISD_SO' or parameters['method'] == 'CCSD_SO':
         f_ = slice(0, 2*nfzc)
         o_ = slice(0, 2*no - 2*nfzc)
         v_ = slice(2*no - 2*nfzc, 2*nbf - 2*nfzc)
