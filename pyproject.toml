@@ -20,12 +20,11 @@ classifiers = [
     "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Chemistry",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 # psi4 is a required runtime dependency but cannot be declared here because it is
 # only distributed via conda-forge. Install it first: conda install psi4 -c conda-forge
 dependencies = [
