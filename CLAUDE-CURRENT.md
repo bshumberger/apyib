@@ -2,6 +2,20 @@
 
 Current status and open items. Newest first; dates absolute.
 
+## 2026-11-09 -- Python 3.10 dropped
+
+CI on Python 3.10 (Ubuntu and macOS) failed at `import psi4` from 2026-10-18 on:
+`undefined symbol: _ZN7einsums13random_engineE`. conda-forge rebuilt Psi4 against
+`einsums` 1.1.6 on 2026-10-11 for Python 3.11+ only; the last 3.10 Psi4 build
+(2026-08-08) was built against 1.1.5 but allows `<1.2`, so it gets 1.1.6 and fails.
+Python 3.10 reached end of life in October 2026 (PEP 619). Minimum is now 3.11, on
+branch `ci/drop-python-3.10`.
+
+### TO-DO
+
+- [ ] Optional: report the loose `einsums >=1.1.5,<1.2` pin on the old Psi4 3.10
+      build to conda-forge's psi4 feedstock.
+
 ## 2026-09-10 -- Factored Lambda equations implemented
 
 Both CCSD Lambda residuals now run in their factored form in `cc_wfn.py`, 11

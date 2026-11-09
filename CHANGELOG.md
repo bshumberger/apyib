@@ -48,6 +48,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Restored `@pytest.mark.skip` markers on the slow spin-orbital AAT cases in
   `test_013_AAT_parallel.py`.
 
+### Removed
+- Python 3.10 support. Python 3.10 reached end of life in October 2026, and
+  conda-forge no longer builds Psi4 for it. The last Psi4 3.10 build accepts
+  `einsums` 1.1.6, which it was not built against, so `import psi4` fails.
+  The minimum is now Python 3.11; CI tests 3.11 and 3.12.
+
 ## [1.0.0] - 2026-06-19
 
 First stable release, following a staged modernization of the package.
